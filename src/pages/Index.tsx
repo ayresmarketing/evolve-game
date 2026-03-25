@@ -11,6 +11,7 @@ import { SchedulePanel } from '@/components/game/SchedulePanel';
 import { LifeGoals } from '@/components/game/LifeGoals';
 import { WeeklyMission } from '@/components/game/WeeklyMission';
 import { RightPanel } from '@/components/game/RightPanel';
+import { TaskStatsChart } from '@/components/game/TaskStatsChart';
 
 type Page = 'dashboard' | 'metas' | 'agenda' | 'vida' | 'missao';
 
@@ -28,6 +29,7 @@ function Dashboard() {
             <QuoteBar />
             <ProfileBanner />
             <CategoryOverview />
+            <TaskStatsChart />
 
             {/* Active Metas */}
             <section>
