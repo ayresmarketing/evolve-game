@@ -1,19 +1,17 @@
 import { useGame } from '@/contexts/GameContext';
-import { CATEGORY_CONFIG, Category } from '@/types/game';
-import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { CATEGORY_CONFIG, Category, CATEGORY_BG } from '@/types/game';
+import { TrendingUp, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 export function CategoryOverview() {
-  const { metas, stats } = useGame();
+  const { metas } = useGame();
   const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
 
-  const categories: (Category | 'all')[] = ['all', 'pessoal', 'trabalho', 'espiritual'];
-
+  const categories: (Category | 'all')[] = ['all', 'pessoal', 'profissional', 'espiritual'];
   const filteredMetas = selectedCategory === 'all' ? metas : metas.filter(m => m.category === selectedCategory);
   const activeMetas = filteredMetas.filter(m => !m.completed);
-  const completedMetas = filteredMetas.filter(m => m.completed);
 
-  const catStats = (['pessoal', 'trabalho', 'espiritual'] as Category[]).map(cat => {
+  const catStats = (['pessoal', 'profissional', 'espiritual'] as Category[]).map(cat => {
     const catMetas = metas.filter(m => m.category === cat);
     const avgProgress = catMetas.length > 0 ? Math.round(catMetas.reduce((s, m) => s + m.progress, 0) / catMetas.length) : 0;
     return { ...CATEGORY_CONFIG[cat], category: cat, count: catMetas.length, avgProgress };
@@ -27,13 +25,10 @@ export function CategoryOverview() {
           const label = cat === 'all' ? 'Todas' : CATEGORY_CONFIG[cat].label;
           const isActive = selectedCategory === cat;
           return (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-md text-xs font-display tracking-wider transition-all ${
-                isActive ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
-              }`}
-            >
+            <button key={cat} onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-display tracking-wider transition-all ${
+                isActive ? 'bg-primary/15 text-game-gold border border-primary/20' : 'bg-secondary/30 text-muted-foreground hover:text-foreground'
+              }`}>
               {label}
             </button>
           );
@@ -43,28 +38,21 @@ export function CategoryOverview() {
       {/* Category Progress Bars */}
       {selectedCategory === 'all' && (
         <div className="grid grid-cols-3 gap-3">
-          {catStats.map(cs => {
-            const bgColors: Record<string, string> = {
-              'game-purple': 'bg-game-purple',
-              'game-orange': 'bg-game-orange',
-              'game-blue': 'bg-game-blue',
-            };
-            return (
-              <div key={cs.category} className="bg-gradient-card rounded-lg p-3 shadow-game-card border border-border">
-                <p className="text-xs font-display tracking-wider text-muted-foreground mb-2">{cs.label}</p>
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-1">
-                  <div className={`h-full rounded-full ${bgColors[cs.color]}`} style={{ width: `${cs.avgProgress}%` }} />
-                </div>
-                <p className="text-xs text-muted-foreground font-body">{cs.count} meta(s) · {cs.avgProgress}%</p>
+          {catStats.map(cs => (
+            <div key={cs.category} className="bg-card rounded-xl p-3 border border-border shadow-game-card">
+              <p className="text-xs font-display tracking-wider text-muted-foreground mb-2">{cs.label}</p>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-1">
+                <div className={`h-full rounded-full ${CATEGORY_BG[cs.color]}`} style={{ width: `${cs.avgProgress}%` }} />
               </div>
-            );
-          })}
+              <p className="text-xs text-muted-foreground font-body">{cs.count} meta(s) · {cs.avgProgress}%</p>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Projection */}
       {activeMetas.length > 0 && (
-        <div className="bg-gradient-card rounded-lg p-4 shadow-game-card border border-border">
+        <div className="bg-card rounded-xl p-4 border border-border shadow-game-card">
           <h4 className="font-display text-xs tracking-wider text-game-gold mb-3 flex items-center gap-2">
             <TrendingUp className="w-4 h-4" /> PROJEÇÃO DE FUTURO
           </h4>
