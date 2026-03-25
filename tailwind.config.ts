@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         display: ['Orbitron', 'sans-serif'],
         body: ['Rajdhani', 'sans-serif'],
+        clean: ['Inter', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -74,6 +75,8 @@ export default {
           "purple-glow": "hsl(var(--personal-purple-glow))",
           red: "hsl(var(--danger-red))",
           fire: "hsl(var(--streak-fire))",
+          cyan: "hsl(var(--game-cyan))",
+          "cyan-glow": "hsl(var(--game-cyan-glow))",
         },
       },
       borderRadius: {
