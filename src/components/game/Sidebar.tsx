@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Gamepad2, LayoutDashboard, Target, Calendar, Star, Heart, Settings, Menu, X, Swords, Moon } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar, Star, Heart, Menu, X, Swords, Zap } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
@@ -26,57 +26,59 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="p-5 border-b border-border">
+      <div className="px-5 pt-6 pb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-gold flex items-center justify-center shadow-glow-gold">
-            <Gamepad2 className="w-6 h-6 text-primary-foreground" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-accent flex items-center justify-center shadow-glow-cyan">
+            <Zap className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-display text-sm tracking-widest text-game-gold text-glow-gold">LIFE QUEST</h1>
-            <p className="text-[10px] text-muted-foreground font-body">RPG da Vida Real</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Player Info */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-game-purple to-game-blue flex items-center justify-center text-lg font-display text-foreground shadow-lg">
-            {level}
-          </div>
-          <div>
-            <p className="font-display text-xs tracking-wider text-foreground">{name}</p>
-            <p className="text-xs text-game-gold font-body">{stats.xp} XP</p>
+            <h1 className="font-display text-[11px] tracking-[0.2em] text-primary text-glow-cyan font-bold">LIFE QUEST</h1>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 px-3 space-y-0.5 mt-2">
         {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => { onPageChange(item.id); setMobileOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-body font-semibold transition-all duration-200 ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-body font-semibold transition-all duration-200 ${
               currentPage === item.id
-                ? 'bg-primary/15 text-game-gold shadow-inner border border-primary/20'
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                ? 'bg-primary text-primary-foreground shadow-glow-cyan'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
             }`}
           >
             {item.icon}
             <span>{item.label}</span>
           </button>
         ))}
+
+        <div className="my-4 border-t border-border" />
+
+        {/* Streak mini */}
+        <div className="px-4 py-3 rounded-xl bg-secondary/40">
+          <div className="flex items-center gap-2">
+            <Swords className="w-4 h-4 text-game-fire" />
+            <span className="text-sm font-body font-semibold text-foreground">{stats.streak} Streak</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground font-body mt-0.5">Melhor: {stats.longestStreak} dias</p>
+        </div>
       </nav>
 
-      {/* Streak */}
+      {/* Player Card at bottom */}
       <div className="p-4 border-t border-border">
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Swords className="w-4 h-4 text-game-fire" />
-            <span className="font-display text-xs tracking-wider text-game-fire">{stats.streak} STREAK</span>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-game-purple to-game-cyan flex items-center justify-center text-sm font-display text-foreground font-bold ring-2 ring-primary/30">
+            {level}
           </div>
-          <p className="text-[10px] text-muted-foreground font-body">Melhor: {stats.longestStreak} dias</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-body font-semibold text-foreground truncate">Jogador</p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-primary font-body font-semibold">Level {level}</span>
+              <span className="text-[11px] text-muted-foreground font-body">· {name}</span>
+            </div>
+          </div>
         </div>
       </div>
     </>
@@ -87,7 +89,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
       {/* Mobile Toggle */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-border shadow-game-card"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card border border-border shadow-game-card"
       >
         {mobileOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
       </button>
@@ -98,12 +100,12 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
       )}
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-[240px] min-h-screen bg-card border-r border-border shrink-0">
+      <aside className="hidden lg:flex flex-col w-[220px] min-h-screen bg-gradient-sidebar border-r border-border shrink-0">
         {sidebarContent}
       </aside>
 
       {/* Mobile Sidebar */}
-      <aside className={`lg:hidden fixed inset-y-0 left-0 z-40 w-[280px] bg-card border-r border-border flex flex-col transform transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`lg:hidden fixed inset-y-0 left-0 z-40 w-[260px] bg-gradient-sidebar border-r border-border flex flex-col transform transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {sidebarContent}
       </aside>
     </>

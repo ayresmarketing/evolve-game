@@ -1,5 +1,5 @@
 import { useGame } from '@/contexts/GameContext';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircle2, Clock, Target } from 'lucide-react';
 
 export function TaskStatsChart() {
@@ -9,7 +9,6 @@ export function TaskStatsChart() {
   const totalCompleted = allMissions.filter(m => m.completedToday).length;
   const totalPending = allMissions.filter(m => !m.completedToday).length;
 
-  // Today's tasks (scheduled for today or daily)
   const today = new Date().toISOString().split('T')[0];
   const todayMissions = allMissions.filter(m => {
     if (m.scheduledDay === today) return true;
@@ -19,97 +18,66 @@ export function TaskStatsChart() {
   const todayCompleted = todayMissions.filter(m => m.completedToday).length;
   const todayPending = todayMissions.filter(m => !m.completedToday).length;
 
-  const totalData = [
-    { name: 'Concluídas', value: totalCompleted },
-    { name: 'Pendentes', value: totalPending },
-  ].filter(d => d.value > 0);
-
-  const todayData = [
-    { name: 'Concluídas', value: todayCompleted },
-    { name: 'Pendentes', value: todayPending },
-  ].filter(d => d.value > 0);
-
-  const COLORS = ['hsl(var(--game-green))', 'hsl(var(--game-orange))'];
-
   if (allMissions.length === 0) {
     return (
-      <div className="bg-card rounded-xl p-5 border border-border shadow-game-card text-center">
+      <div className="glass-card rounded-2xl p-6 text-center">
         <Target className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-        <p className="text-sm text-muted-foreground font-body">Crie metas para ver suas estatísticas aqui</p>
+        <p className="text-sm text-muted-foreground font-body">Crie metas para ver estatísticas</p>
       </div>
     );
   }
 
+  const COLORS_GREEN = 'hsl(var(--health-green))';
+  const COLORS_MUTED = 'hsl(var(--muted))';
+
+  const renderDonut = (completed: number, pending: number, label: string) => {
+    const total = completed + pending;
+    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const data = [
+      { name: 'Concluídas', value: completed || 0 },
+      { name: 'Pendentes', value: pending || 0 },
+    ];
+
+    return (
+      <div className="text-center">
+        <p className="text-[10px] font-display tracking-[0.2em] text-muted-foreground mb-3 uppercase">{label}</p>
+        <div className="relative w-[110px] h-[110px] mx-auto ring-glow">
+          {total > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data} cx="50%" cy="50%" innerRadius={35} outerRadius={48} startAngle={90} endAngle={-270} paddingAngle={2} dataKey="value" stroke="none">
+                  <Cell fill={COLORS_GREEN} />
+                  <Cell fill={COLORS_MUTED} />
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="w-full h-full rounded-full border-4 border-muted" />
+          )}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="font-display text-xl font-bold text-foreground">{pct}%</span>
+          </div>
+        </div>
+        <div className="flex justify-center gap-4 mt-3">
+          <span className="flex items-center gap-1.5 text-[11px] font-body text-game-green">
+            <CheckCircle2 className="w-3 h-3" /> {completed}
+          </span>
+          <span className="flex items-center gap-1.5 text-[11px] font-body text-muted-foreground">
+            <Clock className="w-3 h-3" /> {pending}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="bg-card rounded-xl p-5 border border-border shadow-game-card">
-      <h3 className="font-display text-xs tracking-widest text-game-gold mb-4 flex items-center gap-2">
-        📊 PROGRESSO DE TAREFAS
+    <div className="glass-card rounded-2xl p-6">
+      <h3 className="font-display text-[10px] tracking-[0.25em] text-primary mb-5 uppercase">
+        Progresso de Tarefas
       </h3>
-
-      <div className="grid grid-cols-2 gap-4">
-        {/* Today */}
-        <div>
-          <p className="text-[10px] font-display tracking-wider text-muted-foreground text-center mb-2">HOJE</p>
-          {todayData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={120}>
-              <PieChart>
-                <Pie data={todayData} cx="50%" cy="50%" innerRadius={30} outerRadius={45} paddingAngle={4} dataKey="value">
-                  {todayData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }}
-                  itemStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[120px] flex items-center justify-center">
-              <p className="text-xs text-muted-foreground font-body">Sem tarefas hoje</p>
-            </div>
-          )}
-          <div className="flex justify-center gap-3 mt-1">
-            <span className="flex items-center gap-1 text-[10px] font-body text-game-green">
-              <CheckCircle2 className="w-3 h-3" /> {todayCompleted}
-            </span>
-            <span className="flex items-center gap-1 text-[10px] font-body text-game-orange">
-              <Clock className="w-3 h-3" /> {todayPending}
-            </span>
-          </div>
-        </div>
-
-        {/* Total */}
-        <div>
-          <p className="text-[10px] font-display tracking-wider text-muted-foreground text-center mb-2">TOTAL</p>
-          {totalData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={120}>
-              <PieChart>
-                <Pie data={totalData} cx="50%" cy="50%" innerRadius={30} outerRadius={45} paddingAngle={4} dataKey="value">
-                  {totalData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }}
-                  itemStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[120px] flex items-center justify-center">
-              <p className="text-xs text-muted-foreground font-body">Sem tarefas</p>
-            </div>
-          )}
-          <div className="flex justify-center gap-3 mt-1">
-            <span className="flex items-center gap-1 text-[10px] font-body text-game-green">
-              <CheckCircle2 className="w-3 h-3" /> {totalCompleted}
-            </span>
-            <span className="flex items-center gap-1 text-[10px] font-body text-game-orange">
-              <Clock className="w-3 h-3" /> {totalPending}
-            </span>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-6">
+        {renderDonut(todayCompleted, todayPending, 'Hoje')}
+        {renderDonut(totalCompleted, totalPending, 'Total')}
       </div>
     </div>
   );
