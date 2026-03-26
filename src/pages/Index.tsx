@@ -12,29 +12,35 @@ import { LifeGoals } from '@/components/game/LifeGoals';
 import { WeeklyMission } from '@/components/game/WeeklyMission';
 import { RightPanel } from '@/components/game/RightPanel';
 import { TaskStatsChart } from '@/components/game/TaskStatsChart';
+import { LevelProgression } from '@/components/game/LevelProgression';
+import { getStreakMultiplier } from '@/types/game';
 
-type Page = 'dashboard' | 'metas' | 'agenda' | 'vida' | 'missao';
+type Page = 'dashboard' | 'metas' | 'agenda' | 'vida' | 'missao' | 'progressao';
 
 function Dashboard() {
-  const { metas } = useGame();
+  const { metas, stats } = useGame();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const activeMetas = metas.filter(m => !m.completed);
   const completedMetas = metas.filter(m => m.completed);
+  const streakMult = getStreakMultiplier(stats.streak);
 
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
         return (
           <div className="space-y-5">
-            {/* Header */}
             <div>
               <p className="text-sm text-muted-foreground font-body">Olá, Jogador</p>
               <h1 className="font-display text-xl tracking-wider text-foreground">Dashboard</h1>
+              {streakMult > 1 && (
+                <p className="text-xs text-game-fire font-body mt-1">
+                  🔥 Bônus de consistência ativo: +{Math.round((streakMult - 1) * 100)}% XP ({stats.streak} dias)
+                </p>
+              )}
             </div>
 
             <QuoteBar />
 
-            {/* Main grid: Stats + Tasks chart */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
               <div className="lg:col-span-3">
                 <ProfileBanner />
@@ -46,7 +52,6 @@ function Dashboard() {
 
             <CategoryOverview />
 
-            {/* Active Metas */}
             <section>
               <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
                 🎯 Metas Ativas
@@ -120,21 +125,28 @@ function Dashboard() {
             <WeeklyMission />
           </div>
         );
+
+      case 'progressao':
+        return (
+          <div className="space-y-5">
+            <h1 className="font-display text-xl tracking-wider text-foreground">Progressão & Níveis</h1>
+            <p className="text-sm text-muted-foreground font-body">
+              Cada nível representa quem você está se tornando. Não é apenas XP — é transformação.
+            </p>
+            <LevelProgression />
+          </div>
+        );
     }
   };
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
-
-      {/* Main Content */}
       <main className="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto lg:mx-0">
           {renderPage()}
         </div>
       </main>
-
-      {/* Right Panel */}
       <aside className="hidden xl:block w-[280px] min-h-screen p-4 border-l border-border overflow-y-auto shrink-0">
         <RightPanel />
       </aside>

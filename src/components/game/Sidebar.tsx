@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { LayoutDashboard, Target, Calendar, Star, Heart, Menu, X, Swords, Zap } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar, Star, Heart, Menu, X, Swords, Zap, TrendingUp } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
-type Page = 'dashboard' | 'metas' | 'agenda' | 'vida' | 'missao';
+type Page = 'dashboard' | 'metas' | 'agenda' | 'vida' | 'missao' | 'progressao';
 
 interface SidebarProps {
   currentPage: Page;
@@ -12,7 +12,7 @@ interface SidebarProps {
 
 export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const { stats } = useGame();
-  const { level, name } = getLevelFromXP(stats.xp);
+  const { level, name, icon } = getLevelFromXP(stats.xp);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
@@ -21,11 +21,11 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     { id: 'agenda', label: 'Agenda', icon: <Calendar className="w-5 h-5" /> },
     { id: 'vida', label: 'Metas de Vida', icon: <Star className="w-5 h-5" /> },
     { id: 'missao', label: 'Missão Semanal', icon: <Heart className="w-5 h-5" /> },
+    { id: 'progressao', label: 'Progressão', icon: <TrendingUp className="w-5 h-5" /> },
   ];
 
   const sidebarContent = (
     <>
-      {/* Logo */}
       <div className="px-5 pt-6 pb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-accent flex items-center justify-center shadow-glow-cyan">
@@ -37,7 +37,6 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-3 space-y-0.5 mt-2">
         {navItems.map(item => (
           <button
@@ -56,7 +55,6 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
 
         <div className="my-4 border-t border-border" />
 
-        {/* Streak mini */}
         <div className="px-4 py-3 rounded-xl bg-secondary/40">
           <div className="flex items-center gap-2">
             <Swords className="w-4 h-4 text-game-fire" />
@@ -66,11 +64,10 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
         </div>
       </nav>
 
-      {/* Player Card at bottom */}
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-game-purple to-game-cyan flex items-center justify-center text-sm font-display text-foreground font-bold ring-2 ring-primary/30">
-            {level}
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-game-purple to-game-cyan flex items-center justify-center text-lg ring-2 ring-primary/30">
+            {icon}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-body font-semibold text-foreground truncate">Jogador</p>
@@ -86,7 +83,6 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile Toggle */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card border border-border shadow-game-card"
@@ -94,17 +90,14 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
         {mobileOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
       </button>
 
-      {/* Mobile Overlay */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40" onClick={() => setMobileOpen(false)} />
       )}
 
-      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-[220px] min-h-screen bg-gradient-sidebar border-r border-border shrink-0">
         {sidebarContent}
       </aside>
 
-      {/* Mobile Sidebar */}
       <aside className={`lg:hidden fixed inset-y-0 left-0 z-40 w-[260px] bg-gradient-sidebar border-r border-border flex flex-col transform transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {sidebarContent}
       </aside>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Meta, Mission, PlayerStats, Quote, Justificativa, Category, LifeGoal, WeeklyMission, DEFAULT_QUOTES, ALTRUISTIC_MISSIONS, getLevelFromXP, Etapa } from '@/types/game';
+import { Meta, Mission, PlayerStats, Quote, Justificativa, Category, LifeGoal, WeeklyMission, DEFAULT_QUOTES, ALTRUISTIC_MISSIONS, getLevelFromXP, getStreakMultiplier, Etapa } from '@/types/game';
 
 interface GameState {
   metas: Meta[];
@@ -9,6 +9,7 @@ interface GameState {
   currentQuoteIndex: number;
   lifeGoals: LifeGoal[];
   weeklyMission: WeeklyMission | null;
+  lastActiveDate: string;
 }
 
 interface GameContextType extends GameState {
@@ -27,6 +28,7 @@ interface GameContextType extends GameState {
   completeWeeklyMission: () => void;
   updateMissionEstimate: (metaId: string, missionId: string, minutes: number) => void;
   scheduleMission: (metaId: string, missionId: string, time: string, day?: string) => void;
+  completeMeta: (metaId: string) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -43,78 +45,70 @@ function generateMissions(meta: { title: string; totalDays: number; volume?: str
   const missions: Mission[] = [];
 
   // Step 1: Planning mission
-  const planningDate = new Date(startDate);
   const planningEtapas: Etapa[] = [];
-
   if (daily && volumeNum) {
     planningEtapas.push(
       { id: generateId(), title: `Defina o material/recurso que será usado`, completed: false, order: 0 },
       { id: generateId(), title: `Calcule: ${volumeNum} unidades ÷ ${meta.totalDays} dias = ${daily} unidades/dia`, completed: false, order: 1 },
       { id: generateId(), title: `Reserve um horário fixo do dia para essa atividade`, completed: false, order: 2 },
       { id: generateId(), title: `Prepare o ambiente (silêncio, materiais, local)`, completed: false, order: 3 },
+      { id: generateId(), title: `Comece com apenas 2 minutos — vença a resistência inicial`, completed: false, order: 4 },
     );
   } else {
     planningEtapas.push(
       { id: generateId(), title: `Defina exatamente o que precisa ser feito`, completed: false, order: 0 },
-      { id: generateId(), title: `Quebre em pequenas ações diárias`, completed: false, order: 1 },
-      { id: generateId(), title: `Escolha o melhor horário do dia para executar`, completed: false, order: 2 },
+      { id: generateId(), title: `Quebre em pequenas ações diárias (regra dos 2 minutos)`, completed: false, order: 1 },
+      { id: generateId(), title: `Escolha o melhor horário — ambiente > motivação`, completed: false, order: 2 },
+      { id: generateId(), title: `Empilhe: "Depois de [hábito existente], vou [nova ação]"`, completed: false, order: 3 },
     );
   }
 
   missions.push({
-    id: generateId(),
-    metaId: '',
+    id: generateId(), metaId: '',
     title: '📋 Planejamento da meta',
-    description: `Antes de começar, organize-se! Planeje como você vai atingir "${meta.title}" em ${meta.totalDays} dias.`,
-    frequency: 'única',
-    dailyTarget: 'Concluir planejamento',
-    etapas: planningEtapas,
-    completedToday: false,
-    xpReward: 15,
-    estimatedMinutes: 20,
-    scheduledDay: planningDate.toISOString().split('T')[0],
+    description: `Organize-se para atingir "${meta.title}" em ${meta.totalDays} dias. Foque em sistemas, não apenas na meta.`,
+    frequency: 'única', dailyTarget: 'Concluir planejamento',
+    etapas: planningEtapas, completedToday: false, xpReward: 15,
+    estimatedMinutes: 20, scheduledDay: startDate.toISOString().split('T')[0],
   });
 
-  // Step 2: Daily execution mission
+  // Step 2: Daily execution
   const execDate = new Date(startDate);
   execDate.setDate(execDate.getDate() + 1);
-
   const execEtapas: Etapa[] = [];
+
   if (daily) {
-    const checkpointInterval = Math.max(1, Math.floor(meta.totalDays / 4));
-    for (let i = 0; i < Math.min(5, meta.totalDays); i++) {
-      const dayNum = i * checkpointInterval + 1;
+    const checkpoints = Math.min(5, meta.totalDays);
+    const interval = Math.max(1, Math.floor(meta.totalDays / checkpoints));
+    for (let i = 0; i < checkpoints; i++) {
+      const dayNum = i * interval + 1;
       if (dayNum <= meta.totalDays) {
         const targetDate = new Date(startDate);
         targetDate.setDate(targetDate.getDate() + dayNum);
+        const accumulated = daily * dayNum;
         execEtapas.push({
           id: generateId(),
-          title: `Dia ${dayNum}: Complete ${daily} unidades (${targetDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`,
-          completed: false,
-          order: i,
+          title: `Dia ${dayNum}: Complete ${daily} unidades (Total: ${accumulated}/${volumeNum}) — ${targetDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
+          completed: false, order: i,
         });
       }
     }
   } else {
     execEtapas.push(
-      { id: generateId(), title: 'Dia 1: Iniciar a execução', completed: false, order: 0 },
-      { id: generateId(), title: `Dia ${Math.ceil(meta.totalDays / 2)}: Checkpoint de meio caminho`, completed: false, order: 1 },
-      { id: generateId(), title: `Dia ${meta.totalDays}: Finalizar a meta`, completed: false, order: 2 },
+      { id: generateId(), title: 'Dia 1: Iniciar a execução — só comece, sem pressão', completed: false, order: 0 },
+      { id: generateId(), title: `Dia ${Math.ceil(meta.totalDays / 2)}: Checkpoint — avalie e ajuste`, completed: false, order: 1 },
+      { id: generateId(), title: `Dia ${meta.totalDays}: Finalizar — nunca quebre 2x seguidas`, completed: false, order: 2 },
     );
   }
 
   missions.push({
-    id: generateId(),
-    metaId: '',
+    id: generateId(), metaId: '',
     title: daily ? `🎯 ${meta.title} — ${daily} unidades/dia` : `🎯 Executar: ${meta.title}`,
     description: daily
-      ? `Complete ${daily} unidades por dia durante ${meta.totalDays} dias. Total: ${volumeNum} unidades.`
-      : `Execute sua missão diariamente até ${new Date(meta.deadline).toLocaleDateString('pt-BR')}.`,
-    frequency: 'diária',
-    dailyTarget: daily ? `${daily} unidades` : '1 sessão',
-    etapas: execEtapas,
-    completedToday: false,
-    xpReward: 25,
+      ? `Complete ${daily} unidades/dia por ${meta.totalDays} dias. Total: ${volumeNum}. Melhore 1% por dia.`
+      : `Execute diariamente até ${new Date(meta.deadline).toLocaleDateString('pt-BR')}. Consistência > perfeição.`,
+    frequency: 'diária', dailyTarget: daily ? `${daily} unidades` : '1 sessão',
+    etapas: execEtapas, completedToday: false, xpReward: 25,
     estimatedMinutes: daily ? Math.max(10, daily * 4) : 30,
     scheduledDay: execDate.toISOString().split('T')[0],
   });
@@ -122,41 +116,34 @@ function generateMissions(meta: { title: string; totalDays: number; volume?: str
   // Step 3: Weekly review
   const reviewDate = new Date(startDate);
   reviewDate.setDate(reviewDate.getDate() + 7);
-
   missions.push({
-    id: generateId(),
-    metaId: '',
+    id: generateId(), metaId: '',
     title: '📊 Revisão semanal de progresso',
-    description: `A cada semana, avalie se está no ritmo certo para "${meta.title}".`,
-    frequency: 'semanal',
-    dailyTarget: 'Avaliar progresso',
+    description: `Avalie seu ritmo para "${meta.title}". Foque em sistemas, não resultados.`,
+    frequency: 'semanal', dailyTarget: 'Avaliar progresso',
     etapas: [
       { id: generateId(), title: 'Verifique quantas unidades/sessões completou', completed: false, order: 0 },
-      { id: generateId(), title: 'Está no ritmo? Se não, ajuste a meta diária', completed: false, order: 1 },
-      { id: generateId(), title: 'Anote aprendizados e dificuldades', completed: false, order: 2 },
+      { id: generateId(), title: 'Está no ritmo? Se não, ajuste o sistema diário', completed: false, order: 1 },
+      { id: generateId(), title: 'O que pode tornar o hábito mais fácil/atraente?', completed: false, order: 2 },
+      { id: generateId(), title: 'Anote: que tipo de pessoa estou me tornando?', completed: false, order: 3 },
     ],
-    completedToday: false,
-    xpReward: 20,
-    estimatedMinutes: 15,
+    completedToday: false, xpReward: 20, estimatedMinutes: 15,
     scheduledDay: reviewDate.toISOString().split('T')[0],
   });
 
   // Step 4: Final reflection
   missions.push({
-    id: generateId(),
-    metaId: '',
+    id: generateId(), metaId: '',
     title: '🏆 Finalização e reflexão',
-    description: `Conclua "${meta.title}" e registre o que aprendeu nessa jornada.`,
-    frequency: 'única',
-    dailyTarget: 'Finalizar meta',
+    description: `Conclua "${meta.title}" e reflita sobre a identidade que construiu.`,
+    frequency: 'única', dailyTarget: 'Finalizar meta',
     etapas: [
       { id: generateId(), title: 'Confirme que atingiu o objetivo', completed: false, order: 0 },
-      { id: generateId(), title: 'Registre os principais aprendizados', completed: false, order: 1 },
-      { id: generateId(), title: 'Celebre sua conquista! 🎉', completed: false, order: 2 },
+      { id: generateId(), title: 'Registre: quem eu era antes vs quem sou agora', completed: false, order: 1 },
+      { id: generateId(), title: 'Defina o próximo nível desse hábito', completed: false, order: 2 },
+      { id: generateId(), title: 'Celebre sua conquista! 🎉', completed: false, order: 3 },
     ],
-    completedToday: false,
-    xpReward: 50,
-    estimatedMinutes: 20,
+    completedToday: false, xpReward: 50, estimatedMinutes: 20,
     scheduledDay: meta.deadline.split('T')[0],
   });
 
@@ -172,21 +159,16 @@ function getWeekStart(): string {
 
 function generateWeeklyMission(): WeeklyMission {
   const template = ALTRUISTIC_MISSIONS[Math.floor(Math.random() * ALTRUISTIC_MISSIONS.length)];
-  return {
-    id: generateId(),
-    title: template.title,
-    description: template.description,
-    completed: false,
-    weekStart: getWeekStart(),
-    xpReward: 100,
-  };
+  return { id: generateId(), ...template, completed: false, weekStart: getWeekStart(), xpReward: 100 };
 }
 
 const defaultStats: PlayerStats = {
-  xp: 0, level: 1, levelName: 'Iniciante',
+  xp: 0, level: 1, levelName: 'Despertar',
   streak: 0, longestStreak: 0,
   totalMissionsCompleted: 0, totalMetasCompleted: 0,
   badges: [], alertTone: 'equilibrado',
+  daysUsed: 0,
+  categoryStreaks: { pessoal: 0, profissional: 0, espiritual: 0 },
 };
 
 function loadState(): GameState {
@@ -199,6 +181,9 @@ function loadState(): GameState {
         state.weeklyMission = generateWeeklyMission();
       }
       if (!state.lifeGoals) state.lifeGoals = [];
+      if (!state.lastActiveDate) state.lastActiveDate = new Date().toISOString().split('T')[0];
+      if (!state.stats.daysUsed) state.stats.daysUsed = 0;
+      if (!state.stats.categoryStreaks) state.stats.categoryStreaks = { pessoal: 0, profissional: 0, espiritual: 0 };
       return state;
     }
   } catch {}
@@ -206,6 +191,7 @@ function loadState(): GameState {
     metas: [], stats: defaultStats, quotes: DEFAULT_QUOTES,
     justificativas: [], currentQuoteIndex: 0,
     lifeGoals: [], weeklyMission: generateWeeklyMission(),
+    lastActiveDate: new Date().toISOString().split('T')[0],
   };
 }
 
@@ -215,6 +201,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  // Track daily usage
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    if (state.lastActiveDate !== today) {
+      setState(prev => ({
+        ...prev,
+        lastActiveDate: today,
+        stats: { ...prev.stats, daysUsed: prev.stats.daysUsed + 1 },
+      }));
+    }
+  }, [state.lastActiveDate]);
 
   const addMeta = useCallback((metaData: Omit<Meta, 'id' | 'missions' | 'progress' | 'xpEarned' | 'completed' | 'createdAt' | 'xpTotal'>) => {
     const id = generateId();
@@ -234,28 +232,32 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       const meta = prev.metas.find(m => m.id === metaId);
       if (!meta) return prev;
-      const xpMultiplier = meta.linkedLifeGoalId ? 1.5 : 1;
       const mission = meta.missions.find(m => m.id === missionId);
-      if (!mission) return prev;
-      const xpGain = Math.round(mission.xpReward * xpMultiplier);
+      if (!mission || mission.completedToday) return prev;
+
+      const lifeGoalMultiplier = meta.linkedLifeGoalId ? 1.5 : 1;
+      const streakMult = getStreakMultiplier(prev.stats.streak);
+      const xpGain = Math.round(mission.xpReward * lifeGoalMultiplier * streakMult);
 
       const metas = prev.metas.map(m => {
         if (m.id !== metaId) return m;
         const missions = m.missions.map(mi => mi.id === missionId ? { ...mi, completedToday: true } : mi);
-        const progress = Math.min(100, Math.round((m.xpEarned + xpGain) / m.xpTotal * 100));
-        return { ...m, missions, progress, xpEarned: m.xpEarned + xpGain, completed: progress >= 100 };
+        const newXpEarned = m.xpEarned + xpGain;
+        const progress = m.xpTotal > 0 ? Math.min(100, Math.round(newXpEarned / m.xpTotal * 100)) : 0;
+        return { ...m, missions, progress, xpEarned: newXpEarned, completed: progress >= 100 };
       });
 
       const xp = prev.stats.xp + xpGain;
       const levelInfo = getLevelFromXP(xp);
-      const streak = prev.stats.streak + 1;
+      const newStreak = prev.stats.streak + 1;
 
       return {
         ...prev, metas,
         stats: {
           ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name,
-          streak, longestStreak: Math.max(streak, prev.stats.longestStreak),
+          streak: newStreak, longestStreak: Math.max(newStreak, prev.stats.longestStreak),
           totalMissionsCompleted: prev.stats.totalMissionsCompleted + 1,
+          totalMetasCompleted: metas.filter(m => m.completed).length,
         },
       };
     });
@@ -267,15 +269,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (!meta) return prev;
       const mission = meta.missions.find(m => m.id === missionId);
       if (!mission || !mission.completedToday) return prev;
-      const xpMultiplier = meta.linkedLifeGoalId ? 1.5 : 1;
-      const xpLoss = Math.round(mission.xpReward * xpMultiplier);
+      const xpLoss = Math.round(mission.xpReward * (meta.linkedLifeGoalId ? 1.5 : 1));
 
       const metas = prev.metas.map(m => {
         if (m.id !== metaId) return m;
         const missions = m.missions.map(mi => mi.id === missionId ? { ...mi, completedToday: false } : mi);
-        const newXpEarned = Math.max(0, m.xpEarned - xpLoss);
-        const progress = m.xpTotal > 0 ? Math.min(100, Math.round(newXpEarned / m.xpTotal * 100)) : 0;
-        return { ...m, missions, progress, xpEarned: newXpEarned, completed: false };
+        const newXp = Math.max(0, m.xpEarned - xpLoss);
+        const progress = m.xpTotal > 0 ? Math.min(100, Math.round(newXp / m.xpTotal * 100)) : 0;
+        return { ...m, missions, progress, xpEarned: newXp, completed: false };
       });
 
       const xp = Math.max(0, prev.stats.xp - xpLoss);
@@ -292,14 +293,25 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deleteMission = useCallback((metaId: string, missionId: string) => {
-    setState(prev => ({
-      ...prev,
-      metas: prev.metas.map(m => {
-        if (m.id !== metaId) return m;
-        const missions = m.missions.filter(mi => mi.id !== missionId);
-        return { ...m, missions };
-      }),
-    }));
+    setState(prev => {
+      const meta = prev.metas.find(m => m.id === metaId);
+      if (!meta) return prev;
+      const deletedMission = meta.missions.find(m => m.id === missionId);
+      if (!deletedMission) return prev;
+
+      const remainingMissions = meta.missions.filter(m => m.id !== missionId);
+
+      // Redistribute XP from deleted mission among remaining missions
+      if (remainingMissions.length > 0 && !deletedMission.completedToday) {
+        const xpPerMission = Math.ceil(deletedMission.xpReward / remainingMissions.length);
+        remainingMissions.forEach(m => { m.xpReward += xpPerMission; });
+      }
+
+      return {
+        ...prev,
+        metas: prev.metas.map(m => m.id !== metaId ? m : { ...m, missions: remainingMissions }),
+      };
+    });
   }, []);
 
   const completeEtapa = useCallback((metaId: string, missionId: string, etapaId: string) => {
@@ -320,6 +332,29 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const deleteMeta = useCallback((metaId: string) => {
     setState(prev => ({ ...prev, metas: prev.metas.filter(m => m.id !== metaId) }));
+  }, []);
+
+  const completeMeta = useCallback((metaId: string) => {
+    setState(prev => {
+      const meta = prev.metas.find(m => m.id === metaId);
+      if (!meta || meta.completed) return prev;
+
+      const remainingXP = meta.xpTotal - meta.xpEarned;
+      const xp = prev.stats.xp + remainingXP;
+      const levelInfo = getLevelFromXP(xp);
+
+      return {
+        ...prev,
+        metas: prev.metas.map(m => m.id !== metaId ? m : {
+          ...m, completed: true, progress: 100, xpEarned: m.xpTotal,
+          missions: m.missions.map(mi => ({ ...mi, completedToday: true })),
+        }),
+        stats: {
+          ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name,
+          totalMetasCompleted: prev.stats.totalMetasCompleted + 1,
+        },
+      };
+    });
   }, []);
 
   const addJustificativa = useCallback((missionId: string, reason: string) => {
@@ -373,10 +408,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       metas: prev.metas.map(meta => {
         if (meta.id !== metaId) return meta;
-        return {
-          ...meta,
-          missions: meta.missions.map(m => m.id === missionId ? { ...m, estimatedMinutes: minutes } : m),
-        };
+        return { ...meta, missions: meta.missions.map(m => m.id === missionId ? { ...m, estimatedMinutes: minutes } : m) };
       }),
     }));
   }, []);
@@ -386,10 +418,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       metas: prev.metas.map(meta => {
         if (meta.id !== metaId) return meta;
-        return {
-          ...meta,
-          missions: meta.missions.map(m => m.id === missionId ? { ...m, scheduledTime: time, scheduledDay: day } : m),
-        };
+        return { ...meta, missions: meta.missions.map(m => m.id === missionId ? { ...m, scheduledTime: time, scheduledDay: day } : m) };
       }),
     }));
   }, []);
@@ -400,7 +429,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addMeta, completeMission, uncompleteMission, completeEtapa, deleteMeta, deleteMission,
       addJustificativa, toggleQuoteFavorite, nextQuote, setAlertTone,
       addLifeGoal, deleteLifeGoal, completeWeeklyMission,
-      updateMissionEstimate, scheduleMission,
+      updateMissionEstimate, scheduleMission, completeMeta,
     }}>
       {children}
     </GameContext.Provider>
