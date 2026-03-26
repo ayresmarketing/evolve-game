@@ -32,8 +32,8 @@ export interface Mission {
   completedToday: boolean;
   xpReward: number;
   estimatedMinutes?: number;
-  scheduledTime?: string; // HH:mm
-  scheduledDay?: string; // ISO date
+  scheduledTime?: string;
+  scheduledDay?: string;
 }
 
 export interface Meta {
@@ -66,6 +66,8 @@ export interface PlayerStats {
   totalMetasCompleted: number;
   badges: Badge[];
   alertTone: AlertTone;
+  daysUsed: number;
+  categoryStreaks: Record<Category, number>;
 }
 
 export interface Badge {
@@ -92,16 +94,16 @@ export interface Justificativa {
 
 export interface SleepSchedule {
   id: string;
-  bedtime: string; // HH:mm
-  wakeTime: string; // HH:mm
+  bedtime: string;
+  wakeTime: string;
   days: DayOfWeek[];
 }
 
 export interface FixedTimeBlock {
   id: string;
   title: string;
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
+  startTime: string;
+  endTime: string;
   days: DayOfWeek[];
   category?: Category;
 }
@@ -125,27 +127,149 @@ export interface WeeklyMission {
   xpReward: number;
 }
 
-export const LEVEL_NAMES = [
-  'Iniciante',
-  'Aprendiz',
-  'Executor',
-  'Disciplinado',
-  'Estrategista',
-  'Evoluído',
-  'Imparável',
-] as const;
+// ====================== LEVEL SYSTEM ======================
 
-export const XP_PER_LEVEL = 500;
+export interface LevelDefinition {
+  level: number;
+  name: string;
+  xpMin: number;
+  xpMax: number;
+  icon: string;
+  requirements: string[];
+  identity: string;
+  motivation: string;
+  description: string;
+  tasksRequired: number;
+  streakRequired: number;
+  daysRequired: number;
+}
 
-export function getLevelFromXP(xp: number): { level: number; name: string; xpInLevel: number; xpForNext: number } {
-  const level = Math.floor(xp / XP_PER_LEVEL) + 1;
-  const cappedLevel = Math.min(level, LEVEL_NAMES.length);
+export const LEVELS: LevelDefinition[] = [
+  {
+    level: 1, name: 'Despertar', xpMin: 0, xpMax: 100, icon: '🌅',
+    requirements: ['Concluir pelo menos 5 tarefas', 'Usar o sistema por pelo menos 1 dia'],
+    identity: 'Você deixa de ser alguém parado e começa a agir. O simples fato de estar aqui já te coloca à frente de quem nunca tentou.',
+    motivation: 'Todo grande guerreiro começou dando o primeiro passo. Esse é o seu.',
+    description: 'Você iniciou sua jornada. Neste nível, o mais importante é sair da inércia. Aqui não importa perfeição, apenas começar.',
+    tasksRequired: 5, streakRequired: 0, daysRequired: 1,
+  },
+  {
+    level: 2, name: 'Aprendiz', xpMin: 100, xpMax: 400, icon: '📖',
+    requirements: ['Concluir pelo menos 20 tarefas', 'Usar o sistema em 3 dias diferentes', 'Iniciar uma sequência de consistência'],
+    identity: 'Você se torna alguém que começou a sair do piloto automático. O ritmo está sendo criado.',
+    motivation: 'A maioria das pessoas desiste antes desse ponto. Você não.',
+    description: 'Você já começou a agir. Agora precisa provar que consegue continuar. O objetivo aqui é criar ritmo.',
+    tasksRequired: 20, streakRequired: 1, daysRequired: 3,
+  },
+  {
+    level: 3, name: 'Jogador', xpMin: 400, xpMax: 1000, icon: '🎮',
+    requirements: ['Concluir pelo menos 50 tarefas', 'Manter uma sequência de 5 dias', 'Executar tarefas com mais frequência'],
+    identity: 'Você se torna alguém consistente. Evolução vem da repetição, e você já entendeu isso.',
+    motivation: 'Consistência é a mãe de todas as conquistas. Continue.',
+    description: 'Agora você está jogando de verdade. Você já entendeu que evolução vem da repetição.',
+    tasksRequired: 50, streakRequired: 5, daysRequired: 7,
+  },
+  {
+    level: 4, name: 'Professor', xpMin: 1000, xpMax: 2500, icon: '🎓',
+    requirements: ['Concluir pelo menos 120 tarefas', 'Manter consistência semanal', 'Manter tarefas dentro do prazo', 'Registrar aprendizados ou ajudar outros'],
+    identity: 'Você não depende mais apenas de motivação. Você começou a dominar o processo.',
+    motivation: 'Quem ensina, domina. Quem domina, transforma.',
+    description: 'Você deixa de apenas fazer e começa a entender. A disciplina está se tornando parte de você.',
+    tasksRequired: 120, streakRequired: 7, daysRequired: 14,
+  },
+  {
+    level: 5, name: 'Mestre', xpMin: 2500, xpMax: 6000, icon: '⚔️',
+    requirements: ['Concluir pelo menos 250 tarefas', 'Manter uma sequência de 15 dias', 'Ter baixa taxa de falha'],
+    identity: 'Você construiu disciplina. Agora você executa mesmo sem vontade.',
+    motivation: 'A disciplina é a ponte entre onde você está e onde quer chegar.',
+    description: 'A disciplina começa a ser parte da sua identidade. Você executa sem depender de motivação.',
+    tasksRequired: 250, streakRequired: 15, daysRequired: 30,
+  },
+  {
+    level: 6, name: 'Grão Mestre', xpMin: 6000, xpMax: 12000, icon: '👑',
+    requirements: ['Concluir pelo menos 500 tarefas', 'Manter consistência forte por 30 dias', 'Manter estabilidade nas suas rotinas'],
+    identity: 'Você está em um nível elevado. Poucas pessoas chegam aqui. Você se diferencia da maioria.',
+    motivation: 'Enquanto outros sonham, você executa. Essa é a diferença.',
+    description: 'Poucas pessoas chegam aqui. Sua consistência é excepcional e suas rotinas são sólidas.',
+    tasksRequired: 500, streakRequired: 30, daysRequired: 60,
+  },
+  {
+    level: 7, name: 'Elite', xpMin: 12000, xpMax: 25000, icon: '💎',
+    requirements: ['Concluir pelo menos 1.000 tarefas', 'Manter desempenho por 60 dias', 'Manter disciplina em múltiplas áreas'],
+    identity: 'Você está acima da média. Sua consistência é real. Você se tornou referência.',
+    motivation: 'Você é prova viva de que disciplina supera talento.',
+    description: 'Você está acima da média. Sua consistência e execução são referência para outros.',
+    tasksRequired: 1000, streakRequired: 45, daysRequired: 90,
+  },
+  {
+    level: 8, name: 'Implacável', xpMin: 25000, xpMax: 50000, icon: '🔥',
+    requirements: ['Concluir pelo menos 2.000 tarefas', 'Manter consistência por 90 dias', 'Manter alto nível de execução'],
+    identity: 'Você não negocia consigo mesmo. Você executa. Extremamente raro.',
+    motivation: 'Você é imparável. Continue provando isso todos os dias.',
+    description: 'Você não negocia consigo mesmo. Você executa. Você se tornou extremamente raro.',
+    tasksRequired: 2000, streakRequired: 60, daysRequired: 120,
+  },
+  {
+    level: 9, name: 'Lendário', xpMin: 50000, xpMax: Infinity, icon: '🏆',
+    requirements: ['XP acumulativo continua crescendo', 'Evolução contínua sem limites', 'Novos desafios desbloqueados'],
+    identity: 'Você não está mais tentando evoluir. Você SE TORNOU evolução.',
+    motivation: 'Lendas não param. Elas continuam criando legado.',
+    description: 'Você alcançou um nível que poucos chegam. Você se tornou evolução. Novos desafios podem ser desbloqueados.',
+    tasksRequired: 5000, streakRequired: 90, daysRequired: 180,
+  },
+];
+
+export function getLevelFromXP(xp: number): { level: number; name: string; xpInLevel: number; xpForNext: number; icon: string; definition: LevelDefinition } {
+  let current = LEVELS[0];
+  for (const lvl of LEVELS) {
+    if (xp >= lvl.xpMin) current = lvl;
+    else break;
+  }
+  const xpInLevel = xp - current.xpMin;
+  const xpForNext = current.xpMax === Infinity ? 10000 : current.xpMax - current.xpMin;
   return {
-    level: cappedLevel,
-    name: LEVEL_NAMES[cappedLevel - 1],
-    xpInLevel: xp % XP_PER_LEVEL,
-    xpForNext: XP_PER_LEVEL,
+    level: current.level,
+    name: current.name,
+    xpInLevel,
+    xpForNext,
+    icon: current.icon,
+    definition: current,
   };
+}
+
+// Check if user meets behavioral requirements for their level
+export function checkLevelRequirements(stats: PlayerStats): { meetsRequirements: boolean; missing: string[] } {
+  const levelDef = LEVELS.find(l => l.level === stats.level) || LEVELS[0];
+  const missing: string[] = [];
+
+  if (stats.totalMissionsCompleted < levelDef.tasksRequired) {
+    missing.push(`Concluir ${levelDef.tasksRequired - stats.totalMissionsCompleted} tarefas a mais`);
+  }
+  if (stats.longestStreak < levelDef.streakRequired) {
+    missing.push(`Atingir sequência de ${levelDef.streakRequired} dias (melhor: ${stats.longestStreak})`);
+  }
+  if (stats.daysUsed < levelDef.daysRequired) {
+    missing.push(`Usar o sistema por ${levelDef.daysRequired - stats.daysUsed} dias a mais`);
+  }
+
+  return { meetsRequirements: missing.length === 0, missing };
+}
+
+// Streak-based XP multiplier
+export function getStreakMultiplier(streak: number): number {
+  if (streak >= 30) return 1.5;
+  if (streak >= 15) return 1.3;
+  if (streak >= 7) return 1.2;
+  if (streak >= 3) return 1.1;
+  return 1.0;
+}
+
+// Task classification by XP
+export function classifyTask(xp: number): string {
+  if (xp >= 80) return 'CRÍTICA';
+  if (xp >= 30) return 'AVANÇADA';
+  if (xp >= 10) return 'PADRÃO';
+  return 'MICRO';
 }
 
 export const CATEGORY_CONFIG: Record<Category, { label: string; color: string; glowClass: string }> = {
@@ -175,6 +299,10 @@ export const DEFAULT_QUOTES: Quote[] = [
   { id: '6', text: 'Quem você será daqui a 1 ano depende do que faz hoje.', favorited: false },
   { id: '7', text: 'A dor da disciplina pesa gramas. O arrependimento pesa toneladas.', favorited: false },
   { id: '8', text: 'Seja imparável. Não perfeito, mas persistente.', favorited: false },
+  { id: '9', text: 'Todo hábito é um voto para o tipo de pessoa que você quer se tornar.', author: 'James Clear', favorited: false },
+  { id: '10', text: 'Nunca quebre a cadeia duas vezes seguidas.', author: 'James Clear', favorited: false },
+  { id: '11', text: 'Melhore 1% por dia. Em um ano, será 37x melhor.', author: 'James Clear', favorited: false },
+  { id: '12', text: 'Você não sobe ao nível de suas metas. Cai ao nível de seus sistemas.', author: 'James Clear', favorited: false },
 ];
 
 export const ALTRUISTIC_MISSIONS = [
