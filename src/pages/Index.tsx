@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GameProvider, useGame } from '@/contexts/GameContext';
 import { ScheduleProvider } from '@/contexts/ScheduleContext';
-import { Sidebar } from '@/components/game/Sidebar';
+import { Sidebar, Page } from '@/components/game/Sidebar';
 import { ProfileBanner } from '@/components/game/ProfileBanner';
 import { QuoteBar } from '@/components/game/QuoteBar';
 import { MetaCard } from '@/components/game/MetaCard';
@@ -13,13 +13,25 @@ import { WeeklyMission } from '@/components/game/WeeklyMission';
 import { RightPanel } from '@/components/game/RightPanel';
 import { TaskStatsChart } from '@/components/game/TaskStatsChart';
 import { LevelProgression } from '@/components/game/LevelProgression';
+import { AfazeresPanel } from '@/components/game/AfazeresPanel';
+import { CalendarView } from '@/components/game/CalendarView';
+import { RankingPanel } from '@/components/game/RankingPanel';
+import { EvolutionTimeline } from '@/components/game/EvolutionTimeline';
 import { getStreakMultiplier } from '@/types/game';
-
-type Page = 'dashboard' | 'metas' | 'agenda' | 'vida' | 'missao' | 'progressao';
 
 function Dashboard() {
   const { metas, stats } = useGame();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('lifequest_theme');
+    return saved !== 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', !darkMode);
+    localStorage.setItem('lifequest_theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
   const activeMetas = metas.filter(m => !m.completed);
   const completedMetas = metas.filter(m => m.completed);
   const streakMult = getStreakMultiplier(stats.streak);
@@ -50,6 +62,8 @@ function Dashboard() {
               </div>
             </div>
 
+            <EvolutionTimeline />
+
             <CategoryOverview />
 
             <section>
@@ -69,9 +83,7 @@ function Dashboard() {
               <section>
                 <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">🏆 Metas Concluídas ({completedMetas.length})</h2>
                 <div className="space-y-3 opacity-60">
-                  {completedMetas.map(meta => (
-                    <MetaCard key={meta.id} meta={meta} />
-                  ))}
+                  {completedMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
                 </div>
               </section>
             )}
@@ -96,10 +108,22 @@ function Dashboard() {
           </div>
         );
 
+      case 'afazeres':
+        return (
+          <div className="space-y-5">
+            <h1 className="font-display text-xl tracking-wider text-foreground">Afazeres</h1>
+            <p className="text-sm text-muted-foreground font-body">
+              Tarefas avulsas ou recorrentes do dia a dia. Conecte a uma meta para ganhar mais XP!
+            </p>
+            <AfazeresPanel />
+          </div>
+        );
+
       case 'agenda':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Agenda & Sono</h1>
+            <h1 className="font-display text-xl tracking-wider text-foreground">Agenda</h1>
+            <CalendarView />
             <SchedulePanel />
           </div>
         );
@@ -136,12 +160,23 @@ function Dashboard() {
             <LevelProgression />
           </div>
         );
+
+      case 'ranking':
+        return (
+          <div className="space-y-5">
+            <h1 className="font-display text-xl tracking-wider text-foreground">Ranking</h1>
+            <p className="text-sm text-muted-foreground font-body">
+              Seu progresso e conquistas acumuladas ao longo da jornada.
+            </p>
+            <RankingPanel />
+          </div>
+        );
     }
   };
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} darkMode={darkMode} onToggleTheme={() => setDarkMode(!darkMode)} />
       <main className="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto lg:mx-0">
           {renderPage()}

@@ -34,6 +34,10 @@ export interface Mission {
   estimatedMinutes?: number;
   scheduledTime?: string;
   scheduledDay?: string;
+  // Timer tracking
+  timerStartedAt?: string;
+  timerCompletedAt?: string;
+  actualMinutes?: number;
 }
 
 export interface Meta {
@@ -42,7 +46,8 @@ export interface Meta {
   category: Category;
   deadline: string;
   totalDays: number;
-  volume?: string;
+  mainAction: string;
+  weeklyFrequency: number;
   missions: Mission[];
   progress: number;
   xpTotal: number;
@@ -54,6 +59,31 @@ export interface Meta {
   benefits6m?: string;
   benefits1y?: string;
   linkedLifeGoalId?: string;
+}
+
+// Standalone task (Afazer)
+export interface Afazer {
+  id: string;
+  title: string;
+  description?: string;
+  category: Category;
+  startDate: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  isRecurrent: boolean;
+  recurrentDays?: DayOfWeek[];
+  recurrentEndDate?: string;
+  linkedMetaId?: string;
+  completed: boolean;
+  completedAt?: string;
+  xpReward: number;
+  createdAt: string;
+  // Timer
+  timerStartedAt?: string;
+  timerCompletedAt?: string;
+  actualMinutes?: number;
+  estimatedMinutes?: number;
 }
 
 export interface PlayerStats {
@@ -227,35 +257,18 @@ export function getLevelFromXP(xp: number): { level: number; name: string; xpInL
   }
   const xpInLevel = xp - current.xpMin;
   const xpForNext = current.xpMax === Infinity ? 10000 : current.xpMax - current.xpMin;
-  return {
-    level: current.level,
-    name: current.name,
-    xpInLevel,
-    xpForNext,
-    icon: current.icon,
-    definition: current,
-  };
+  return { level: current.level, name: current.name, xpInLevel, xpForNext, icon: current.icon, definition: current };
 }
 
-// Check if user meets behavioral requirements for their level
 export function checkLevelRequirements(stats: PlayerStats): { meetsRequirements: boolean; missing: string[] } {
   const levelDef = LEVELS.find(l => l.level === stats.level) || LEVELS[0];
   const missing: string[] = [];
-
-  if (stats.totalMissionsCompleted < levelDef.tasksRequired) {
-    missing.push(`Concluir ${levelDef.tasksRequired - stats.totalMissionsCompleted} tarefas a mais`);
-  }
-  if (stats.longestStreak < levelDef.streakRequired) {
-    missing.push(`Atingir sequência de ${levelDef.streakRequired} dias (melhor: ${stats.longestStreak})`);
-  }
-  if (stats.daysUsed < levelDef.daysRequired) {
-    missing.push(`Usar o sistema por ${levelDef.daysRequired - stats.daysUsed} dias a mais`);
-  }
-
+  if (stats.totalMissionsCompleted < levelDef.tasksRequired) missing.push(`Concluir ${levelDef.tasksRequired - stats.totalMissionsCompleted} tarefas a mais`);
+  if (stats.longestStreak < levelDef.streakRequired) missing.push(`Atingir sequência de ${levelDef.streakRequired} dias (melhor: ${stats.longestStreak})`);
+  if (stats.daysUsed < levelDef.daysRequired) missing.push(`Usar o sistema por ${levelDef.daysRequired - stats.daysUsed} dias a mais`);
   return { meetsRequirements: missing.length === 0, missing };
 }
 
-// Streak-based XP multiplier
 export function getStreakMultiplier(streak: number): number {
   if (streak >= 30) return 1.5;
   if (streak >= 15) return 1.3;
@@ -264,7 +277,6 @@ export function getStreakMultiplier(streak: number): number {
   return 1.0;
 }
 
-// Task classification by XP
 export function classifyTask(xp: number): string {
   if (xp >= 80) return 'CRÍTICA';
   if (xp >= 30) return 'AVANÇADA';
