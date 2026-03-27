@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { LayoutDashboard, Target, Calendar, Star, Heart, Menu, X, Swords, Zap, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar, Star, Heart, Menu, X, Swords, Zap, TrendingUp, ListChecks, Trophy, Sun, Moon } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
-type Page = 'dashboard' | 'metas' | 'agenda' | 'vida' | 'missao' | 'progressao';
+export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'vida' | 'missao' | 'progressao' | 'ranking';
 
 interface SidebarProps {
   currentPage: Page;
   onPageChange: (page: Page) => void;
+  darkMode: boolean;
+  onToggleTheme: () => void;
 }
 
-export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
+export function Sidebar({ currentPage, onPageChange, darkMode, onToggleTheme }: SidebarProps) {
   const { stats } = useGame();
   const { level, name, icon } = getLevelFromXP(stats.xp);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -18,10 +20,12 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'metas', label: 'Metas', icon: <Target className="w-5 h-5" /> },
+    { id: 'afazeres', label: 'Afazeres', icon: <ListChecks className="w-5 h-5" /> },
     { id: 'agenda', label: 'Agenda', icon: <Calendar className="w-5 h-5" /> },
     { id: 'vida', label: 'Metas de Vida', icon: <Star className="w-5 h-5" /> },
     { id: 'missao', label: 'Missão Semanal', icon: <Heart className="w-5 h-5" /> },
     { id: 'progressao', label: 'Progressão', icon: <TrendingUp className="w-5 h-5" /> },
+    { id: 'ranking', label: 'Ranking', icon: <Trophy className="w-5 h-5" /> },
   ];
 
   const sidebarContent = (
@@ -62,6 +66,13 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
           </div>
           <p className="text-[11px] text-muted-foreground font-body mt-0.5">Melhor: {stats.longestStreak} dias</p>
         </div>
+
+        {/* Theme toggle */}
+        <button onClick={onToggleTheme}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-body font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all mt-2">
+          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          <span>{darkMode ? 'Modo Claro' : 'Modo Escuro'}</span>
+        </button>
       </nav>
 
       <div className="p-4 border-t border-border">
@@ -83,10 +94,8 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
 
   return (
     <>
-      <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card border border-border shadow-game-card"
-      >
+      <button onClick={() => setMobileOpen(!mobileOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card border border-border shadow-game-card">
         {mobileOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
       </button>
 
