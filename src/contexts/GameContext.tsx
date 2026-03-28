@@ -1,6 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Meta, Mission, PlayerStats, Quote, Justificativa, Category, LifeGoal, WeeklyMission, Afazer, DEFAULT_QUOTES, ALTRUISTIC_MISSIONS, getLevelFromXP, getStreakMultiplier, Etapa } from '@/types/game';
 
+interface ManualMissionInput {
+  title: string;
+  estimatedMinutes: number;
+}
+
+interface AddMetaInput extends Omit<Meta, 'id' | 'missions' | 'progress' | 'xpEarned' | 'completed' | 'createdAt' | 'xpTotal'> {
+  manualMissions?: ManualMissionInput[];
+  taskMode?: 'auto' | 'manual';
+}
+
 interface GameState {
   metas: Meta[];
   stats: PlayerStats;
@@ -14,7 +24,7 @@ interface GameState {
 }
 
 interface GameContextType extends GameState {
-  addMeta: (meta: Omit<Meta, 'id' | 'missions' | 'progress' | 'xpEarned' | 'completed' | 'createdAt' | 'xpTotal'>) => void;
+  addMeta: (meta: AddMetaInput) => void;
   completeMission: (metaId: string, missionId: string) => void;
   uncompleteMission: (metaId: string, missionId: string) => void;
   completeEtapa: (metaId: string, missionId: string, etapaId: string) => void;
@@ -29,10 +39,10 @@ interface GameContextType extends GameState {
   completeWeeklyMission: () => void;
   updateMissionEstimate: (metaId: string, missionId: string, minutes: number) => void;
   scheduleMission: (metaId: string, missionId: string, time: string, day?: string) => void;
+  scheduleAllMissions: (metaId: string) => void;
   completeMeta: (metaId: string) => void;
   startMissionTimer: (metaId: string, missionId: string) => void;
   stopMissionTimer: (metaId: string, missionId: string) => void;
-  // Afazeres
   addAfazer: (afazer: Omit<Afazer, 'id' | 'completed' | 'xpReward' | 'createdAt'>) => void;
   completeAfazer: (id: string) => void;
   uncompleteAfazer: (id: string) => void;
@@ -48,12 +58,36 @@ function generateId() {
   return Math.random().toString(36).substring(2, 15);
 }
 
-function generateMissions(meta: { title: string; totalDays: number; mainAction: string; weeklyFrequency: number; category: Category; deadline: string }): Mission[] {
+function generateMissions(meta: { title: string; totalDays: number; mainAction: string; weeklyFrequency: number; category: Category; deadline: string }, manualMissions?: ManualMissionInput[]): Mission[] {
   const startDate = new Date();
   const missions: Mission[] = [];
+
+  // If manual missions are provided, use those
+  if (manualMissions && manualMissions.length > 0) {
+    const interval = Math.max(1, Math.floor(meta.totalDays / manualMissions.length));
+    manualMissions.forEach((m, idx) => {
+      const scheduledDate = new Date(startDate);
+      scheduledDate.setDate(scheduledDate.getDate() + idx * interval);
+      missions.push({
+        id: generateId(), metaId: '',
+        title: m.title,
+        description: `Tarefa para "${meta.title}"`,
+        frequency: `${meta.weeklyFrequency}x/semana`,
+        dailyTarget: m.title,
+        etapas: [],
+        completedToday: false,
+        xpReward: Math.round(20 + (idx * 5)),
+        estimatedMinutes: m.estimatedMinutes,
+        scheduledDay: scheduledDate.toISOString().split('T')[0],
+      });
+    });
+    return missions;
+  }
+
+  // Auto-generated missions
   const totalSessions = Math.floor(meta.totalDays / 7 * meta.weeklyFrequency);
 
-  // Step 1: Planning mission
+  // Step 1: Planning
   missions.push({
     id: generateId(), metaId: '',
     title: '📋 Planejamento estratégico',
@@ -70,7 +104,7 @@ function generateMissions(meta: { title: string; totalDays: number; mainAction: 
     scheduledDay: startDate.toISOString().split('T')[0],
   });
 
-  // Step 2: Execution missions with checkpoints
+  // Step 2: Execution with checkpoints
   const execDate = new Date(startDate);
   execDate.setDate(execDate.getDate() + 1);
   const checkpoints = Math.min(5, Math.max(2, Math.floor(meta.totalDays / 7)));
@@ -201,15 +235,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.lastActiveDate]);
 
-  const addMeta = useCallback((metaData: Omit<Meta, 'id' | 'missions' | 'progress' | 'xpEarned' | 'completed' | 'createdAt' | 'xpTotal'>) => {
+  const addMeta = useCallback((metaData: AddMetaInput) => {
     const id = generateId();
-    const missions = generateMissions({ ...metaData });
+    const { manualMissions: manualMissionsInput, taskMode, ...metaBase } = metaData;
+    const missions = generateMissions(
+      { ...metaBase },
+      taskMode === 'manual' ? manualMissionsInput : undefined
+    );
     missions.forEach(m => m.metaId = id);
-    const xpMultiplier = metaData.linkedLifeGoalId ? 1.5 : 1;
+    const xpMultiplier = metaBase.linkedLifeGoalId ? 1.5 : 1;
     const totalMissionXP = missions.reduce((s, m) => s + m.xpReward, 0);
     const meta: Meta = {
-      ...metaData, id, missions, progress: 0,
-      xpTotal: Math.round(totalMissionXP * metaData.totalDays / missions.length * xpMultiplier),
+      ...metaBase, id, missions, progress: 0,
+      xpTotal: Math.round(totalMissionXP * metaBase.totalDays / missions.length * xpMultiplier),
       xpEarned: 0, completed: false, createdAt: new Date().toISOString(),
     };
     setState(prev => ({ ...prev, metas: [...prev.metas, meta] }));
@@ -409,9 +447,45 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const scheduleAllMissions = useCallback((metaId: string) => {
+    setState(prev => {
+      const meta = prev.metas.find(m => m.id === metaId);
+      if (!meta) return prev;
+
+      const today = new Date();
+      let currentDay = new Date(today);
+      let currentMinute = today.getHours() * 60 + today.getMinutes() + 15;
+
+      const updatedMissions = meta.missions.map(mission => {
+        if (mission.completedToday || mission.scheduledTime) return mission;
+        const est = mission.estimatedMinutes || 30;
+
+        // Simple scheduling: stack tasks starting from now
+        if (currentMinute + est > 22 * 60) {
+          // Move to next day
+          currentDay.setDate(currentDay.getDate() + 1);
+          currentMinute = 8 * 60;
+        }
+
+        const h = Math.floor(currentMinute / 60);
+        const m = currentMinute % 60;
+        const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const day = currentDay.toISOString().split('T')[0];
+        currentMinute += est + 15; // 15min break between tasks
+
+        return { ...mission, scheduledTime: time, scheduledDay: day };
+      });
+
+      return {
+        ...prev,
+        metas: prev.metas.map(m => m.id !== metaId ? m : { ...m, missions: updatedMissions }),
+      };
+    });
+  }, []);
+
   // Afazeres
   const addAfazer = useCallback((data: Omit<Afazer, 'id' | 'completed' | 'xpReward' | 'createdAt'>) => {
-    const xpReward = data.linkedMetaId ? 10 : 5; // Linked tasks get more XP
+    const xpReward = data.linkedMetaId ? 10 : 5;
     const afazer: Afazer = {
       ...data, id: generateId(), completed: false, xpReward, createdAt: new Date().toISOString(),
     };
@@ -479,7 +553,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addMeta, completeMission, uncompleteMission, completeEtapa, deleteMeta, deleteMission,
       addJustificativa, toggleQuoteFavorite, nextQuote, setAlertTone,
       addLifeGoal, deleteLifeGoal, completeWeeklyMission,
-      updateMissionEstimate, scheduleMission, completeMeta,
+      updateMissionEstimate, scheduleMission, scheduleAllMissions, completeMeta,
       startMissionTimer, stopMissionTimer,
       addAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer,
     }}>

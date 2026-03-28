@@ -24,14 +24,14 @@ export function ProfileBanner() {
       </div>
 
       <div className="relative p-6">
-        <h2 className="font-display text-xs tracking-[0.25em] text-muted-foreground mb-5 uppercase">Stats Overview</h2>
+        <h2 className="font-display text-xs tracking-[0.25em] text-muted-foreground mb-5 uppercase">Visão Geral</h2>
 
         <div className="flex items-start gap-6">
           <div className="flex-1 space-y-3">
             {[
               { label: 'XP Total', value: stats.xp.toLocaleString() },
               { label: 'Nível', value: `${icon} ${name} (${level})` },
-              { label: 'Streak', value: `${stats.streak} dias ${streakMult > 1 ? `(+${Math.round((streakMult-1)*100)}%)` : ''}` },
+              { label: 'Consistência', value: `${stats.streak} dias ${streakMult > 1 ? `(+${Math.round((streakMult-1)*100)}%)` : ''}` },
               { label: 'Missões', value: stats.totalMissionsCompleted },
               { label: 'Metas Ativas', value: activeMetas },
               { label: 'Dias de Uso', value: stats.daysUsed },
@@ -68,7 +68,7 @@ export function ProfileBanner() {
 
         <div className="grid grid-cols-4 gap-3 mt-6 pt-5 border-t border-border">
           {[
-            { label: 'Streak', value: stats.streak, icon: Flame, color: 'text-game-fire' },
+            { label: 'Consistência', value: stats.streak, icon: Flame, color: 'text-game-fire' },
             { label: 'Missões', value: stats.totalMissionsCompleted, icon: Swords, color: 'text-game-green' },
             { label: 'Ativas', value: activeMetas, icon: Target, color: 'text-game-cyan' },
             { label: 'Conquistas', value: stats.totalMetasCompleted, icon: Trophy, color: 'text-game-gold' },
