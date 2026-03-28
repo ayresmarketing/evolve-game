@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { Category } from '@/types/game';
-import { Plus, X, Sparkles, ArrowRight, ArrowLeft, Target, Calendar, Repeat, Zap } from 'lucide-react';
+import { Plus, X, Sparkles, ArrowRight, ArrowLeft, Target, Calendar, Repeat, Zap, Wand2, PenLine, Trash2 } from 'lucide-react';
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -16,6 +16,11 @@ const META_EXAMPLES = [
   'Criar uma rotina espiritual',
 ];
 
+interface ManualMission {
+  title: string;
+  estimatedMinutes: number;
+}
+
 export function CreateMetaDialog() {
   const { addMeta, lifeGoals } = useGame();
   const [open, setOpen] = useState(false);
@@ -29,11 +34,14 @@ export function CreateMetaDialog() {
   const [weeklyFrequency, setWeeklyFrequency] = useState('5');
   const [reward, setReward] = useState('');
   const [linkedGoalId, setLinkedGoalId] = useState('');
+  const [taskMode, setTaskMode] = useState<'auto' | 'manual'>('auto');
+  const [manualMissions, setManualMissions] = useState<ManualMission[]>([{ title: '', estimatedMinutes: 30 }]);
 
   const reset = () => {
     setTitle(''); setDays('30'); setMainAction(''); setWeeklyFrequency('5');
     setReward(''); setLinkedGoalId(''); setStep(1); setDeadlineDate('');
     setDeadlineType('days'); setCategory('pessoal');
+    setTaskMode('auto'); setManualMissions([{ title: '', estimatedMinutes: 30 }]);
   };
 
   const totalDays = deadlineType === 'days'
@@ -46,8 +54,24 @@ export function CreateMetaDialog() {
     ? new Date(deadlineDate).toISOString()
     : new Date(Date.now() + totalDays * 86400000).toISOString();
 
+  const addManualMission = () => {
+    setManualMissions(prev => [...prev, { title: '', estimatedMinutes: 30 }]);
+  };
+
+  const removeManualMission = (idx: number) => {
+    setManualMissions(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateManualMission = (idx: number, field: keyof ManualMission, value: string | number) => {
+    setManualMissions(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
+  };
+
   const handleSubmit = () => {
     if (!title.trim() || !mainAction.trim()) return;
+    const validManual = taskMode === 'manual'
+      ? manualMissions.filter(m => m.title.trim().length > 0)
+      : undefined;
+
     addMeta({
       title: title.trim(),
       category,
@@ -60,6 +84,8 @@ export function CreateMetaDialog() {
       benefits30d: 'Mais disciplina, foco e consistência',
       benefits6m: 'Transformação visível nos resultados',
       benefits1y: 'Identidade consolidada nesta área',
+      manualMissions: validManual,
+      taskMode,
     });
     reset();
     setOpen(false);
@@ -71,7 +97,7 @@ export function CreateMetaDialog() {
       case 2: return (deadlineType === 'days' ? parseInt(days) > 0 : !!deadlineDate);
       case 3: return mainAction.trim().length > 0;
       case 4: return parseInt(weeklyFrequency) > 0;
-      case 5: return true;
+      case 5: return taskMode === 'auto' || manualMissions.some(m => m.title.trim().length > 0);
     }
   };
 
@@ -249,11 +275,70 @@ export function CreateMetaDialog() {
         </div>
       )}
 
-      {/* Step 5: Extras */}
+      {/* Step 5: Task mode + Extras */}
       {step === 5 && (
         <div className="space-y-4 animate-fade-in">
-          <p className="text-[10px] font-display tracking-[0.2em] text-primary uppercase">Detalhes finais (opcionais)</p>
+          {/* Task generation mode */}
+          <div>
+            <p className="text-[10px] font-display tracking-[0.2em] text-primary uppercase mb-3">Como deseja criar as tarefas?</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setTaskMode('auto')}
+                className={`flex-1 p-4 rounded-xl border-2 transition-all text-center ${
+                  taskMode === 'auto' ? 'border-primary bg-primary/10' : 'border-border hover:border-muted-foreground'
+                }`}>
+                <Wand2 className={`w-6 h-6 mx-auto mb-2 ${taskMode === 'auto' ? 'text-primary' : 'text-muted-foreground'}`} />
+                <p className={`text-sm font-body font-bold ${taskMode === 'auto' ? 'text-primary' : 'text-foreground'}`}>Automático</p>
+                <p className="text-[10px] text-muted-foreground font-body mt-1">O sistema cria as tarefas ideais para você</p>
+              </button>
+              <button type="button" onClick={() => setTaskMode('manual')}
+                className={`flex-1 p-4 rounded-xl border-2 transition-all text-center ${
+                  taskMode === 'manual' ? 'border-primary bg-primary/10' : 'border-border hover:border-muted-foreground'
+                }`}>
+                <PenLine className={`w-6 h-6 mx-auto mb-2 ${taskMode === 'manual' ? 'text-primary' : 'text-muted-foreground'}`} />
+                <p className={`text-sm font-body font-bold ${taskMode === 'manual' ? 'text-primary' : 'text-foreground'}`}>Manual</p>
+                <p className="text-[10px] text-muted-foreground font-body mt-1">Você define suas próprias tarefas</p>
+              </button>
+            </div>
+          </div>
 
+          {/* Manual missions */}
+          {taskMode === 'manual' && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-display tracking-[0.15em] text-muted-foreground uppercase">Suas tarefas:</p>
+              {manualMissions.map((m, idx) => (
+                <div key={idx} className="flex gap-2 items-start">
+                  <div className="flex-1 space-y-2">
+                    <input
+                      value={m.title}
+                      onChange={e => updateManualMission(idx, 'title', e.target.value)}
+                      placeholder={`Tarefa ${idx + 1}: Ex: Estudar 30 min`}
+                      className={inputClass}
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={m.estimatedMinutes}
+                        onChange={e => updateManualMission(idx, 'estimatedMinutes', parseInt(e.target.value) || 30)}
+                        min="5" className="w-20 bg-secondary border border-border rounded-lg px-3 py-1.5 text-xs font-body text-foreground"
+                      />
+                      <span className="text-[10px] text-muted-foreground font-body">minutos estimados</span>
+                    </div>
+                  </div>
+                  {manualMissions.length > 1 && (
+                    <button onClick={() => removeManualMission(idx)} className="p-2 mt-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={addManualMission}
+                className="w-full py-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:text-primary hover:border-primary/30 font-body transition-all">
+                + Adicionar tarefa
+              </button>
+            </div>
+          )}
+
+          {/* Extras */}
           {lifeGoals.length > 0 && (
             <div>
               <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">
@@ -281,6 +366,7 @@ export function CreateMetaDialog() {
               <p>📅 Prazo: {totalDays} dias ({new Date(deadline).toLocaleDateString('pt-BR')})</p>
               <p>🔄 Frequência: {weeklyFrequency}x por semana</p>
               <p>📊 Total: ~{Math.floor(totalDays / 7 * parseInt(weeklyFrequency || '5'))} sessões</p>
+              <p>🤖 Tarefas: {taskMode === 'auto' ? 'Geradas automaticamente' : `${manualMissions.filter(m => m.title.trim()).length} tarefa(s) manual(is)`}</p>
               {reward && <p>🏆 Recompensa: {reward}</p>}
             </div>
           </div>
@@ -302,8 +388,8 @@ export function CreateMetaDialog() {
             Próximo <ArrowRight className="w-4 h-4" />
           </button>
         ) : (
-          <button type="button" onClick={handleSubmit}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.15em] uppercase font-bold hover:shadow-glow-cyan transition-all">
+          <button type="button" onClick={handleSubmit} disabled={!canNext()}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.15em] uppercase font-bold disabled:opacity-40 hover:shadow-glow-cyan transition-all">
             🚀 CRIAR META
           </button>
         )}

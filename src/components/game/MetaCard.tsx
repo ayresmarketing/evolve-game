@@ -1,7 +1,7 @@
 import { Meta, CATEGORY_CONFIG, CATEGORY_BG, classifyTask, getStreakMultiplier } from '@/types/game';
 import { useGame } from '@/contexts/GameContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
-import { CheckCircle2, Circle, ChevronDown, ChevronUp, Trash2, Zap, Clock, CalendarPlus, Undo2, X, Trophy, Play, Square, Edit3 } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, ChevronUp, Trash2, Zap, Clock, CalendarPlus, Undo2, X, Trophy, Play, Square, Edit3, CalendarCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 function MissionTimer({ metaId, mission }: { metaId: string; mission: any }) {
@@ -51,7 +51,7 @@ function MissionTimer({ metaId, mission }: { metaId: string; mission: any }) {
 }
 
 export function MetaCard({ meta }: { meta: Meta }) {
-  const { completeMission, uncompleteMission, completeEtapa, deleteMeta, deleteMission, scheduleMission, completeMeta, updateMissionEstimate, stats } = useGame();
+  const { completeMission, uncompleteMission, completeEtapa, deleteMeta, deleteMission, scheduleMission, scheduleAllMissions, completeMeta, updateMissionEstimate, stats } = useGame();
   const schedule = useSchedule();
   const [expanded, setExpanded] = useState(false);
   const [editingEstimate, setEditingEstimate] = useState<string | null>(null);
@@ -61,12 +61,12 @@ export function MetaCard({ meta }: { meta: Meta }) {
 
   const completedMissions = meta.missions.filter(m => m.completedToday).length;
   const totalMissions = meta.missions.length;
+  const unscheduledCount = meta.missions.filter(m => !m.completedToday && !m.scheduledTime).length;
 
   const autoSchedule = (metaId: string, missionId: string, estimatedMinutes: number) => {
     const today = new Date();
     const days = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'] as const;
     const todayDay = days[today.getDay()];
-    const dayInfo = schedule.getDaySchedule(todayDay as any);
     const busySlots: { start: number; end: number }[] = [];
     schedule.fixedBlocks.filter(b => b.days.includes(todayDay as any)).forEach(b => {
       const [sh, sm] = b.startTime.split(':').map(Number);
@@ -140,6 +140,14 @@ export function MetaCard({ meta }: { meta: Meta }) {
             <div className="h-full rounded-full bg-gradient-accent transition-all duration-700" style={{ width: `${meta.progress}%` }} />
           </div>
         </div>
+
+        {/* Schedule all button */}
+        {!meta.completed && unscheduledCount > 0 && (
+          <button onClick={() => scheduleAllMissions(meta.id)}
+            className="w-full mb-2 flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-game-blue/10 border border-game-blue/20 text-game-blue text-[11px] font-display tracking-wider hover:bg-game-blue/20 transition-all">
+            <CalendarCheck className="w-4 h-4" /> ENCAIXAR TODAS NA AGENDA ({unscheduledCount})
+          </button>
+        )}
 
         {!meta.completed && meta.missions.filter(m => !m.completedToday).length === 0 && totalMissions > 0 && (
           <button onClick={() => completeMeta(meta.id)}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Target, Calendar, Star, Heart, Menu, X, Swords, Zap, TrendingUp, ListChecks, Trophy, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar, Star, Heart, Menu, X, Flame, Zap, TrendingUp, ListChecks, Trophy, Sun, Moon } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
@@ -61,8 +61,8 @@ export function Sidebar({ currentPage, onPageChange, darkMode, onToggleTheme }: 
 
         <div className="px-4 py-3 rounded-xl bg-secondary/40">
           <div className="flex items-center gap-2">
-            <Swords className="w-4 h-4 text-game-fire" />
-            <span className="text-sm font-body font-semibold text-foreground">{stats.streak} Streak</span>
+            <Flame className="w-4 h-4 text-game-fire" />
+            <span className="text-sm font-body font-semibold text-foreground">{stats.streak} dias de Consistência</span>
           </div>
           <p className="text-[11px] text-muted-foreground font-body mt-0.5">Melhor: {stats.longestStreak} dias</p>
         </div>
