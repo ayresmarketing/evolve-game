@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { GameProvider, useGame } from '@/contexts/GameContext';
-import { ScheduleProvider } from '@/contexts/ScheduleContext';
+import { ScheduleProvider, useSchedule } from '@/contexts/ScheduleContext';
 import { Sidebar, Page } from '@/components/game/Sidebar';
 import { ProfileBanner } from '@/components/game/ProfileBanner';
 import { QuoteBar } from '@/components/game/QuoteBar';
@@ -8,7 +8,6 @@ import { MetaCard } from '@/components/game/MetaCard';
 import { CreateMetaDialog } from '@/components/game/CreateMetaDialog';
 import { CategoryOverview } from '@/components/game/CategoryOverview';
 import { SchedulePanel } from '@/components/game/SchedulePanel';
-import { LifeGoals } from '@/components/game/LifeGoals';
 import { WeeklyMission } from '@/components/game/WeeklyMission';
 import { RightPanel } from '@/components/game/RightPanel';
 import { TaskStatsChart } from '@/components/game/TaskStatsChart';
@@ -17,7 +16,64 @@ import { AfazeresPanel } from '@/components/game/AfazeresPanel';
 import { CalendarView } from '@/components/game/CalendarView';
 import { RankingPanel } from '@/components/game/RankingPanel';
 import { EvolutionTimeline } from '@/components/game/EvolutionTimeline';
-import { getStreakMultiplier } from '@/types/game';
+import { FinancePanel } from '@/components/game/FinancePanel';
+import { HydrationPanel } from '@/components/game/HydrationPanel';
+import { getStreakMultiplier, CATEGORY_CONFIG, CATEGORY_BG, DayOfWeek } from '@/types/game';
+import { formatMinutesToHM } from '@/lib/formatTime';
+import { Clock, CalendarPlus, Zap } from 'lucide-react';
+
+function UpcomingTasks() {
+  const { metas } = useGame();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Get next 3 scheduled tasks sorted by date+time
+  const upcoming = useMemo(() => {
+    return metas.flatMap(m => m.missions
+      .filter(mi => !mi.completedToday && mi.scheduledDay && mi.scheduledDay >= todayStr)
+      .map(mi => ({ ...mi, metaTitle: m.title, category: m.category }))
+    ).sort((a, b) => {
+      const da = `${a.scheduledDay}${a.scheduledTime || ''}`;
+      const db = `${b.scheduledDay}${b.scheduledTime || ''}`;
+      return da.localeCompare(db);
+    }).slice(0, 3);
+  }, [metas, todayStr]);
+
+  if (upcoming.length === 0) return null;
+
+  return (
+    <div className="glass-card rounded-2xl p-5 animate-slide-up">
+      <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase flex items-center gap-2">
+        <CalendarPlus className="w-3.5 h-3.5 text-primary" /> Próximas Tarefas na Agenda
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {upcoming.map(task => {
+          const cat = CATEGORY_CONFIG[task.category];
+          return (
+            <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/20 border border-border">
+              <div className={`w-1.5 h-10 rounded-full ${CATEGORY_BG[cat.color]}`} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-body font-semibold text-foreground truncate">{task.title}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {task.scheduledDay && (
+                    <span className="text-[10px] text-muted-foreground font-body">
+                      📅 {new Date(task.scheduledDay + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                    </span>
+                  )}
+                  {task.scheduledTime && <span className="text-[10px] text-muted-foreground font-body">🕐 {task.scheduledTime}</span>}
+                  {task.estimatedMinutes && (
+                    <span className="text-[10px] text-muted-foreground font-body flex items-center gap-0.5">
+                      <Clock className="w-3 h-3" /> {formatMinutesToHM(task.estimatedMinutes)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function Dashboard() {
   const { metas, stats } = useGame();
@@ -50,6 +106,9 @@ function Dashboard() {
                 </p>
               )}
             </div>
+
+            {/* Upcoming tasks at top */}
+            <UpcomingTasks />
 
             <QuoteBar />
 
@@ -128,17 +187,6 @@ function Dashboard() {
           </div>
         );
 
-      case 'vida':
-        return (
-          <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Metas de Vida</h1>
-            <p className="text-sm text-muted-foreground font-body">
-              Defina seus objetivos a longo prazo. Metas conectadas ganham 1.5x XP!
-            </p>
-            <LifeGoals />
-          </div>
-        );
-
       case 'missao':
         return (
           <div className="space-y-5">
@@ -169,6 +217,28 @@ function Dashboard() {
               Seu progresso e conquistas acumuladas ao longo da jornada.
             </p>
             <RankingPanel />
+          </div>
+        );
+
+      case 'financeiro':
+        return (
+          <div className="space-y-5">
+            <h1 className="font-display text-xl tracking-wider text-foreground">Financeiro</h1>
+            <p className="text-sm text-muted-foreground font-body">
+              Acompanhe suas receitas, despesas e mantenha o controle financeiro.
+            </p>
+            <FinancePanel />
+          </div>
+        );
+
+      case 'hidratacao':
+        return (
+          <div className="space-y-5">
+            <h1 className="font-display text-xl tracking-wider text-foreground">Hidratação</h1>
+            <p className="text-sm text-muted-foreground font-body">
+              Mantenha-se hidratado! Registre seu consumo de água e acompanhe sua consistência.
+            </p>
+            <HydrationPanel />
           </div>
         );
     }

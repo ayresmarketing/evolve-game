@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { LayoutDashboard, Target, Calendar, Star, Heart, Menu, X, Flame, Zap, TrendingUp, ListChecks, Trophy, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar, Heart, Menu, X, Flame, Zap, TrendingUp, ListChecks, Trophy, Sun, Moon, DollarSign, Droplets } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
-export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'vida' | 'missao' | 'progressao' | 'ranking';
+export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'missao' | 'progressao' | 'ranking' | 'financeiro' | 'hidratacao';
 
 interface SidebarProps {
   currentPage: Page;
@@ -22,10 +22,11 @@ export function Sidebar({ currentPage, onPageChange, darkMode, onToggleTheme }: 
     { id: 'metas', label: 'Metas', icon: <Target className="w-5 h-5" /> },
     { id: 'afazeres', label: 'Afazeres', icon: <ListChecks className="w-5 h-5" /> },
     { id: 'agenda', label: 'Agenda', icon: <Calendar className="w-5 h-5" /> },
-    { id: 'vida', label: 'Metas de Vida', icon: <Star className="w-5 h-5" /> },
     { id: 'missao', label: 'Missão Semanal', icon: <Heart className="w-5 h-5" /> },
     { id: 'progressao', label: 'Progressão', icon: <TrendingUp className="w-5 h-5" /> },
     { id: 'ranking', label: 'Ranking', icon: <Trophy className="w-5 h-5" /> },
+    { id: 'financeiro', label: 'Financeiro', icon: <DollarSign className="w-5 h-5" /> },
+    { id: 'hidratacao', label: 'Hidratação', icon: <Droplets className="w-5 h-5" /> },
   ];
 
   const sidebarContent = (
@@ -41,7 +42,7 @@ export function Sidebar({ currentPage, onPageChange, darkMode, onToggleTheme }: 
         </div>
       </div>
 
-      <nav className="flex-1 px-3 space-y-0.5 mt-2">
+      <nav className="flex-1 px-3 space-y-0.5 mt-2 overflow-y-auto">
         {navItems.map(item => (
           <button
             key={item.id}

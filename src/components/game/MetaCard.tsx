@@ -1,6 +1,7 @@
 import { Meta, CATEGORY_CONFIG, CATEGORY_BG, classifyTask, getStreakMultiplier } from '@/types/game';
 import { useGame } from '@/contexts/GameContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
+import { formatMinutesToHM } from '@/lib/formatTime';
 import { CheckCircle2, Circle, ChevronDown, ChevronUp, Trash2, Zap, Clock, CalendarPlus, Undo2, X, Trophy, Play, Square, Edit3, CalendarCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -25,7 +26,7 @@ function MissionTimer({ metaId, mission }: { metaId: string; mission: any }) {
 
   if (mission.completedToday) {
     return mission.actualMinutes ? (
-      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-game-green/10 text-game-green font-body">⏱️ {mission.actualMinutes}min</span>
+      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-game-green/10 text-game-green font-body">⏱️ {formatMinutesToHM(mission.actualMinutes)}</span>
     ) : null;
   }
 
@@ -39,7 +40,7 @@ function MissionTimer({ metaId, mission }: { metaId: string; mission: any }) {
       ) : (
         <>
           <span className="text-sm font-display text-primary animate-pulse-glow">{formatTime(elapsed)}</span>
-          {mission.estimatedMinutes && <span className="text-[10px] text-muted-foreground font-body">/ {mission.estimatedMinutes}min</span>}
+          {mission.estimatedMinutes && <span className="text-[10px] text-muted-foreground font-body">/ {formatMinutesToHM(mission.estimatedMinutes)}</span>}
           <button onClick={() => { stopMissionTimer(metaId, mission.id); completeMission(metaId, mission.id); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-[11px] font-display tracking-wider hover:bg-destructive/20 transition-all">
             <Square className="w-3 h-3" /> FINALIZAR
@@ -198,7 +199,7 @@ export function MetaCard({ meta }: { meta: Meta }) {
                       {mission.estimatedMinutes && (
                         <button onClick={() => { setEditingEstimate(mission.id); setEstimateValue(String(mission.estimatedMinutes)); }}
                           className="text-[10px] px-2.5 py-1 rounded-lg bg-secondary/50 text-muted-foreground font-body flex items-center gap-1 hover:bg-secondary transition-all">
-                          <Clock className="w-3 h-3" /> ~{mission.estimatedMinutes}min <Edit3 className="w-2.5 h-2.5 ml-1" />
+                          <Clock className="w-3 h-3" /> ~{formatMinutesToHM(mission.estimatedMinutes)} <Edit3 className="w-2.5 h-2.5 ml-1" />
                         </button>
                       )}
                       {mission.scheduledDay && (
@@ -230,7 +231,7 @@ export function MetaCard({ meta }: { meta: Meta }) {
                       <div className="mt-2 text-[10px] text-muted-foreground font-body space-y-0.5">
                         <p>▶️ Início: {new Date(mission.timerStartedAt).toLocaleString('pt-BR')}</p>
                         {mission.timerCompletedAt && <p>⏹️ Fim: {new Date(mission.timerCompletedAt).toLocaleString('pt-BR')}</p>}
-                        {mission.actualMinutes != null && <p>⏱️ Duração: {mission.actualMinutes}min {mission.estimatedMinutes ? `(estimado: ${mission.estimatedMinutes}min)` : ''}</p>}
+                        {mission.actualMinutes != null && <p>⏱️ Duração: {formatMinutesToHM(mission.actualMinutes)} {mission.estimatedMinutes ? `(estimado: ${formatMinutesToHM(mission.estimatedMinutes)})` : ''}</p>}
                       </div>
                     )}
 
