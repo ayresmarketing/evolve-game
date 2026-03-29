@@ -6,6 +6,15 @@ interface ScheduleState {
   fixedBlocks: FixedTimeBlock[];
 }
 
+interface DayScheduleResult {
+  sleepHours: number;
+  busyHours: number;
+  freeHours: number;
+  sleepMinutes: number;
+  busyMinutes: number;
+  freeMinutes: number;
+}
+
 interface ScheduleContextType extends ScheduleState {
   addSleepSchedule: (schedule: Omit<SleepSchedule, 'id'>) => void;
   updateSleepSchedule: (id: string, schedule: Partial<SleepSchedule>) => void;
@@ -13,7 +22,7 @@ interface ScheduleContextType extends ScheduleState {
   addFixedBlock: (block: Omit<FixedTimeBlock, 'id'>) => void;
   updateFixedBlock: (id: string, block: Partial<FixedTimeBlock>) => void;
   deleteFixedBlock: (id: string) => void;
-  getDaySchedule: (day: DayOfWeek) => { sleepHours: number; busyHours: number; freeHours: number };
+  getDaySchedule: (day: DayOfWeek, scheduledMinutes?: number) => DayScheduleResult;
 }
 
 const ScheduleContext = createContext<ScheduleContextType | null>(null);
@@ -40,56 +49,49 @@ export function ScheduleProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   const addSleepSchedule = useCallback((schedule: Omit<SleepSchedule, 'id'>) => {
-    setState(prev => ({
-      ...prev,
-      sleepSchedules: [...prev.sleepSchedules, { ...schedule, id: generateId() }],
-    }));
+    setState(prev => ({ ...prev, sleepSchedules: [...prev.sleepSchedules, { ...schedule, id: generateId() }] }));
   }, []);
 
   const updateSleepSchedule = useCallback((id: string, updates: Partial<SleepSchedule>) => {
-    setState(prev => ({
-      ...prev,
-      sleepSchedules: prev.sleepSchedules.map(s => s.id === id ? { ...s, ...updates } : s),
-    }));
+    setState(prev => ({ ...prev, sleepSchedules: prev.sleepSchedules.map(s => s.id === id ? { ...s, ...updates } : s) }));
   }, []);
 
   const deleteSleepSchedule = useCallback((id: string) => {
-    setState(prev => ({
-      ...prev,
-      sleepSchedules: prev.sleepSchedules.filter(s => s.id !== id),
-    }));
+    setState(prev => ({ ...prev, sleepSchedules: prev.sleepSchedules.filter(s => s.id !== id) }));
   }, []);
 
   const addFixedBlock = useCallback((block: Omit<FixedTimeBlock, 'id'>) => {
-    setState(prev => ({
-      ...prev,
-      fixedBlocks: [...prev.fixedBlocks, { ...block, id: generateId() }],
-    }));
+    setState(prev => ({ ...prev, fixedBlocks: [...prev.fixedBlocks, { ...block, id: generateId() }] }));
   }, []);
 
   const updateFixedBlock = useCallback((id: string, updates: Partial<FixedTimeBlock>) => {
-    setState(prev => ({
-      ...prev,
-      fixedBlocks: prev.fixedBlocks.map(b => b.id === id ? { ...b, ...updates } : b),
-    }));
+    setState(prev => ({ ...prev, fixedBlocks: prev.fixedBlocks.map(b => b.id === id ? { ...b, ...updates } : b) }));
   }, []);
 
   const deleteFixedBlock = useCallback((id: string) => {
-    setState(prev => ({
-      ...prev,
-      fixedBlocks: prev.fixedBlocks.filter(b => b.id !== id),
-    }));
+    setState(prev => ({ ...prev, fixedBlocks: prev.fixedBlocks.filter(b => b.id !== id) }));
   }, []);
 
-  const getDaySchedule = useCallback((day: DayOfWeek) => {
+  const getDaySchedule = useCallback((day: DayOfWeek, scheduledMinutes: number = 0): DayScheduleResult => {
     const sleepSchedule = state.sleepSchedules.find(s => s.days.includes(day));
-    const sleepHours = sleepSchedule ? calculateSleepHours(sleepSchedule.bedtime, sleepSchedule.wakeTime) : 8;
+    const sleepHoursRaw = sleepSchedule ? calculateSleepHours(sleepSchedule.bedtime, sleepSchedule.wakeTime) : 8;
+    const sleepMinutes = Math.round(sleepHoursRaw * 60);
 
     const dayBlocks = state.fixedBlocks.filter(b => b.days.includes(day));
-    const busyHours = dayBlocks.reduce((total, b) => total + calculateBlockHours(b.startTime, b.endTime), 0);
+    const fixedBusyMinutes = Math.round(dayBlocks.reduce((total, b) => total + calculateBlockHours(b.startTime, b.endTime), 0) * 60);
+    
+    // Include scheduled task minutes in busy time
+    const totalBusyMinutes = fixedBusyMinutes + scheduledMinutes;
+    const freeMinutes = Math.max(0, 24 * 60 - sleepMinutes - totalBusyMinutes);
 
-    const freeHours = Math.max(0, 24 - sleepHours - busyHours);
-    return { sleepHours: Math.round(sleepHours * 10) / 10, busyHours: Math.round(busyHours * 10) / 10, freeHours: Math.round(freeHours * 10) / 10 };
+    return {
+      sleepHours: sleepMinutes / 60,
+      busyHours: totalBusyMinutes / 60,
+      freeHours: freeMinutes / 60,
+      sleepMinutes,
+      busyMinutes: totalBusyMinutes,
+      freeMinutes,
+    };
   }, [state]);
 
   return (
