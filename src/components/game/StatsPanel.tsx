@@ -6,7 +6,7 @@ export function StatsPanel() {
   const activeMetas = metas.filter(m => !m.completed).length;
 
   const statItems = [
-    { label: 'Streak', value: stats.streak, icon: Flame, colorClass: 'text-game-fire' },
+    { label: 'Consistência', value: stats.streak, icon: Flame, colorClass: 'text-game-fire' },
     { label: 'Missões', value: stats.totalMissionsCompleted, icon: Swords, colorClass: 'text-game-green' },
     { label: 'Metas Ativas', value: activeMetas, icon: Target, colorClass: 'text-game-blue' },
     { label: 'Conquistas', value: stats.totalMetasCompleted, icon: Trophy, colorClass: 'text-game-gold' },

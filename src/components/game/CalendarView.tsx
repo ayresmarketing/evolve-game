@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
+import { formatMinutesToHM } from '@/lib/formatTime';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
 export function CalendarView() {
@@ -129,7 +130,7 @@ export function CalendarView() {
                       {event.time && <span className="text-[10px] text-muted-foreground font-body">🕐 {event.time}</span>}
                       {event.estimatedMinutes && (
                         <span className="text-[10px] text-muted-foreground font-body flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> ~{event.estimatedMinutes}min
+                          <Clock className="w-3 h-3" /> ~{formatMinutesToHM(event.estimatedMinutes)}
                         </span>
                       )}
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-body">{event.type === 'mission' ? 'missão' : 'afazer'}</span>
