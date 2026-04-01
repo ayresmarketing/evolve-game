@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { GameProvider, useGame } from '@/contexts/GameContext';
-import { ScheduleProvider, useSchedule } from '@/contexts/ScheduleContext';
-import { Sidebar, Page } from '@/components/game/Sidebar';
+import { ScheduleProvider } from '@/contexts/ScheduleContext';
+import { BottomNav, Page } from '@/components/game/Sidebar';
 import { ProfileBanner } from '@/components/game/ProfileBanner';
 import { QuoteBar } from '@/components/game/QuoteBar';
 import { MetaCard } from '@/components/game/MetaCard';
@@ -18,7 +18,9 @@ import { RankingPanel } from '@/components/game/RankingPanel';
 import { EvolutionTimeline } from '@/components/game/EvolutionTimeline';
 import { FinancePanel } from '@/components/game/FinancePanel';
 import { HydrationPanel } from '@/components/game/HydrationPanel';
-import { getStreakMultiplier, CATEGORY_CONFIG, CATEGORY_BG, DayOfWeek } from '@/types/game';
+import { NotesPanel } from '@/components/game/NotesPanel';
+import { HydrationMini } from '@/components/game/HydrationMini';
+import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import { Clock, CalendarPlus, Zap } from 'lucide-react';
 
@@ -26,7 +28,6 @@ function UpcomingTasks() {
   const { metas } = useGame();
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Get next 3 scheduled tasks sorted by date+time
   const upcoming = useMemo(() => {
     return metas.flatMap(m => m.missions
       .filter(mi => !mi.completedToday && mi.scheduledDay && mi.scheduledDay >= todayStr)
@@ -41,19 +42,19 @@ function UpcomingTasks() {
   if (upcoming.length === 0) return null;
 
   return (
-    <div className="glass-card rounded-2xl p-5 animate-slide-up">
+    <div className="section-card animate-slide-up">
       <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase flex items-center gap-2">
-        <CalendarPlus className="w-3.5 h-3.5 text-primary" /> Próximas Tarefas na Agenda
+        <CalendarPlus className="w-3.5 h-3.5 text-primary" /> Próximas Tarefas
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="space-y-2">
         {upcoming.map(task => {
           const cat = CATEGORY_CONFIG[task.category];
           return (
-            <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/20 border border-border">
-              <div className={`w-1.5 h-10 rounded-full ${CATEGORY_BG[cat.color]}`} />
+            <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 border border-border/50">
+              <div className={`w-1 h-8 rounded-full ${CATEGORY_BG[cat.color]}`} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-body font-semibold text-foreground truncate">{task.title}</p>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {task.scheduledDay && (
                     <span className="text-[10px] text-muted-foreground font-body">
                       📅 {new Date(task.scheduledDay + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
@@ -80,11 +81,11 @@ function Dashboard() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('lifequest_theme');
-    return saved !== 'light';
+    return saved === 'dark';
   });
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', !darkMode);
+    document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('lifequest_theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
@@ -97,34 +98,46 @@ function Dashboard() {
       case 'dashboard':
         return (
           <div className="space-y-5">
-            <div>
-              <p className="text-sm text-muted-foreground font-body">Olá, Jogador</p>
-              <h1 className="font-display text-xl tracking-wider text-foreground">Dashboard</h1>
-              {streakMult > 1 && (
-                <p className="text-xs text-game-fire font-body mt-1">
-                  🔥 Bônus de consistência ativo: +{Math.round((streakMult - 1) * 100)}% XP ({stats.streak} dias)
-                </p>
-              )}
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground font-body">Olá, Jogador 👋</p>
+                <h1 className="font-display text-lg tracking-wider text-foreground">Dashboard</h1>
+                {streakMult > 1 && (
+                  <p className="text-xs text-game-fire font-body mt-0.5">
+                    🔥 Bônus de consistência: +{Math.round((streakMult - 1) * 100)}% XP
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20">
+                  <span className="font-display text-xs text-primary">{stats.xp.toLocaleString()} XP</span>
+                </div>
+              </div>
             </div>
 
-            {/* Upcoming tasks at top */}
-            <UpcomingTasks />
-
+            {/* 1. Quote */}
             <QuoteBar />
 
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-              <div className="lg:col-span-3">
-                <ProfileBanner />
-              </div>
-              <div className="lg:col-span-2">
-                <TaskStatsChart />
-              </div>
+            {/* 2. Upcoming tasks */}
+            <UpcomingTasks />
+
+            {/* 3. Task progress + Hydration */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TaskStatsChart />
+              <HydrationMini />
             </div>
 
-            <EvolutionTimeline />
+            {/* 4. Profile overview */}
+            <ProfileBanner />
 
+            {/* 5. Category overview */}
             <CategoryOverview />
 
+            {/* 6. Evolution */}
+            <EvolutionTimeline />
+
+            {/* Active metas */}
             <section>
               <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
                 🎯 Metas Ativas
@@ -152,7 +165,7 @@ function Dashboard() {
       case 'metas':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Gerenciar Metas</h1>
+            <h1 className="font-display text-lg tracking-wider text-foreground">Gerenciar Metas</h1>
             <CreateMetaDialog />
             <CategoryOverview />
             <div className="space-y-4">
@@ -170,9 +183,9 @@ function Dashboard() {
       case 'afazeres':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Afazeres</h1>
+            <h1 className="font-display text-lg tracking-wider text-foreground">Afazeres</h1>
             <p className="text-sm text-muted-foreground font-body">
-              Tarefas avulsas ou recorrentes do dia a dia. Conecte a uma meta para ganhar mais XP!
+              Tarefas avulsas ou recorrentes do dia a dia.
             </p>
             <AfazeresPanel />
           </div>
@@ -181,7 +194,7 @@ function Dashboard() {
       case 'agenda':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Agenda</h1>
+            <h1 className="font-display text-lg tracking-wider text-foreground">Agenda</h1>
             <CalendarView />
             <SchedulePanel />
           </div>
@@ -190,9 +203,9 @@ function Dashboard() {
       case 'missao':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Missão Semanal</h1>
+            <h1 className="font-display text-lg tracking-wider text-foreground">Missão Semanal</h1>
             <p className="text-sm text-muted-foreground font-body">
-              Toda semana você recebe uma missão de ajudar alguém. Evolução real inclui impactar vidas.
+              Toda semana você recebe uma missão de ajudar alguém.
             </p>
             <WeeklyMission />
           </div>
@@ -201,9 +214,9 @@ function Dashboard() {
       case 'progressao':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Progressão & Níveis</h1>
+            <h1 className="font-display text-lg tracking-wider text-foreground">Progressão & Níveis</h1>
             <p className="text-sm text-muted-foreground font-body">
-              Cada nível representa quem você está se tornando. Não é apenas XP — é transformação.
+              Cada nível representa quem você está se tornando.
             </p>
             <LevelProgression />
           </div>
@@ -212,10 +225,7 @@ function Dashboard() {
       case 'ranking':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Ranking</h1>
-            <p className="text-sm text-muted-foreground font-body">
-              Seu progresso e conquistas acumuladas ao longo da jornada.
-            </p>
+            <h1 className="font-display text-lg tracking-wider text-foreground">Ranking</h1>
             <RankingPanel />
           </div>
         );
@@ -223,10 +233,7 @@ function Dashboard() {
       case 'financeiro':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Financeiro</h1>
-            <p className="text-sm text-muted-foreground font-body">
-              Acompanhe suas receitas, despesas e mantenha o controle financeiro.
-            </p>
+            <h1 className="font-display text-lg tracking-wider text-foreground">Financeiro</h1>
             <FinancePanel />
           </div>
         );
@@ -234,27 +241,59 @@ function Dashboard() {
       case 'hidratacao':
         return (
           <div className="space-y-5">
-            <h1 className="font-display text-xl tracking-wider text-foreground">Hidratação</h1>
-            <p className="text-sm text-muted-foreground font-body">
-              Mantenha-se hidratado! Registre seu consumo de água e acompanhe sua consistência.
-            </p>
+            <h1 className="font-display text-lg tracking-wider text-foreground">Hidratação</h1>
             <HydrationPanel />
+          </div>
+        );
+
+      case 'anotacoes':
+        return (
+          <div className="space-y-5">
+            <h1 className="font-display text-lg tracking-wider text-foreground">Anotações</h1>
+            <p className="text-sm text-muted-foreground font-body">
+              Registre pensamentos, aprendizados e reflexões.
+            </p>
+            <NotesPanel />
           </div>
         );
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} darkMode={darkMode} onToggleTheme={() => setDarkMode(!darkMode)} />
-      <main className="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto">
-        <div className="max-w-4xl mx-auto lg:mx-0">
-          {renderPage()}
+    <div className="min-h-screen bg-background pb-20">
+      {/* Top header bar */}
+      <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-md border-b border-border px-4 py-3">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-glow-cyan">
+              <Zap className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="font-display text-[10px] tracking-[0.18em] text-primary font-bold">LIFE QUEST</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-[10px] font-body text-muted-foreground">Nível {stats.level}</p>
+              <p className="text-xs font-display text-foreground font-bold">{stats.xp.toLocaleString()} XP</p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-sm ring-2 ring-primary/20">
+              {getLevelFromXP(stats.xp).icon}
+            </div>
+          </div>
         </div>
+      </header>
+
+      {/* Main content */}
+      <main className="px-4 py-5 max-w-2xl mx-auto">
+        {renderPage()}
       </main>
-      <aside className="hidden xl:block w-[280px] min-h-screen p-4 border-l border-border overflow-y-auto shrink-0">
-        <RightPanel />
-      </aside>
+
+      {/* Bottom navigation */}
+      <BottomNav
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        darkMode={darkMode}
+        onToggleTheme={() => setDarkMode(!darkMode)}
+      />
     </div>
   );
 }

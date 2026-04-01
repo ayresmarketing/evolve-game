@@ -1,116 +1,125 @@
 import { useState } from 'react';
-import { LayoutDashboard, Target, Calendar, Heart, Menu, X, Flame, Zap, TrendingUp, ListChecks, Trophy, Sun, Moon, DollarSign, Droplets } from 'lucide-react';
+import { LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp, Trophy, DollarSign, Droplets, StickyNote, Sun, Moon } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
-export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'missao' | 'progressao' | 'ranking' | 'financeiro' | 'hidratacao';
+export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'missao' | 'progressao' | 'ranking' | 'financeiro' | 'hidratacao' | 'anotacoes';
 
-interface SidebarProps {
+interface BottomNavProps {
   currentPage: Page;
   onPageChange: (page: Page) => void;
   darkMode: boolean;
   onToggleTheme: () => void;
 }
 
-export function Sidebar({ currentPage, onPageChange, darkMode, onToggleTheme }: SidebarProps) {
+const navItems: { id: Page; label: string; icon: React.ElementType }[] = [
+  { id: 'dashboard', label: 'Início', icon: LayoutDashboard },
+  { id: 'metas', label: 'Metas', icon: Target },
+  { id: 'afazeres', label: 'Afazeres', icon: ListChecks },
+  { id: 'agenda', label: 'Agenda', icon: Calendar },
+  { id: 'anotacoes', label: 'Notas', icon: StickyNote },
+  { id: 'financeiro', label: 'Finanças', icon: DollarSign },
+  { id: 'hidratacao', label: 'Água', icon: Droplets },
+  { id: 'ranking', label: 'Ranking', icon: Trophy },
+  { id: 'progressao', label: 'Progresso', icon: TrendingUp },
+  { id: 'missao', label: 'Missão', icon: Heart },
+];
+
+export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }: BottomNavProps) {
   const { stats } = useGame();
   const { level, name, icon } = getLevelFromXP(stats.xp);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
-  const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'metas', label: 'Metas', icon: <Target className="w-5 h-5" /> },
-    { id: 'afazeres', label: 'Afazeres', icon: <ListChecks className="w-5 h-5" /> },
-    { id: 'agenda', label: 'Agenda', icon: <Calendar className="w-5 h-5" /> },
-    { id: 'missao', label: 'Missão Semanal', icon: <Heart className="w-5 h-5" /> },
-    { id: 'progressao', label: 'Progressão', icon: <TrendingUp className="w-5 h-5" /> },
-    { id: 'ranking', label: 'Ranking', icon: <Trophy className="w-5 h-5" /> },
-    { id: 'financeiro', label: 'Financeiro', icon: <DollarSign className="w-5 h-5" /> },
-    { id: 'hidratacao', label: 'Hidratação', icon: <Droplets className="w-5 h-5" /> },
-  ];
-
-  const sidebarContent = (
-    <>
-      <div className="px-5 pt-6 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-accent flex items-center justify-center shadow-glow-cyan">
-            <Zap className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="font-display text-[11px] tracking-[0.2em] text-primary text-glow-cyan font-bold">LIFE QUEST</h1>
-          </div>
-        </div>
-      </div>
-
-      <nav className="flex-1 px-3 space-y-0.5 mt-2 overflow-y-auto">
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => { onPageChange(item.id); setMobileOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-body font-semibold transition-all duration-200 ${
-              currentPage === item.id
-                ? 'bg-primary text-primary-foreground shadow-glow-cyan'
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
-            }`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-
-        <div className="my-4 border-t border-border" />
-
-        <div className="px-4 py-3 rounded-xl bg-secondary/40">
-          <div className="flex items-center gap-2">
-            <Flame className="w-4 h-4 text-game-fire" />
-            <span className="text-sm font-body font-semibold text-foreground">{stats.streak} dias de Consistência</span>
-          </div>
-          <p className="text-[11px] text-muted-foreground font-body mt-0.5">Melhor: {stats.longestStreak} dias</p>
-        </div>
-
-        {/* Theme toggle */}
-        <button onClick={onToggleTheme}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-body font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all mt-2">
-          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          <span>{darkMode ? 'Modo Claro' : 'Modo Escuro'}</span>
-        </button>
-      </nav>
-
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-game-purple to-game-cyan flex items-center justify-center text-lg ring-2 ring-primary/30">
-            {icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-body font-semibold text-foreground truncate">Jogador</p>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-primary font-body font-semibold">Level {level}</span>
-              <span className="text-[11px] text-muted-foreground font-body">· {name}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+  // Show first 5 in bottom bar, rest in "more" tray
+  const visibleItems = navItems.slice(0, 5);
+  const moreItems = navItems.slice(5);
 
   return (
     <>
-      <button onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card border border-border shadow-game-card">
-        {mobileOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
-      </button>
-
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40" onClick={() => setMobileOpen(false)} />
+      {/* More tray overlay */}
+      {showMore && (
+        <div className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" onClick={() => setShowMore(false)} />
       )}
 
-      <aside className="hidden lg:flex flex-col w-[220px] min-h-screen bg-gradient-sidebar border-r border-border shrink-0">
-        {sidebarContent}
-      </aside>
+      {/* More tray */}
+      {showMore && (
+        <div className="fixed bottom-[72px] left-3 right-3 z-50 bg-card border border-border rounded-2xl shadow-game-card p-3 animate-slide-up">
+          <div className="grid grid-cols-5 gap-1">
+            {moreItems.map(item => {
+              const Icon = item.icon;
+              const isActive = currentPage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { onPageChange(item.id); setShowMore(false); }}
+                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl transition-all ${
+                    isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-[10px] font-body font-semibold leading-tight">{item.label}</span>
+                </button>
+              );
+            })}
+            <button
+              onClick={onToggleTheme}
+              className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl text-muted-foreground hover:text-foreground transition-all"
+            >
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              <span className="text-[10px] font-body font-semibold leading-tight">{darkMode ? 'Claro' : 'Escuro'}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
-      <aside className={`lg:hidden fixed inset-y-0 left-0 z-40 w-[260px] bg-gradient-sidebar border-r border-border flex flex-col transform transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        {sidebarContent}
-      </aside>
+      {/* Bottom navigation bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-[0_-2px_12px_hsl(220_30%_50%/0.06)]">
+        <div className="flex items-center justify-around px-1 py-1.5 max-w-lg mx-auto">
+          {visibleItems.map(item => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => { onPageChange(item.id); setShowMore(false); }}
+                className={`flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all min-w-[56px] ${
+                  isActive
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <div className={`p-1.5 rounded-xl transition-all ${isActive ? 'bg-primary/12 shadow-glow-cyan' : ''}`}>
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-primary' : ''}`} />
+                </div>
+                <span className={`text-[10px] font-body font-semibold leading-tight ${isActive ? 'text-primary' : ''}`}>{item.label}</span>
+              </button>
+            );
+          })}
+
+          {/* More button */}
+          <button
+            onClick={() => setShowMore(!showMore)}
+            className={`flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all min-w-[56px] ${
+              showMore || moreItems.some(i => i.id === currentPage)
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <div className={`p-1.5 rounded-xl transition-all ${showMore || moreItems.some(i => i.id === currentPage) ? 'bg-primary/12' : ''}`}>
+              <div className="flex gap-0.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                <div className="w-1.5 h-1.5 rounded-full bg-current" />
+              </div>
+            </div>
+            <span className="text-[10px] font-body font-semibold leading-tight">Mais</span>
+          </button>
+        </div>
+      </nav>
     </>
   );
 }
+
+// Keep backward compat export
+export { BottomNav as Sidebar };
+export type { BottomNavProps as SidebarProps };

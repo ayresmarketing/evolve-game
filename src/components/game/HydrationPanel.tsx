@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Droplets, Plus, Minus, Trophy, TrendingUp } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Droplets, Plus, Trophy, TrendingUp } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface HydrationDay {
   date: string;
@@ -53,6 +54,15 @@ export function HydrationPanel() {
       } else {
         history.push({ date: today, consumed: newConsumed, goal: prev.dailyGoalMl });
       }
+      const newGoalReached = newConsumed >= prev.dailyGoalMl;
+      const wasReached = prev.todayConsumed >= prev.dailyGoalMl;
+
+      if (newGoalReached && !wasReached) {
+        toast.success('🎉 Meta de hidratação concluída hoje!', { description: `Total: ${newConsumed}ml` });
+      } else {
+        toast.success(`💧 +${ml}ml adicionado`, { description: `Total: ${newConsumed}ml / ${prev.dailyGoalMl}ml` });
+      }
+
       return { ...prev, todayConsumed: newConsumed, history };
     });
   }, [today]);
@@ -62,11 +72,11 @@ export function HydrationPanel() {
     if (val > 0) {
       setState(prev => ({ ...prev, dailyGoalMl: Math.round(val * 1000) }));
       setEditingGoal(false);
+      toast.success(`Meta atualizada para ${val}L`);
     }
   };
 
-  // Last 7 days history
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
+  const last7Days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
     const dateStr = d.toISOString().split('T')[0];
@@ -78,16 +88,16 @@ export function HydrationPanel() {
       goal: entry?.goal || state.dailyGoalMl,
       reached: (entry?.consumed || 0) >= (entry?.goal || state.dailyGoalMl),
     };
-  });
+  }), [state.history, state.dailyGoalMl]);
 
   const consistencyDays = last7Days.filter(d => d.reached).length;
 
   return (
     <div className="space-y-5">
       {/* Main hydration card */}
-      <div className="glass-card rounded-2xl p-6 text-center">
+      <div className="section-card text-center">
         <div className="flex items-center justify-center gap-2 mb-6">
-          <Droplets className="w-6 h-6 text-game-blue" />
+          <Droplets className="w-6 h-6 text-primary" />
           <h2 className="font-display text-sm tracking-[0.2em] text-foreground uppercase">Hidratação</h2>
         </div>
 
@@ -95,7 +105,7 @@ export function HydrationPanel() {
         <div className="relative w-48 h-48 mx-auto mb-6">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
             <circle cx="100" cy="100" r="85" fill="none" stroke="hsl(var(--muted))" strokeWidth="12" />
-            <circle cx="100" cy="100" r="85" fill="none" stroke="hsl(var(--spiritual-blue))" strokeWidth="12"
+            <circle cx="100" cy="100" r="85" fill="none" stroke="hsl(var(--primary))" strokeWidth="12"
               strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 85}`}
               strokeDashoffset={`${2 * Math.PI * 85 * (1 - percent / 100)}`}
               className="transition-all duration-700" />
@@ -108,7 +118,7 @@ export function HydrationPanel() {
               </>
             ) : (
               <>
-                <Droplets className="w-6 h-6 text-game-blue mb-1" />
+                <Droplets className="w-6 h-6 text-primary mb-1" />
                 <span className="font-display text-2xl font-bold text-foreground">{percent}%</span>
                 <span className="text-xs text-muted-foreground font-body">{state.todayConsumed}ml / {state.dailyGoalMl}ml</span>
               </>
@@ -133,7 +143,7 @@ export function HydrationPanel() {
         <div className="grid grid-cols-3 gap-3 mb-4">
           {[250, 500, 1000].map(ml => (
             <button key={ml} onClick={() => addWater(ml)}
-              className="flex flex-col items-center gap-1 p-3 rounded-xl bg-game-blue/10 border border-game-blue/20 text-game-blue hover:bg-game-blue/20 transition-all">
+              className="flex flex-col items-center gap-1 p-3 rounded-xl bg-primary/8 border border-primary/15 text-primary hover:bg-primary/15 transition-all">
               <Plus className="w-4 h-4" />
               <span className="font-display text-sm font-bold">{ml >= 1000 ? `${ml / 1000}L` : `${ml}ml`}</span>
             </button>
@@ -143,9 +153,9 @@ export function HydrationPanel() {
         {/* Custom amount */}
         <div className="flex items-center gap-2">
           <input type="number" placeholder="Outro valor (ml)" value={customAmount} onChange={e => setCustomAmount(e.target.value)}
-            className="flex-1 bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-game-blue" />
+            className="flex-1 bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
           <button onClick={() => { const v = parseInt(customAmount); if (v > 0) { addWater(v); setCustomAmount(''); } }}
-            className="px-4 py-2.5 rounded-xl bg-game-blue text-primary-foreground font-display text-sm tracking-wider hover:opacity-90 transition-all">
+            className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-display text-sm tracking-wider hover:opacity-90 transition-all">
             Adicionar
           </button>
         </div>
@@ -160,9 +170,9 @@ export function HydrationPanel() {
           ) : (
             <div className="flex items-center justify-center gap-2">
               <input type="number" step="0.5" min="0.5" value={goalInput} onChange={e => setGoalInput(e.target.value)}
-                className="w-24 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm font-body text-foreground text-center focus:outline-none focus:ring-1 focus:ring-game-blue" />
+                className="w-24 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm font-body text-foreground text-center focus:outline-none focus:ring-1 focus:ring-primary" />
               <span className="text-sm text-muted-foreground font-body">litros</span>
-              <button onClick={setGoal} className="px-3 py-1.5 rounded-lg bg-game-blue/10 text-game-blue text-xs font-display hover:bg-game-blue/20">Salvar</button>
+              <button onClick={setGoal} className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-display hover:bg-primary/20">Salvar</button>
               <button onClick={() => setEditingGoal(false)} className="px-3 py-1.5 rounded-lg text-muted-foreground text-xs">Cancelar</button>
             </div>
           )}
@@ -170,12 +180,12 @@ export function HydrationPanel() {
       </div>
 
       {/* Weekly history */}
-      <div className="glass-card rounded-2xl p-5">
+      <div className="section-card">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
-            <TrendingUp className="w-3.5 h-3.5 text-game-blue" /> Histórico Semanal
+            <TrendingUp className="w-3.5 h-3.5 text-primary" /> Histórico Semanal
           </h3>
-          <span className="text-xs font-body text-game-blue">{consistencyDays}/7 dias atingidos</span>
+          <span className="text-xs font-body text-primary">{consistencyDays}/7 dias atingidos</span>
         </div>
 
         <div className="grid grid-cols-7 gap-2">
@@ -185,7 +195,7 @@ export function HydrationPanel() {
               <div key={day.date} className="text-center">
                 <span className="text-[10px] font-body text-muted-foreground capitalize">{day.label}</span>
                 <div className="relative h-20 bg-muted rounded-lg mt-1 overflow-hidden">
-                  <div className={`absolute bottom-0 w-full rounded-lg transition-all duration-500 ${day.reached ? 'bg-game-blue' : 'bg-game-blue/40'}`}
+                  <div className={`absolute bottom-0 w-full rounded-lg transition-all duration-500 ${day.reached ? 'bg-primary' : 'bg-primary/30'}`}
                     style={{ height: `${dayPercent}%` }} />
                 </div>
                 <span className="text-[9px] font-body text-muted-foreground mt-1 block">{dayPercent}%</span>
