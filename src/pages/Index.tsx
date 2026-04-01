@@ -20,7 +20,7 @@ import { FinancePanel } from '@/components/game/FinancePanel';
 import { HydrationPanel } from '@/components/game/HydrationPanel';
 import { NotesPanel } from '@/components/game/NotesPanel';
 import { HydrationMini } from '@/components/game/HydrationMini';
-import { getStreakMultiplier, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
+import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import { Clock, CalendarPlus, Zap } from 'lucide-react';
 
