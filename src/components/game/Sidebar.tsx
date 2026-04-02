@@ -23,6 +23,7 @@ const navItems: { id: Page; label: string; icon: React.ElementType }[] = [
   { id: 'ranking', label: 'Ranking', icon: Trophy },
   { id: 'progressao', label: 'Progresso', icon: TrendingUp },
   { id: 'missao', label: 'Missão', icon: Heart },
+  { id: 'duelo', label: 'Duelo', icon: Swords },
 ];
 
 export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }: BottomNavProps) {
