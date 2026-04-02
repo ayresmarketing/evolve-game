@@ -150,6 +150,9 @@ function Dashboard() {
             {/* 2. Upcoming tasks */}
             <UpcomingTasks />
 
+            {/* 3. Quick actions */}
+            <QuickActions onNavigate={setCurrentPage} />
+
             {/* 3. Task progress + Hydration */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <TaskStatsChart />
