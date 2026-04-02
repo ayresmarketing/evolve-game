@@ -226,6 +226,22 @@ function Dashboard() {
         return (
           <div className="space-y-5">
             <h1 className="font-display text-lg tracking-wider text-foreground">Agenda</h1>
+            {/* Google Calendar integration */}
+            <div className="section-card flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-body font-semibold text-foreground">Google Calendar</p>
+                <p className="text-[11px] text-muted-foreground font-body">Sincronize sua agenda com o Google</p>
+              </div>
+              <button
+                onClick={() => toast.info('Para integrar o Google Calendar, conecte o sistema a um banco de dados primeiro (Lovable Cloud).')}
+                className="text-[10px] px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body font-semibold hover:bg-primary/20 transition-colors"
+              >
+                Conectar
+              </button>
+            </div>
             <CalendarView />
             <SchedulePanel />
           </div>
