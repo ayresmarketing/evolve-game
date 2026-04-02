@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp, Trophy, DollarSign, Droplets, StickyNote, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp, Trophy, DollarSign, Droplets, StickyNote, Swords, Sun, Moon } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
