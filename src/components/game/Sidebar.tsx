@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp, Trophy, DollarSign, Droplets, StickyNote, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp, Trophy, DollarSign, Droplets, StickyNote, Swords, Sun, Moon } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
-export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'missao' | 'progressao' | 'ranking' | 'financeiro' | 'hidratacao' | 'anotacoes';
+export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'missao' | 'progressao' | 'ranking' | 'financeiro' | 'hidratacao' | 'anotacoes' | 'duelo';
 
 interface BottomNavProps {
   currentPage: Page;
@@ -23,6 +23,7 @@ const navItems: { id: Page; label: string; icon: React.ElementType }[] = [
   { id: 'ranking', label: 'Ranking', icon: Trophy },
   { id: 'progressao', label: 'Progresso', icon: TrendingUp },
   { id: 'missao', label: 'Missão', icon: Heart },
+  { id: 'duelo', label: 'Duelo', icon: Swords },
 ];
 
 export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }: BottomNavProps) {

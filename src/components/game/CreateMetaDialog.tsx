@@ -21,7 +21,7 @@ interface ManualMission {
   estimatedMinutes: number;
 }
 
-export function CreateMetaDialog() {
+export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.ReactNode } = {}) {
   const { addMeta, lifeGoals } = useGame();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(1);
@@ -102,6 +102,9 @@ export function CreateMetaDialog() {
   };
 
   if (!open) {
+    if (triggerElement) {
+      return <div onClick={() => setOpen(true)}>{triggerElement}</div>;
+    }
     return (
       <button
         onClick={() => setOpen(true)}

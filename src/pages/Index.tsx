@@ -20,9 +20,11 @@ import { FinancePanel } from '@/components/game/FinancePanel';
 import { HydrationPanel } from '@/components/game/HydrationPanel';
 import { NotesPanel } from '@/components/game/NotesPanel';
 import { HydrationMini } from '@/components/game/HydrationMini';
+import { DueloPanel } from '@/components/game/DueloPanel';
 import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
-import { Clock, CalendarPlus, Zap } from 'lucide-react';
+import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar } from 'lucide-react';
+import { toast } from 'sonner';
 
 function UpcomingTasks() {
   const { metas } = useGame();
@@ -76,6 +78,33 @@ function UpcomingTasks() {
   );
 }
 
+function QuickActions({ onNavigate }: { onNavigate: (page: Page) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 animate-slide-up">
+      <CreateMetaDialog triggerElement={
+        <button className="section-card flex flex-col items-center gap-2 py-3 hover:border-primary/30 transition-all group">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <Target className="w-4 h-4 text-primary" />
+          </div>
+          <span className="text-[10px] font-body font-semibold text-foreground">Adicionar Meta</span>
+        </button>
+      } />
+      <button onClick={() => onNavigate('afazeres')} className="section-card flex flex-col items-center gap-2 py-3 hover:border-primary/30 transition-all group">
+        <div className="w-9 h-9 rounded-xl bg-game-orange/10 flex items-center justify-center group-hover:bg-game-orange/20 transition-colors">
+          <ListChecks className="w-4 h-4 text-game-orange" />
+        </div>
+        <span className="text-[10px] font-body font-semibold text-foreground">Adicionar Afazer</span>
+      </button>
+      <button onClick={() => onNavigate('agenda')} className="section-card flex flex-col items-center gap-2 py-3 hover:border-primary/30 transition-all group">
+        <div className="w-9 h-9 rounded-xl bg-game-blue/10 flex items-center justify-center group-hover:bg-game-blue/20 transition-colors">
+          <Calendar className="w-4 h-4 text-game-blue" />
+        </div>
+        <span className="text-[10px] font-body font-semibold text-foreground">Ir para Agenda</span>
+      </button>
+    </div>
+  );
+}
+
 function Dashboard() {
   const { metas, stats } = useGame();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -121,6 +150,9 @@ function Dashboard() {
 
             {/* 2. Upcoming tasks */}
             <UpcomingTasks />
+
+            {/* 3. Quick actions */}
+            <QuickActions onNavigate={setCurrentPage} />
 
             {/* 3. Task progress + Hydration */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -195,6 +227,22 @@ function Dashboard() {
         return (
           <div className="space-y-5">
             <h1 className="font-display text-lg tracking-wider text-foreground">Agenda</h1>
+            {/* Google Calendar integration */}
+            <div className="section-card flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-body font-semibold text-foreground">Google Calendar</p>
+                <p className="text-[11px] text-muted-foreground font-body">Sincronize sua agenda com o Google</p>
+              </div>
+              <button
+                onClick={() => toast.info('Para integrar o Google Calendar, conecte o sistema a um banco de dados primeiro (Lovable Cloud).')}
+                className="text-[10px] px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body font-semibold hover:bg-primary/20 transition-colors"
+              >
+                Conectar
+              </button>
+            </div>
             <CalendarView />
             <SchedulePanel />
           </div>
@@ -254,6 +302,14 @@ function Dashboard() {
               Registre pensamentos, aprendizados e reflexões.
             </p>
             <NotesPanel />
+          </div>
+        );
+
+      case 'duelo':
+        return (
+          <div className="space-y-5">
+            <h1 className="font-display text-lg tracking-wider text-foreground">Duelos</h1>
+            <DueloPanel />
           </div>
         );
     }
