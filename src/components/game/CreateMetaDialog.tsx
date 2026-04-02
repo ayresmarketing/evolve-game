@@ -102,6 +102,9 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
   };
 
   if (!open) {
+    if (triggerElement) {
+      return <div onClick={() => setOpen(true)}>{triggerElement}</div>;
+    }
     return (
       <button
         onClick={() => setOpen(true)}
