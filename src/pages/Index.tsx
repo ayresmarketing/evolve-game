@@ -77,6 +77,33 @@ function UpcomingTasks() {
   );
 }
 
+function QuickActions({ onNavigate }: { onNavigate: (page: Page) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 animate-slide-up">
+      <CreateMetaDialog triggerElement={
+        <button className="section-card flex flex-col items-center gap-2 py-3 hover:border-primary/30 transition-all group">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <Target className="w-4 h-4 text-primary" />
+          </div>
+          <span className="text-[10px] font-body font-semibold text-foreground">Adicionar Meta</span>
+        </button>
+      } />
+      <button onClick={() => onNavigate('afazeres')} className="section-card flex flex-col items-center gap-2 py-3 hover:border-primary/30 transition-all group">
+        <div className="w-9 h-9 rounded-xl bg-game-orange/10 flex items-center justify-center group-hover:bg-game-orange/20 transition-colors">
+          <ListChecks className="w-4 h-4 text-game-orange" />
+        </div>
+        <span className="text-[10px] font-body font-semibold text-foreground">Adicionar Afazer</span>
+      </button>
+      <button onClick={() => onNavigate('agenda')} className="section-card flex flex-col items-center gap-2 py-3 hover:border-primary/30 transition-all group">
+        <div className="w-9 h-9 rounded-xl bg-game-blue/10 flex items-center justify-center group-hover:bg-game-blue/20 transition-colors">
+          <Calendar className="w-4 h-4 text-game-blue" />
+        </div>
+        <span className="text-[10px] font-body font-semibold text-foreground">Ir para Agenda</span>
+      </button>
+    </div>
+  );
+}
+
 function Dashboard() {
   const { metas, stats } = useGame();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
