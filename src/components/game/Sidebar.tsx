@@ -3,7 +3,7 @@ import { LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp, Troph
 import { useGame } from '@/contexts/GameContext';
 import { getLevelFromXP } from '@/types/game';
 
-export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'missao' | 'progressao' | 'ranking' | 'financeiro' | 'hidratacao' | 'anotacoes';
+export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'missao' | 'progressao' | 'ranking' | 'financeiro' | 'hidratacao' | 'anotacoes' | 'duelo';
 
 interface BottomNavProps {
   currentPage: Page;
