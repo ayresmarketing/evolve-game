@@ -20,9 +20,10 @@ import { FinancePanel } from '@/components/game/FinancePanel';
 import { HydrationPanel } from '@/components/game/HydrationPanel';
 import { NotesPanel } from '@/components/game/NotesPanel';
 import { HydrationMini } from '@/components/game/HydrationMini';
+import { DueloPanel } from '@/components/game/DueloPanel';
 import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
-import { Clock, CalendarPlus, Zap } from 'lucide-react';
+import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar } from 'lucide-react';
 
 function UpcomingTasks() {
   const { metas } = useGame();
