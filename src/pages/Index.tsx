@@ -24,6 +24,7 @@ import { DueloPanel } from '@/components/game/DueloPanel';
 import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar } from 'lucide-react';
+import { toast } from 'sonner';
 
 function UpcomingTasks() {
   const { metas } = useGame();
