@@ -304,8 +304,15 @@ function Dashboard() {
             <NotesPanel />
           </div>
         );
+
+      case 'duelo':
+        return (
+          <div className="space-y-5">
+            <h1 className="font-display text-lg tracking-wider text-foreground">Duelos</h1>
+            <DueloPanel />
+          </div>
+        );
     }
-  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
