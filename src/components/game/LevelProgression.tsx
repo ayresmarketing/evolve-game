@@ -104,7 +104,7 @@ export function LevelProgression() {
               className={`glass-card rounded-2xl overflow-hidden transition-all duration-300 ${
                 isCurrentLevel ? 'ring-2 ring-primary/50 shadow-glow-cyan' :
                 isNext ? 'ring-1 ring-game-gold/30' :
-                isUnlocked ? 'opacity-80' : 'opacity-50'
+                isUnlocked && !isLocked ? 'opacity-80' : 'opacity-50'
               }`}
             >
               <div className="p-5">
