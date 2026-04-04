@@ -9,18 +9,17 @@ import { CreateMetaDialog } from '@/components/game/CreateMetaDialog';
 import { CategoryOverview } from '@/components/game/CategoryOverview';
 import { SchedulePanel } from '@/components/game/SchedulePanel';
 import { WeeklyMission } from '@/components/game/WeeklyMission';
-import { RightPanel } from '@/components/game/RightPanel';
 import { TaskStatsChart } from '@/components/game/TaskStatsChart';
 import { LevelProgression } from '@/components/game/LevelProgression';
 import { AfazeresPanel } from '@/components/game/AfazeresPanel';
 import { CalendarView } from '@/components/game/CalendarView';
-import { RankingPanel } from '@/components/game/RankingPanel';
 import { EvolutionTimeline } from '@/components/game/EvolutionTimeline';
 import { FinancePanel } from '@/components/game/FinancePanel';
 import { HydrationPanel } from '@/components/game/HydrationPanel';
 import { NotesPanel } from '@/components/game/NotesPanel';
 import { HydrationMini } from '@/components/game/HydrationMini';
 import { DueloPanel } from '@/components/game/DueloPanel';
+import { RecurringTasksChart } from '@/components/game/RecurringTasksChart';
 import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar } from 'lucide-react';
@@ -44,16 +43,16 @@ function UpcomingTasks() {
   if (upcoming.length === 0) return null;
 
   return (
-    <div className="section-card animate-slide-up">
-      <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase flex items-center gap-2">
+    <section className="section-card animate-slide-up" aria-label="Próximas tarefas agendadas">
+      <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase flex items-center gap-2">
         <CalendarPlus className="w-3.5 h-3.5 text-primary" /> Próximas Tarefas
-      </h3>
+      </h2>
       <div className="space-y-2">
         {upcoming.map(task => {
           const cat = CATEGORY_CONFIG[task.category];
           return (
-            <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 border border-border/50">
-              <div className={`w-1 h-8 rounded-full ${CATEGORY_BG[cat.color]}`} />
+            <article key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 border border-border/50">
+              <div className={`w-1 h-8 rounded-full ${CATEGORY_BG[cat.color]}`} aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-body font-semibold text-foreground truncate">{task.title}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -70,17 +69,17 @@ function UpcomingTasks() {
                   )}
                 </div>
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }
 
 function QuickActions({ onNavigate }: { onNavigate: (page: Page) => void }) {
   return (
-    <div className="grid grid-cols-3 gap-2 animate-slide-up">
+    <nav className="grid grid-cols-3 gap-2 animate-slide-up" aria-label="Ações rápidas">
       <CreateMetaDialog triggerElement={
         <button className="section-card flex flex-col items-center gap-2 py-3 hover:border-primary/30 transition-all group">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -101,6 +100,35 @@ function QuickActions({ onNavigate }: { onNavigate: (page: Page) => void }) {
         </div>
         <span className="text-[10px] font-body font-semibold text-foreground">Ir para Agenda</span>
       </button>
+    </nav>
+  );
+}
+
+function FutureProjection({ meta }: { meta: any }) {
+  if (!meta.benefits30d && !meta.benefits6m && !meta.benefits1y) return null;
+  return (
+    <div className="mt-3 p-4 rounded-xl bg-primary/5 border border-primary/15">
+      <h4 className="font-display text-[10px] tracking-[0.2em] text-primary uppercase mb-3">🔮 Projeção de Futuro</h4>
+      <div className="space-y-2">
+        {meta.benefits30d && (
+          <div className="flex items-start gap-2">
+            <span className="text-[10px] font-display text-muted-foreground shrink-0 w-16">30 dias</span>
+            <p className="text-xs font-body text-foreground">{meta.benefits30d}</p>
+          </div>
+        )}
+        {meta.benefits6m && (
+          <div className="flex items-start gap-2">
+            <span className="text-[10px] font-display text-muted-foreground shrink-0 w-16">6 meses</span>
+            <p className="text-xs font-body text-foreground">{meta.benefits6m}</p>
+          </div>
+        )}
+        {meta.benefits1y && (
+          <div className="flex items-start gap-2">
+            <span className="text-[10px] font-display text-muted-foreground shrink-0 w-16">1 ano</span>
+            <p className="text-xs font-body text-foreground">{meta.benefits1y}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -128,7 +156,7 @@ function Dashboard() {
         return (
           <div className="space-y-5">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <header className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground font-body">Olá, Jogador 👋</p>
                 <h1 className="font-display text-lg tracking-wider text-foreground">Dashboard</h1>
@@ -143,7 +171,7 @@ function Dashboard() {
                   <span className="font-display text-xs text-primary">{stats.xp.toLocaleString()} XP</span>
                 </div>
               </div>
-            </div>
+            </header>
 
             {/* 1. Quote */}
             <QuoteBar />
@@ -154,23 +182,23 @@ function Dashboard() {
             {/* 3. Quick actions */}
             <QuickActions onNavigate={setCurrentPage} />
 
-            {/* 3. Task progress + Hydration */}
+            {/* 4. Task progress + Hydration */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <TaskStatsChart />
               <HydrationMini />
             </div>
 
-            {/* 4. Profile overview */}
+            {/* 5. Recurring tasks chart */}
+            <RecurringTasksChart />
+
+            {/* 6. Profile overview */}
             <ProfileBanner />
 
-            {/* 5. Category overview */}
+            {/* 7. Category overview */}
             <CategoryOverview />
 
-            {/* 6. Evolution */}
-            <EvolutionTimeline />
-
             {/* Active metas */}
-            <section>
+            <section aria-label="Metas ativas">
               <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
                 🎯 Metas Ativas
                 <span className="text-primary font-body text-xs">({activeMetas.length})</span>
@@ -184,13 +212,16 @@ function Dashboard() {
             </section>
 
             {completedMetas.length > 0 && (
-              <section>
+              <section aria-label="Metas concluídas">
                 <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">🏆 Metas Concluídas ({completedMetas.length})</h2>
                 <div className="space-y-3 opacity-60">
                   {completedMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
                 </div>
               </section>
             )}
+
+            {/* 8. Evolution - LAST position */}
+            <EvolutionTimeline />
           </div>
         );
 
@@ -201,11 +232,16 @@ function Dashboard() {
             <CreateMetaDialog />
             <CategoryOverview />
             <div className="space-y-4">
-              {activeMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
+              {activeMetas.map(meta => (
+                <div key={meta.id}>
+                  <MetaCard meta={meta} />
+                  <FutureProjection meta={meta} />
+                </div>
+              ))}
             </div>
             {completedMetas.length > 0 && (
               <div className="space-y-3 opacity-60">
-                <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase">Concluídas</h3>
+                <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase">Concluídas</h2>
                 {completedMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
               </div>
             )}
@@ -227,7 +263,6 @@ function Dashboard() {
         return (
           <div className="space-y-5">
             <h1 className="font-display text-lg tracking-wider text-foreground">Agenda</h1>
-            {/* Google Calendar integration */}
             <div className="section-card flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Calendar className="w-5 h-5 text-primary" />
@@ -264,17 +299,9 @@ function Dashboard() {
           <div className="space-y-5">
             <h1 className="font-display text-lg tracking-wider text-foreground">Progressão & Níveis</h1>
             <p className="text-sm text-muted-foreground font-body">
-              Cada nível representa quem você está se tornando.
+              Cada nível representa quem você está se tornando. Você só avança quando o nível anterior estiver completo.
             </p>
             <LevelProgression />
-          </div>
-        );
-
-      case 'ranking':
-        return (
-          <div className="space-y-5">
-            <h1 className="font-display text-lg tracking-wider text-foreground">Ranking</h1>
-            <RankingPanel />
           </div>
         );
 
@@ -324,7 +351,7 @@ function Dashboard() {
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-glow-cyan">
               <Zap className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-display text-[10px] tracking-[0.18em] text-primary font-bold">LIFE QUEST</span>
+            <span className="font-display text-[10px] tracking-[0.18em] text-primary font-bold">MINHA VIDA É UM JOGO</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
