@@ -541,9 +541,46 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const xpGain = Math.round(afazer.xpReward * streakMult);
       const xp = prev.stats.xp + xpGain;
       const levelInfo = getLevelFromXP(xp);
+
+      let updatedAfazeres = prev.afazeres.map(a => a.id !== id ? a : { ...a, completed: true, completedAt: new Date().toISOString() });
+
+      // If recurring, create a new instance for the next occurrence
+      if (afazer.isRecurrent) {
+        const nextDate = new Date(afazer.startDate);
+        nextDate.setDate(nextDate.getDate() + 1); // simple: next day; could be smarter with recurrentDays
+        if (afazer.recurrentDays && afazer.recurrentDays.length > 0) {
+          const dayMap = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+          for (let i = 1; i <= 7; i++) {
+            const tryDate = new Date(afazer.startDate);
+            tryDate.setDate(tryDate.getDate() + i);
+            const dayName = dayMap[tryDate.getDay()];
+            if (afazer.recurrentDays.includes(dayName as any)) {
+              nextDate.setTime(tryDate.getTime());
+              break;
+            }
+          }
+        }
+        const nextDateStr = nextDate.toISOString().split('T')[0];
+        // Don't create if past recurrentEndDate
+        if (!afazer.recurrentEndDate || nextDateStr <= afazer.recurrentEndDate) {
+          const newAfazer: Afazer = {
+            ...afazer,
+            id: generateId(),
+            completed: false,
+            completedAt: undefined,
+            startDate: nextDateStr,
+            createdAt: new Date().toISOString(),
+            timerStartedAt: undefined,
+            timerCompletedAt: undefined,
+            actualMinutes: undefined,
+          };
+          updatedAfazeres = [...updatedAfazeres, newAfazer];
+        }
+      }
+
       return {
         ...prev,
-        afazeres: prev.afazeres.map(a => a.id !== id ? a : { ...a, completed: true, completedAt: new Date().toISOString() }),
+        afazeres: updatedAfazeres,
         stats: {
           ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name,
           totalMissionsCompleted: prev.stats.totalMissionsCompleted + 1,
