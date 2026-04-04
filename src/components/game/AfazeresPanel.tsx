@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { Category, DayOfWeek, DAYS_OF_WEEK, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
-import { Plus, X, CheckCircle2, Circle, Trash2, Clock, Play, Square, Repeat, Calendar, Link2 } from 'lucide-react';
+import { formatMinutesToHM } from '@/lib/formatTime';
+import { Plus, X, CheckCircle2, Circle, Trash2, Clock, Play, Square, Repeat, Link2 } from 'lucide-react';
 
 export function AfazeresPanel() {
   const { afazeres, addAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer, metas } = useGame();
@@ -23,6 +24,11 @@ export function AfazeresPanel() {
 
   const inputClass = "w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
 
+  // If both start time and end time are set, don't require estimated minutes
+  const hasTimeRange = startTime && endTime;
+  // If only start time (no end time), require estimated minutes
+  const needsEstimate = startTime && !endTime;
+
   const toggleDay = (day: DayOfWeek) => {
     setRecurrentDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   };
@@ -34,6 +40,19 @@ export function AfazeresPanel() {
 
   const handleSubmit = () => {
     if (!title.trim()) return;
+    // If start time set but no end time, require estimated minutes
+    if (needsEstimate && !estimatedMinutes) return;
+
+    // Calculate estimated minutes from time range if both provided
+    let finalEstimatedMinutes = estimatedMinutes ? parseInt(estimatedMinutes) : undefined;
+    if (hasTimeRange && !finalEstimatedMinutes) {
+      const [sh, sm] = startTime.split(':').map(Number);
+      const [eh, em] = endTime.split(':').map(Number);
+      let diff = (eh * 60 + em) - (sh * 60 + sm);
+      if (diff < 0) diff += 24 * 60;
+      finalEstimatedMinutes = diff;
+    }
+
     const data = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -46,7 +65,7 @@ export function AfazeresPanel() {
       recurrentDays: isRecurrent ? recurrentDays : undefined,
       recurrentEndDate: isRecurrent && recurrentEndDate ? recurrentEndDate : undefined,
       linkedMetaId: linkedMetaId || undefined,
-      estimatedMinutes: estimatedMinutes ? parseInt(estimatedMinutes) : undefined,
+      estimatedMinutes: finalEstimatedMinutes,
     };
 
     if (!linkedMetaId && metas.filter(m => !m.completed).length > 0) {
@@ -164,10 +183,25 @@ export function AfazeresPanel() {
                 <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className={inputClass} />
               </div>
             </div>
-            <div>
-              <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Tempo estimado (min)</label>
-              <input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} placeholder="Ex: 30" min="1" className={inputClass} />
-            </div>
+
+            {/* Show estimated minutes only when start time is set but NO end time */}
+            {needsEstimate && (
+              <div>
+                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Tempo estimado (min) *</label>
+                <input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} placeholder="Ex: 30" min="1" className={inputClass} />
+                <p className="text-[10px] text-muted-foreground font-body mt-1">
+                  ⚠️ Como não foi definido horário de término, informe o tempo estimado.
+                </p>
+              </div>
+            )}
+
+            {/* Show estimated minutes optionally when no time at all */}
+            {!startTime && (
+              <div>
+                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Tempo estimado (min)</label>
+                <input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} placeholder="Ex: 30" min="1" className={inputClass} />
+              </div>
+            )}
 
             {/* Recurrence */}
             <div className="flex items-center gap-3">
@@ -208,7 +242,7 @@ export function AfazeresPanel() {
               </div>
             )}
 
-            <button type="button" onClick={handleSubmit} disabled={!title.trim()}
+            <button type="button" onClick={handleSubmit} disabled={!title.trim() || (needsEstimate && !estimatedMinutes)}
               className="w-full bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.2em] py-3 rounded-xl hover:shadow-glow-cyan transition-all duration-300 uppercase font-bold disabled:opacity-40">
               ✅ CRIAR AFAZER
             </button>
@@ -218,32 +252,32 @@ export function AfazeresPanel() {
 
       {/* Today's tasks */}
       {todayAfazeres.length > 0 && (
-        <div>
+        <section aria-label="Tarefas de hoje">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase">📅 Hoje</h3>
           <div className="space-y-2">
             {todayAfazeres.map(a => <AfazerItem key={a.id} afazer={a} />)}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Pending */}
       {pendingAfazeres.length > 0 && (
-        <div>
+        <section aria-label="Tarefas pendentes">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase">📋 Pendentes ({pendingAfazeres.length})</h3>
           <div className="space-y-2">
             {pendingAfazeres.map(a => <AfazerItem key={a.id} afazer={a} />)}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Completed */}
       {completedAfazeres.length > 0 && (
-        <div>
+        <section aria-label="Tarefas concluídas">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase opacity-60">✅ Concluídos ({completedAfazeres.length})</h3>
           <div className="space-y-2 opacity-60">
             {completedAfazeres.slice(0, 10).map(a => <AfazerItem key={a.id} afazer={a} />)}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
@@ -271,14 +305,15 @@ function AfazerItem({ afazer: a }: { afazer: any }) {
   };
 
   return (
-    <div className={`glass-card rounded-xl p-4 transition-all ${a.completed ? 'border-game-green/15' : ''}`}>
+    <article className={`glass-card rounded-xl p-4 transition-all ${a.completed ? 'border-game-green/15' : ''}`}>
       <div className="flex items-start gap-3">
-        <button onClick={() => a.completed ? uncompleteAfazer(a.id) : completeAfazer(a.id)} className="shrink-0 mt-0.5 transition-transform hover:scale-110">
+        <button onClick={() => a.completed ? uncompleteAfazer(a.id) : completeAfazer(a.id)} className="shrink-0 mt-0.5 transition-transform hover:scale-110"
+          aria-label={a.completed ? 'Desmarcar tarefa' : 'Completar tarefa'}>
           {a.completed ? <CheckCircle2 className="w-5 h-5 text-game-green" /> : <Circle className="w-5 h-5 text-muted-foreground hover:text-primary" />}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`w-2 h-2 rounded-full ${CATEGORY_BG[cat.color]}`} />
+            <span className={`w-2 h-2 rounded-full ${CATEGORY_BG[cat.color]}`} aria-hidden="true" />
             <p className={`text-sm font-body font-bold ${a.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{a.title}</p>
             {a.isRecurrent && <Repeat className="w-3 h-3 text-muted-foreground" />}
             {a.linkedMetaId && <Link2 className="w-3 h-3 text-primary" />}
@@ -287,9 +322,9 @@ function AfazerItem({ afazer: a }: { afazer: any }) {
           {a.description && <p className="text-xs text-muted-foreground mt-1">{a.description}</p>}
           <div className="flex flex-wrap items-center gap-2 mt-2">
             {a.startTime && <span className="text-[10px] px-2 py-0.5 rounded-lg bg-secondary/50 text-muted-foreground font-body">🕐 {a.startTime}{a.endTime ? ` - ${a.endTime}` : ''}</span>}
-            {a.estimatedMinutes && <span className="text-[10px] px-2 py-0.5 rounded-lg bg-secondary/50 text-muted-foreground font-body flex items-center gap-1"><Clock className="w-3 h-3" /> ~{a.estimatedMinutes}min</span>}
+            {a.estimatedMinutes && <span className="text-[10px] px-2 py-0.5 rounded-lg bg-secondary/50 text-muted-foreground font-body flex items-center gap-1"><Clock className="w-3 h-3" /> ~{formatMinutesToHM(a.estimatedMinutes)}</span>}
             <span className="text-[10px] px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-display">+{a.xpReward} XP</span>
-            {a.actualMinutes && <span className="text-[10px] px-2 py-0.5 rounded-lg bg-game-green/10 text-game-green font-body">⏱️ {a.actualMinutes}min</span>}
+            {a.actualMinutes && <span className="text-[10px] px-2 py-0.5 rounded-lg bg-game-green/10 text-game-green font-body">⏱️ {formatMinutesToHM(a.actualMinutes)}</span>}
           </div>
 
           {/* Timer */}
@@ -303,7 +338,7 @@ function AfazerItem({ afazer: a }: { afazer: any }) {
               ) : (
                 <>
                   <span className="text-sm font-display text-primary animate-pulse-glow">{formatTime(elapsed)}</span>
-                  {a.estimatedMinutes && <span className="text-[10px] text-muted-foreground font-body">/ {a.estimatedMinutes}min</span>}
+                  {a.estimatedMinutes && <span className="text-[10px] text-muted-foreground font-body">/ {formatMinutesToHM(a.estimatedMinutes)}</span>}
                   <button onClick={() => { stopAfazerTimer(a.id); completeAfazer(a.id); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-[11px] font-display tracking-wider hover:bg-destructive/20 transition-all">
                     <Square className="w-3 h-3" /> FINALIZAR
@@ -313,10 +348,11 @@ function AfazerItem({ afazer: a }: { afazer: any }) {
             </div>
           )}
         </div>
-        <button onClick={() => deleteAfazer(a.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0">
+        <button onClick={() => deleteAfazer(a.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0"
+          aria-label="Excluir tarefa">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
-    </div>
+    </article>
   );
 }

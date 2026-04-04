@@ -489,7 +489,48 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const afazer: Afazer = {
       ...data, id: generateId(), completed: false, xpReward, createdAt: new Date().toISOString(),
     };
-    setState(prev => ({ ...prev, afazeres: [...prev.afazeres, afazer] }));
+
+    setState(prev => {
+      let newState = { ...prev, afazeres: [...prev.afazeres, afazer] };
+
+      // If linked to a meta, add as a mission inside the best-fit mission group and redistribute free XP
+      if (data.linkedMetaId) {
+        const meta = newState.metas.find(m => m.id === data.linkedMetaId);
+        if (meta) {
+          const newMission: Mission = {
+            id: generateId(),
+            metaId: meta.id,
+            title: data.title,
+            description: data.description || `Tarefa adicionada manualmente`,
+            frequency: data.isRecurrent ? `recorrente` : 'única',
+            dailyTarget: data.title,
+            etapas: [],
+            completedToday: false,
+            xpReward: 0, // will be set by redistribution
+            estimatedMinutes: data.estimatedMinutes,
+          };
+
+          const updatedMissions = [...meta.missions, newMission];
+          // Redistribute remaining XP evenly among incomplete missions
+          const incompleteMissions = updatedMissions.filter(m => !m.completedToday);
+          const earnedXP = meta.xpEarned;
+          const freeXP = meta.xpTotal - earnedXP;
+          const perMission = incompleteMissions.length > 0 ? Math.floor(freeXP / incompleteMissions.length) : 0;
+
+          const redistributed = updatedMissions.map(m => {
+            if (m.completedToday) return m;
+            return { ...m, xpReward: Math.max(5, perMission) };
+          });
+
+          newState = {
+            ...newState,
+            metas: newState.metas.map(m => m.id !== meta.id ? m : { ...m, missions: redistributed }),
+          };
+        }
+      }
+
+      return newState;
+    });
   }, []);
 
   const completeAfazer = useCallback((id: string) => {
@@ -500,9 +541,46 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const xpGain = Math.round(afazer.xpReward * streakMult);
       const xp = prev.stats.xp + xpGain;
       const levelInfo = getLevelFromXP(xp);
+
+      let updatedAfazeres = prev.afazeres.map(a => a.id !== id ? a : { ...a, completed: true, completedAt: new Date().toISOString() });
+
+      // If recurring, create a new instance for the next occurrence
+      if (afazer.isRecurrent) {
+        const nextDate = new Date(afazer.startDate);
+        nextDate.setDate(nextDate.getDate() + 1); // simple: next day; could be smarter with recurrentDays
+        if (afazer.recurrentDays && afazer.recurrentDays.length > 0) {
+          const dayMap = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+          for (let i = 1; i <= 7; i++) {
+            const tryDate = new Date(afazer.startDate);
+            tryDate.setDate(tryDate.getDate() + i);
+            const dayName = dayMap[tryDate.getDay()];
+            if (afazer.recurrentDays.includes(dayName as any)) {
+              nextDate.setTime(tryDate.getTime());
+              break;
+            }
+          }
+        }
+        const nextDateStr = nextDate.toISOString().split('T')[0];
+        // Don't create if past recurrentEndDate
+        if (!afazer.recurrentEndDate || nextDateStr <= afazer.recurrentEndDate) {
+          const newAfazer: Afazer = {
+            ...afazer,
+            id: generateId(),
+            completed: false,
+            completedAt: undefined,
+            startDate: nextDateStr,
+            createdAt: new Date().toISOString(),
+            timerStartedAt: undefined,
+            timerCompletedAt: undefined,
+            actualMinutes: undefined,
+          };
+          updatedAfazeres = [...updatedAfazeres, newAfazer];
+        }
+      }
+
       return {
         ...prev,
-        afazeres: prev.afazeres.map(a => a.id !== id ? a : { ...a, completed: true, completedAt: new Date().toISOString() }),
+        afazeres: updatedAfazeres,
         stats: {
           ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name,
           totalMissionsCompleted: prev.stats.totalMissionsCompleted + 1,
