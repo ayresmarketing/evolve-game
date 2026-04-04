@@ -75,13 +75,23 @@ export function LevelProgression() {
       <div className="space-y-4">
         <h2 className="font-display text-xs tracking-[0.25em] text-muted-foreground uppercase">Todos os Níveis</h2>
 
-        {LEVELS.map((lvl) => {
+        {LEVELS.map((lvl, idx) => {
           const isCurrentLevel = current.level === lvl.level;
           const isUnlocked = stats.xp >= lvl.xpMin;
           const isNext = current.level + 1 === lvl.level;
 
+          // Sequential: previous level must be fully complete before this one counts
+          const previousLevel = idx > 0 ? LEVELS[idx - 1] : null;
+          const previousComplete = !previousLevel || (
+            stats.totalMissionsCompleted >= previousLevel.tasksRequired &&
+            stats.longestStreak >= previousLevel.streakRequired &&
+            stats.daysUsed >= previousLevel.daysRequired &&
+            stats.xp >= previousLevel.xpMax
+          );
+          const isLocked = !isUnlocked || (!previousComplete && !isCurrentLevel && lvl.level > current.level);
+
           let progressPercent = 0;
-          if (isUnlocked && !isCurrentLevel) progressPercent = 100;
+          if (isUnlocked && !isCurrentLevel && previousComplete) progressPercent = 100;
           else if (isCurrentLevel) progressPercent = Math.round((current.xpInLevel / current.xpForNext) * 100);
 
           const taskProgress = Math.min(100, Math.round((stats.totalMissionsCompleted / lvl.tasksRequired) * 100));
