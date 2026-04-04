@@ -489,7 +489,48 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const afazer: Afazer = {
       ...data, id: generateId(), completed: false, xpReward, createdAt: new Date().toISOString(),
     };
-    setState(prev => ({ ...prev, afazeres: [...prev.afazeres, afazer] }));
+
+    setState(prev => {
+      let newState = { ...prev, afazeres: [...prev.afazeres, afazer] };
+
+      // If linked to a meta, add as a mission inside the best-fit mission group and redistribute free XP
+      if (data.linkedMetaId) {
+        const meta = newState.metas.find(m => m.id === data.linkedMetaId);
+        if (meta) {
+          const newMission: Mission = {
+            id: generateId(),
+            metaId: meta.id,
+            title: data.title,
+            description: data.description || `Tarefa adicionada manualmente`,
+            frequency: data.isRecurrent ? `recorrente` : 'única',
+            dailyTarget: data.title,
+            etapas: [],
+            completedToday: false,
+            xpReward: 0, // will be set by redistribution
+            estimatedMinutes: data.estimatedMinutes,
+          };
+
+          const updatedMissions = [...meta.missions, newMission];
+          // Redistribute remaining XP evenly among incomplete missions
+          const incompleteMissions = updatedMissions.filter(m => !m.completedToday);
+          const earnedXP = meta.xpEarned;
+          const freeXP = meta.xpTotal - earnedXP;
+          const perMission = incompleteMissions.length > 0 ? Math.floor(freeXP / incompleteMissions.length) : 0;
+
+          const redistributed = updatedMissions.map(m => {
+            if (m.completedToday) return m;
+            return { ...m, xpReward: Math.max(5, perMission) };
+          });
+
+          newState = {
+            ...newState,
+            metas: newState.metas.map(m => m.id !== meta.id ? m : { ...m, missions: redistributed }),
+          };
+        }
+      }
+
+      return newState;
+    });
   }, []);
 
   const completeAfazer = useCallback((id: string) => {
