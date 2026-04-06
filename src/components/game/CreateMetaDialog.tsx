@@ -504,10 +504,21 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
         ) : <div />}
 
         {step < 5 ? (
-          <button type="button" onClick={() => canNext() && setStep((step + 1) as Step)} disabled={!canNext()}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.15em] uppercase font-bold disabled:opacity-40 hover:shadow-glow-cyan transition-all">
-            Próximo <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            {step === 4 && (
+              <button
+                type="button"
+                onClick={() => setStep(5)}
+                className="text-xs font-body text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              >
+                Pular
+              </button>
+            )}
+            <button type="button" onClick={() => canNext() && setStep((step + 1) as Step)} disabled={!canNext()}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.15em] uppercase font-bold disabled:opacity-40 hover:shadow-glow-cyan transition-all">
+              Próximo <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         ) : (
           <button type="button" onClick={handleSubmit} disabled={!canNext()}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.15em] uppercase font-bold disabled:opacity-40 hover:shadow-glow-cyan transition-all">

@@ -1,202 +1,109 @@
 import { useState, useEffect, useMemo } from 'react';
 import { GameProvider, useGame } from '@/contexts/GameContext';
-import { ScheduleProvider } from '@/contexts/ScheduleContext';
+import { ScheduleProvider, useSchedule } from '@/contexts/ScheduleContext';
 import { BottomNav, Page } from '@/components/game/Sidebar';
-import { ProfileBanner } from '@/components/game/ProfileBanner';
 import { QuoteBar } from '@/components/game/QuoteBar';
 import { MetaCard } from '@/components/game/MetaCard';
 import { CreateMetaDialog } from '@/components/game/CreateMetaDialog';
 import { CategoryOverview } from '@/components/game/CategoryOverview';
 import { SchedulePanel } from '@/components/game/SchedulePanel';
 import { WeeklyMission } from '@/components/game/WeeklyMission';
-import { TaskStatsChart } from '@/components/game/TaskStatsChart';
 import { LevelProgression } from '@/components/game/LevelProgression';
 import { AfazeresPanel } from '@/components/game/AfazeresPanel';
 import { CalendarView } from '@/components/game/CalendarView';
-import { EvolutionTimeline } from '@/components/game/EvolutionTimeline';
 import { FinancePanel } from '@/components/game/FinancePanel';
 import { HydrationPanel } from '@/components/game/HydrationPanel';
 import { NotesPanel } from '@/components/game/NotesPanel';
-import { HydrationMini } from '@/components/game/HydrationMini';
 import { DueloPanel } from '@/components/game/DueloPanel';
-import { RecurringTasksChart } from '@/components/game/RecurringTasksChart';
-import { RightPanel } from '@/components/game/RightPanel';
-import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
+import { getLevelFromXP, CATEGORY_CONFIG, DayOfWeek } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import {
-  Clock, CalendarPlus, Zap, Target, ListChecks, Calendar,
-  Activity, Trophy, ChevronRight, Flame,
-  CheckCircle2, Star, BarChart3
+  Zap, Target, ListChecks, Calendar, Activity, ChevronRight, Flame,
+  CalendarDays, Droplets, Moon, Sun, BarChart3, TrendingUp,
+  CheckCircle2, Clock, CalendarPlus, Sliders
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as ChartTooltip, ResponsiveContainer, ReferenceLine, Legend
+} from 'recharts';
 import { toast } from 'sonner';
 
-/* ─────────────────────────────────────────────────────────
-   KPI Tile — new design, completely different from old tiles
-───────────────────────────────────────────────────────── */
-function KpiTile({
-  label, value, accent, icon, sub
-}: {
-  label: string; value: string; accent: string; icon: React.ReactNode; sub?: string;
-}) {
+/* ═══════════════════════════════════════════════
+   HELPERS — date range utilities
+═══════════════════════════════════════════════ */
+function getDateRange(days: number, startDate?: string, endDate?: string): string[] {
+  if (startDate && endDate && startDate <= endDate) {
+    const dates: string[] = [];
+    const cur = new Date(startDate + 'T12:00');
+    const end = new Date(endDate + 'T12:00');
+    while (cur <= end) {
+      dates.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
+  }
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (days - 1 - i));
+    return d.toISOString().split('T')[0];
+  });
+}
+
+function dateLabel(date: string): string {
+  return new Date(date + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function getTaskHistory(dateRange: string[]) {
+  const stored: any[] = JSON.parse(localStorage.getItem('lifequest_task_history') || '[]');
+  return dateRange.map(date => ({
+    date,
+    label: dateLabel(date),
+    Concluídas: stored.find(h => h.date === date)?.completed ?? 0,
+    Perdidas: stored.find(h => h.date === date)?.missed ?? 0,
+  }));
+}
+
+function getHydrationHistory(dateRange: string[]) {
+  const stored = JSON.parse(localStorage.getItem('lifequest_hydration') || '{}');
+  const history: any[] = stored.history || [];
+  const goalMl = stored.dailyGoalMl || 2000;
+  return dateRange.map(date => ({
+    date,
+    label: dateLabel(date),
+    'Ingestão (ml)': history.find((h: any) => h.date === date)?.consumed ?? 0,
+    meta: goalMl,
+  }));
+}
+
+/* ═══════════════════════════════════════════════
+   COMPONENT — Range pill selector (reusable)
+═══════════════════════════════════════════════ */
+function RangePill({
+  value, onChange, disabled
+}: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
   return (
-    <div
-      className="rounded-2xl p-4 flex flex-col gap-3 border relative overflow-hidden bg-[hsl(var(--card))]"
-      style={{ borderColor: `${accent}22` }}
-    >
-      {/* Corner accent glow */}
-      <div
-        className="absolute -top-6 -right-6 w-20 h-20 rounded-full blur-2xl opacity-30"
-        style={{ backgroundColor: accent }}
-      />
-      <div
-        className="w-8 h-8 rounded-xl flex items-center justify-center relative z-10 flex-shrink-0"
-        style={{ backgroundColor: `${accent}18`, color: accent, border: `1px solid ${accent}30` }}
-      >
-        {icon}
-      </div>
-      <div className="relative z-10">
-        <p className="text-[10px] font-display tracking-[0.22em] text-muted-foreground uppercase">{label}</p>
-        <p className="font-display text-2xl text-foreground mt-0.5" style={{ color: accent }}>{value}</p>
-        {sub && <p className="text-[10px] font-body text-muted-foreground mt-0.5">{sub}</p>}
-      </div>
+    <div className="flex gap-1">
+      {[7, 14, 30].map(d => (
+        <button
+          key={d}
+          onClick={() => onChange(d)}
+          disabled={disabled}
+          className={`px-2 py-0.5 rounded-md text-[9px] font-display tracking-wider transition-all ${
+            value === d
+              ? 'bg-primary/18 text-primary border border-primary/30'
+              : 'text-muted-foreground hover:text-foreground border border-transparent'
+          }`}
+        >
+          {d}d
+        </button>
+      ))}
     </div>
   );
 }
 
-/* ─────────────────────────────────────────────────────────
-   Upcoming Tasks — compact mission feed
-───────────────────────────────────────────────────────── */
-function UpcomingTasks() {
-  const { metas } = useGame();
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  const upcoming = useMemo(() => {
-    return metas.flatMap(m => m.missions
-      .filter(mi => !mi.completedToday && mi.scheduledDay && mi.scheduledDay >= todayStr)
-      .map(mi => ({ ...mi, metaTitle: m.title, category: m.category }))
-    ).sort((a, b) => {
-      const da = `${a.scheduledDay}${a.scheduledTime || ''}`;
-      const db = `${b.scheduledDay}${b.scheduledTime || ''}`;
-      return da.localeCompare(db);
-    }).slice(0, 4);
-  }, [metas, todayStr]);
-
-  if (upcoming.length === 0) return (
-    <div className="rounded-2xl border border-border/50 bg-card p-4 text-center">
-      <CalendarPlus className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
-      <p className="text-[11px] text-muted-foreground font-body">Nenhuma tarefa agendada</p>
-    </div>
-  );
-
-  return (
-    <div className="rounded-2xl border border-border/50 bg-card p-4">
-      <h3 className="font-display text-[10px] tracking-[0.24em] text-muted-foreground uppercase flex items-center gap-2 mb-3">
-        <CalendarPlus className="w-3.5 h-3.5 text-primary" /> Agenda
-      </h3>
-      <div className="space-y-2">
-        {upcoming.map(task => {
-          const cat = CATEGORY_CONFIG[task.category];
-          return (
-            <div key={task.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-secondary/30 border border-border/40">
-              <div className={`w-1 h-7 rounded-full flex-shrink-0 ${CATEGORY_BG[cat.color]}`} />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-body font-semibold text-foreground truncate">{task.title}</p>
-                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  {task.scheduledDay && (
-                    <span className="text-[9px] text-muted-foreground font-body">
-                      {new Date(task.scheduledDay + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                    </span>
-                  )}
-                  {task.scheduledTime && (
-                    <span className="text-[9px] text-muted-foreground font-body">{task.scheduledTime}</span>
-                  )}
-                  {task.estimatedMinutes && (
-                    <span className="text-[9px] text-muted-foreground font-body flex items-center gap-0.5">
-                      <Clock className="w-2.5 h-2.5" />{formatMinutesToHM(task.estimatedMinutes)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
-   Quick Actions — vertical stack layout (was grid)
-───────────────────────────────────────────────────────── */
-function QuickActions({ onNavigate }: { onNavigate: (page: Page) => void }) {
-  const actions = [
-    {
-      label: 'Nova Meta',
-      desc: 'Criar objetivo com IA',
-      icon: <Target className="w-4 h-4" />,
-      color: '#0280FF',
-      component: 'meta' as const,
-    },
-    {
-      label: 'Novo Afazer',
-      desc: 'Tarefa avulsa rápida',
-      icon: <ListChecks className="w-4 h-4" />,
-      color: '#f97316',
-      page: 'afazeres' as Page,
-    },
-    {
-      label: 'Planejar Agenda',
-      desc: 'Organizar calendário',
-      icon: <Calendar className="w-4 h-4" />,
-      color: '#a855f7',
-      page: 'agenda' as Page,
-    },
-  ];
-
-  return (
-    <div className="rounded-2xl border border-border/50 bg-card p-4">
-      <h3 className="font-display text-[10px] tracking-[0.24em] text-muted-foreground uppercase mb-3">
-        Ações Rápidas
-      </h3>
-      <div className="space-y-2">
-        {actions.map(a => {
-          const inner = (
-            <div
-              className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-secondary/20 hover:bg-secondary/40 hover:border-primary/30 transition-all cursor-pointer group"
-            >
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: `${a.color}18`, color: a.color }}
-              >
-                {a.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-body font-semibold text-foreground">{a.label}</p>
-                <p className="text-[10px] text-muted-foreground font-body">{a.desc}</p>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
-          );
-
-          if (a.component === 'meta') {
-            return (
-              <CreateMetaDialog key={a.label} triggerElement={inner} />
-            );
-          }
-          return (
-            <div key={a.label} onClick={() => onNavigate(a.page!)}>
-              {inner}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
-   Future Projection (for Metas page)
-───────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════
+   COMPONENT — FutureProjection (for metas page)
+═══════════════════════════════════════════════ */
 function FutureProjection({ meta }: { meta: any }) {
   if (!meta.benefits30d && !meta.benefits6m && !meta.benefits1y) return null;
   return (
@@ -226,236 +133,619 @@ function FutureProjection({ meta }: { meta: any }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   DASHBOARD — main shell
-═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   COMPONENT — Quick Actions
+═══════════════════════════════════════════════ */
+function QuickActions({ onNavigate }: { onNavigate: (page: Page) => void }) {
+  const actions = [
+    { label: 'Nova Meta', desc: 'Criar objetivo com IA', icon: <Target className="w-4 h-4" />, color: '#0280FF', isMeta: true },
+    { label: 'Novo Afazer', desc: 'Tarefa avulsa rápida', icon: <ListChecks className="w-4 h-4" />, color: '#f97316', page: 'afazeres' as Page },
+    { label: 'Ver Agenda', desc: 'Planejar calendário', icon: <Calendar className="w-4 h-4" />, color: '#a855f7', page: 'agenda' as Page },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {actions.map(a => {
+        const card = (
+          <div
+            className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-border/50 bg-card hover:border-primary/30 hover:bg-secondary/40 transition-all cursor-pointer group text-center"
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: `${a.color}18`, color: a.color }}
+            >
+              {a.icon}
+            </div>
+            <div>
+              <p className="text-xs font-body font-semibold text-foreground">{a.label}</p>
+              <p className="text-[10px] text-muted-foreground font-body">{a.desc}</p>
+            </div>
+            <ChevronRight className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
+          </div>
+        );
+
+        if (a.isMeta) return <CreateMetaDialog key={a.label} triggerElement={card} />;
+        return <div key={a.label} onClick={() => onNavigate(a.page!)}>{card}</div>;
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   COMPONENT — Dashboard Home (standalone, outside Dashboard)
+   Contains all 8 blocks + global date selector
+═══════════════════════════════════════════════ */
+function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
+  const { metas } = useGame();
+  const { getDaySchedule } = useSchedule();
+
+  /* ── Date range state ── */
+  const [globalRange, setGlobalRange] = useState(7);
+  const [useCustom, setUseCustom] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [showCustomInputs, setShowCustomInputs] = useState(false);
+
+  /* ── Per-block range overrides (null = use global) ── */
+  const [taskRange, setTaskRange] = useState<number | null>(null);
+  const [timeRange, setTimeRange] = useState<number | null>(null);
+  const [metricsRange, setMetricsRange] = useState<number | null>(null);
+  const [hydRange, setHydRange] = useState<number | null>(null);
+  const [catRange, setCatRange] = useState<number | null>(null);
+
+  /* Track today's task completion in localStorage */
+  useEffect(() => {
+    const allMissions = metas.flatMap(m => m.missions);
+    const today = new Date().toISOString().split('T')[0];
+    const completed = allMissions.filter(m => m.completedToday).length;
+    const missed = Math.max(0, allMissions.length - completed);
+    try {
+      const stored: any[] = JSON.parse(localStorage.getItem('lifequest_task_history') || '[]');
+      const idx = stored.findIndex(h => h.date === today);
+      const entry = { date: today, completed, missed };
+      if (idx >= 0) stored[idx] = entry; else stored.push(entry);
+      localStorage.setItem('lifequest_task_history', JSON.stringify(stored.slice(-90)));
+    } catch { /* storage may be full */ }
+  }, [metas]);
+
+  /* When global range changes, reset per-block overrides */
+  useEffect(() => {
+    setTaskRange(null);
+    setTimeRange(null);
+    setMetricsRange(null);
+    setHydRange(null);
+    setCatRange(null);
+  }, [globalRange, useCustom, customStart, customEnd]);
+
+  /* Resolve effective date range for a block */
+  const effectiveDateRange = (override: number | null): string[] => {
+    if (useCustom && customStart && customEnd) return getDateRange(0, customStart, customEnd);
+    return getDateRange(override ?? globalRange);
+  };
+
+  /* ── Computed data ── */
+  const taskData = useMemo(() => getTaskHistory(effectiveDateRange(taskRange)), [taskRange, globalRange, useCustom, customStart, customEnd]);
+  const hydData = useMemo(() => getHydrationHistory(effectiveDateRange(hydRange)), [hydRange, globalRange, useCustom, customStart, customEnd]);
+
+  const timeStats = useMemo(() => {
+    const range = effectiveDateRange(timeRange);
+    const dayMap: Record<number, DayOfWeek> = { 0: 'dom', 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex', 6: 'sab' };
+    let sleep = 0, busy = 0, free = 0;
+    range.forEach(date => {
+      const dow = dayMap[new Date(date + 'T12:00').getDay()];
+      const scheduled = metas.flatMap(m => m.missions)
+        .filter(mi => mi.scheduledDay === date && mi.estimatedMinutes)
+        .reduce((s, mi) => s + (mi.estimatedMinutes || 0), 0);
+      const sched = getDaySchedule(dow, scheduled);
+      sleep += sched.sleepMinutes;
+      busy += sched.busyMinutes;
+      free += sched.freeMinutes;
+    });
+    return { sleep, busy, free, days: range.length };
+  }, [timeRange, globalRange, metas, getDaySchedule, useCustom, customStart, customEnd]);
+
+  const metricsData = useMemo(() => {
+    const range = effectiveDateRange(metricsRange);
+    const stored: any[] = JSON.parse(localStorage.getItem('lifequest_task_history') || '[]');
+    const completed = range.reduce((s, d) => s + (stored.find(h => h.date === d)?.completed || 0), 0);
+    const missed = range.reduce((s, d) => s + (stored.find(h => h.date === d)?.missed || 0), 0);
+    const total = completed + missed;
+    return { completed, missed, total, rate: total > 0 ? Math.round((completed / total) * 100) : 0, days: range.length };
+  }, [metricsRange, globalRange, useCustom, customStart, customEnd]);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayMissions = useMemo(() => {
+    return metas.filter(m => !m.completed).flatMap(m =>
+      m.missions
+        .filter(mi => mi.scheduledDay === todayStr)
+        .map(mi => ({ ...mi, metaTitle: m.title, category: m.category }))
+    );
+  }, [metas, todayStr]);
+
+  const catProgress = useMemo(() => {
+    return (['pessoal', 'profissional', 'espiritual'] as const).map(cat => {
+      const catMetas = metas.filter(m => m.category === cat);
+      const avg = catMetas.length > 0
+        ? Math.round(catMetas.reduce((s, m) => s + m.progress, 0) / catMetas.length)
+        : 0;
+      return { cat, label: CATEGORY_CONFIG[cat].label, avg, color: CATEGORY_CONFIG[cat].color, count: catMetas.length };
+    });
+  }, [metas]);
+
+  /* ── Shared chart tooltip style ── */
+  const tooltipStyle = {
+    backgroundColor: 'hsl(var(--card))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '10px',
+    fontSize: '11px',
+  };
+
+  /* ── Block header helper ── */
+  const BlockHdr = ({
+    icon, title, range, setRange, showRange = true,
+  }: {
+    icon: React.ReactNode; title: string;
+    range: number | null; setRange: (v: number | null) => void; showRange?: boolean;
+  }) => {
+    const effectiveRange = range ?? globalRange;
+    return (
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
+          {icon} {title}
+        </h3>
+        {showRange && (
+          <div className="flex items-center gap-1.5">
+            {[7, 14, 30].map(d => (
+              <button
+                key={d}
+                onClick={() => setRange(d === globalRange && range === null ? null : d)}
+                className={`px-2 py-0.5 rounded-md text-[9px] font-display tracking-wider transition-all border ${
+                  effectiveRange === d
+                    ? 'bg-primary/15 text-primary border-primary/30'
+                    : 'text-muted-foreground border-transparent hover:border-border'
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-5">
+
+      {/* ══════════════════════════════════════════
+          [0] GLOBAL DATE RANGE SELECTOR
+          Full-width bar at the top — controls all blocks
+      ══════════════════════════════════════════ */}
+      <section className="rounded-2xl border border-border/50 bg-card p-4 flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <CalendarDays className="w-4 h-4 text-primary" />
+          <span className="text-[10px] font-display tracking-[0.24em] text-muted-foreground uppercase">Período de análise</span>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          {[7, 14, 30].map(d => (
+            <button
+              key={d}
+              onClick={() => { setGlobalRange(d); setUseCustom(false); setShowCustomInputs(false); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-display tracking-wider transition-all border ${
+                !useCustom && globalRange === d
+                  ? 'border-primary/50 bg-primary/12 text-primary'
+                  : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
+              }`}
+            >
+              {d} dias
+            </button>
+          ))}
+          <button
+            onClick={() => { setShowCustomInputs(v => !v); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-display tracking-wider transition-all border ${
+              useCustom
+                ? 'border-primary/50 bg-primary/12 text-primary'
+                : 'border-border text-muted-foreground hover:border-primary/30'
+            }`}
+          >
+            <Sliders className="w-3 h-3" /> Personalizar
+          </button>
+        </div>
+
+        {showCustomInputs && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="date"
+              value={customStart}
+              onChange={e => { setCustomStart(e.target.value); if (customEnd) { setUseCustom(true); } }}
+              className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50"
+            />
+            <span className="text-[10px] text-muted-foreground">até</span>
+            <input
+              type="date"
+              value={customEnd}
+              min={customStart}
+              onChange={e => { setCustomEnd(e.target.value); if (customStart) { setUseCustom(true); } }}
+              className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50"
+            />
+            {useCustom && (
+              <button
+                onClick={() => { setUseCustom(false); setCustomStart(''); setCustomEnd(''); setShowCustomInputs(false); }}
+                className="text-[10px] text-destructive font-body hover:underline"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        )}
+
+        {useCustom && customStart && customEnd && (
+          <span className="text-[10px] text-primary font-body ml-auto">
+            {dateLabel(customStart)} → {dateLabel(customEnd)}
+          </span>
+        )}
+      </section>
+
+      {/* ══════════════════════════════════════════
+          [1] BLOCO DE FRASE MOTIVACIONAL
+      ══════════════════════════════════════════ */}
+      <QuoteBar />
+
+      {/* ══════════════════════════════════════════
+          [2] GRÁFICO DE TAREFAS CONCLUÍDAS / PERDIDAS
+          Desktop: 8/12 | Time block: 4/12
+      ══════════════════════════════════════════ */}
+      <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+
+        {/* Tasks bar chart */}
+        <div className="xl:col-span-8 rounded-2xl border border-border/50 bg-card p-5">
+          <BlockHdr
+            icon={<BarChart3 className="w-3.5 h-3.5 text-primary" />}
+            title="Tarefas concluídas vs. perdidas"
+            range={taskRange} setRange={setTaskRange}
+          />
+
+          {taskData.every(d => d.Concluídas === 0 && d.Perdidas === 0) ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <BarChart3 className="w-8 h-8 text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground font-body">Nenhum dado disponível para o período</p>
+              <p className="text-[11px] text-muted-foreground font-body mt-1">Os dados serão acumulados conforme você usa o app</p>
+            </div>
+          ) : (
+            <>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={taskData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <ChartTooltip contentStyle={tooltipStyle} labelStyle={{ color: 'hsl(var(--foreground))' }} />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                    <Bar dataKey="Concluídas" fill="#0280FF" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                    <Bar dataKey="Perdidas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.75} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex gap-4 mt-3">
+                <span className="flex items-center gap-1.5 text-[10px] font-body text-primary">
+                  <span className="w-3 h-2 rounded bg-primary inline-block" /> Concluídas
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] font-body text-destructive">
+                  <span className="w-3 h-2 rounded bg-destructive inline-block opacity-75" /> Perdidas
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Time block — Sleep / Busy / Free */}
+        <div className="xl:col-span-4 rounded-2xl border border-border/50 bg-card p-5">
+          <BlockHdr
+            icon={<Clock className="w-3.5 h-3.5 text-primary" />}
+            title="Distribuição de tempo"
+            range={timeRange} setRange={setTimeRange}
+          />
+
+          <div className="space-y-3">
+            {[
+              { label: 'Sono', value: timeStats.sleep, icon: <Moon className="w-4 h-4" />, color: '#a855f7', bg: 'bg-purple-500' },
+              { label: 'Tempo ocupado', value: timeStats.busy, icon: <Activity className="w-4 h-4" />, color: '#0280FF', bg: 'bg-primary' },
+              { label: 'Tempo livre', value: timeStats.free, icon: <Sun className="w-4 h-4" />, color: '#22c55e', bg: 'bg-green-500' },
+            ].map(item => {
+              const total = timeStats.sleep + timeStats.busy + timeStats.free || 1;
+              const pct = Math.round((item.value / total) * 100);
+              return (
+                <div key={item.label} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2" style={{ color: item.color }}>
+                      {item.icon}
+                      <span className="text-xs font-body font-semibold text-foreground">{item.label}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-body font-bold text-foreground">{formatMinutesToHM(item.value)}</span>
+                      <span className="text-[10px] text-muted-foreground font-body ml-1">({pct}%)</span>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-secondary/60">
+                    <div
+                      className={`h-full rounded-full ${item.bg} opacity-80 transition-all duration-700`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-[10px] text-muted-foreground font-body mt-4 text-center">
+            Média por dia · {timeStats.days} dia{timeStats.days !== 1 ? 's' : ''} analisado{timeStats.days !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          [3] MÉTRICAS DA SEMANA   +   [4] AÇÕES RÁPIDAS
+      ══════════════════════════════════════════ */}
+      <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+
+        {/* Weekly metrics */}
+        <div className="xl:col-span-5 rounded-2xl border border-border/50 bg-card p-5">
+          <BlockHdr
+            icon={<TrendingUp className="w-3.5 h-3.5 text-primary" />}
+            title="Métricas do período"
+            range={metricsRange} setRange={setMetricsRange}
+          />
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {[
+              { label: 'Concluídas', value: metricsData.completed, color: 'text-primary', bg: 'bg-primary/10 border-primary/20' },
+              { label: 'Perdidas', value: metricsData.missed, color: 'text-destructive', bg: 'bg-destructive/8 border-destructive/20' },
+              { label: 'Taxa de conclusão', value: `${metricsData.rate}%`, color: metricsData.rate >= 70 ? 'text-green-400' : metricsData.rate >= 40 ? 'text-yellow-400' : 'text-destructive', bg: 'bg-secondary/40 border-border/60' },
+              { label: 'Total de tarefas', value: metricsData.total, color: 'text-foreground', bg: 'bg-secondary/40 border-border/60' },
+            ].map(m => (
+              <div key={m.label} className={`rounded-xl border p-3 ${m.bg}`}>
+                <p className="text-[10px] text-muted-foreground font-body uppercase tracking-wide">{m.label}</p>
+                <p className={`font-display text-xl mt-0.5 ${m.color}`}>{m.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Completion bar */}
+          <div>
+            <div className="flex justify-between text-[10px] text-muted-foreground font-body mb-1.5">
+              <span>Taxa de conclusão</span>
+              <span className={metricsData.rate >= 70 ? 'text-green-400' : 'text-muted-foreground'}>{metricsData.rate}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-secondary/60">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${
+                  metricsData.rate >= 70 ? 'bg-green-500' : metricsData.rate >= 40 ? 'bg-yellow-500' : 'bg-destructive'
+                }`}
+                style={{ width: `${metricsData.rate}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="xl:col-span-7 rounded-2xl border border-border/50 bg-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 text-primary" /> Ações Rápidas
+            </h3>
+          </div>
+          <QuickActions onNavigate={onNavigate} />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          [5] TAREFAS DO DIA (AGENDA)
+      ══════════════════════════════════════════ */}
+      <section className="rounded-2xl border border-border/50 bg-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
+            <CalendarPlus className="w-3.5 h-3.5 text-primary" /> Tarefas do Dia
+            <span className="text-[9px] text-muted-foreground font-body normal-case">
+              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+            </span>
+          </h3>
+          <button
+            onClick={() => onNavigate('agenda')}
+            className="text-[10px] text-primary font-body inline-flex items-center gap-1 hover:underline"
+          >
+            Agenda completa <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+
+        {todayMissions.length === 0 ? (
+          <div className="flex flex-col items-center py-8 text-center">
+            <CalendarPlus className="w-8 h-8 text-muted-foreground mb-3" />
+            <p className="text-sm font-body text-muted-foreground">Nenhuma tarefa agendada para hoje</p>
+            <button
+              onClick={() => onNavigate('agenda')}
+              className="mt-3 text-xs text-primary font-body underline"
+            >
+              Agendar missões
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {todayMissions.map(mi => {
+              const cat = CATEGORY_CONFIG[mi.category as keyof typeof CATEGORY_CONFIG] || CATEGORY_CONFIG['pessoal'];
+              return (
+                <div
+                  key={mi.id}
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all ${
+                    mi.completedToday
+                      ? 'bg-secondary/20 border-border/30 opacity-55'
+                      : 'bg-secondary/40 border-border/60 hover:border-primary/30'
+                  }`}
+                >
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${mi.completedToday ? 'bg-green-500' : 'bg-primary'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-body font-semibold truncate ${mi.completedToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                      {mi.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-[9px] font-display tracking-wider" style={{ color: `hsl(var(--${cat.color}))` }}>
+                        {cat.label}
+                      </span>
+                      {mi.estimatedMinutes && (
+                        <span className="text-[9px] text-muted-foreground font-body flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" />{formatMinutesToHM(mi.estimatedMinutes)}
+                        </span>
+                      )}
+                      {mi.scheduledTime && (
+                        <span className="text-[9px] text-muted-foreground font-body">{mi.scheduledTime}</span>
+                      )}
+                    </div>
+                  </div>
+                  {mi.completedToday && <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ══════════════════════════════════════════
+          [6] HIDRATAÇÃO (gráfico 7 dias)
+          Desktop: 6/12  |  [7] PROGRESSO POR ÁREA: 6/12
+      ══════════════════════════════════════════ */}
+      <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+
+        {/* Hydration bar chart */}
+        <div className="xl:col-span-6 rounded-2xl border border-border/50 bg-card p-5">
+          <BlockHdr
+            icon={<Droplets className="w-3.5 h-3.5 text-primary" />}
+            title="Hidratação diária"
+            range={hydRange} setRange={setHydRange}
+          />
+
+          {hydData.every(d => d['Ingestão (ml)'] === 0) ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <Droplets className="w-8 h-8 text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground font-body">Nenhum dado de hidratação</p>
+              <p className="text-[11px] text-muted-foreground font-body mt-1">Registre a água ingerida na aba Hidratação</p>
+            </div>
+          ) : (
+            <>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={hydData} margin={{ top: 5, right: 5, bottom: 5, left: -16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `${Math.round(v / 1000 * 10) / 10}L`} />
+                    <ChartTooltip
+                      contentStyle={tooltipStyle}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
+                      formatter={(v: number, name: string) => {
+                        if (name === 'meta') return [`${v}ml`, 'Meta'];
+                        return [`${v}ml`, 'Ingestão'];
+                      }}
+                    />
+                    <ReferenceLine y={hydData[0]?.meta || 2000} stroke="#0280FF" strokeDasharray="6 3" strokeWidth={1.5} label={{ value: 'Meta', position: 'right', fontSize: 9, fill: '#0280FF' }} />
+                    <Bar dataKey="Ingestão (ml)" fill="#0280FF" radius={[4, 4, 0, 0]} maxBarSize={30} fillOpacity={0.85} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[10px] text-muted-foreground font-body text-center mt-2">
+                Linha pontilhada = meta diária ({hydData[0]?.meta || 2000}ml)
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Category progress */}
+        <div className="xl:col-span-6 rounded-2xl border border-border/50 bg-card p-5">
+          <BlockHdr
+            icon={<TrendingUp className="w-3.5 h-3.5 text-primary" />}
+            title="Progresso por área"
+            range={catRange} setRange={setCatRange}
+          />
+
+          {catProgress.every(c => c.count === 0) ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <TrendingUp className="w-8 h-8 text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground font-body">Nenhuma meta criada ainda</p>
+              <button onClick={() => onNavigate('metas')} className="mt-2 text-xs text-primary font-body underline">
+                Criar primeira meta
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {catProgress.map(c => {
+                const colorMap: Record<string, string> = {
+                  'personal-purple': '#a855f7',
+                  'game-orange': '#f97316',
+                  'game-blue': '#0280FF',
+                };
+                const hex = colorMap[c.color] || '#0280FF';
+                return (
+                  <div key={c.cat}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className="text-xs font-body font-semibold text-foreground">{c.label}</span>
+                        <span className="text-[10px] text-muted-foreground font-body ml-2">({c.count} meta{c.count !== 1 ? 's' : ''})</span>
+                      </div>
+                      <span className="font-display text-sm" style={{ color: hex }}>{c.avg}%</span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-secondary/60">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${c.avg}%`, backgroundColor: hex }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Mini chart */}
+              <div className="mt-2 h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={catProgress.map(c => ({ name: c.label.split(' ')[0], Progresso: c.avg }))}
+                    margin={{ top: 5, right: 5, bottom: 5, left: -20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `${v}%`} />
+                    <ChartTooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`, 'Progresso']} />
+                    <Bar dataKey="Progresso" fill="#0280FF" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   COMPONENT — Dashboard shell
+═══════════════════════════════════════════════ */
 function Dashboard() {
-  const { metas, stats } = useGame();
+  const { stats } = useGame();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('lifequest_theme');
-    return saved === 'dark';
-  });
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lifequest_theme') === 'dark');
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('lifequest_theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
-  const activeMetas = metas.filter(m => !m.completed);
-  const completedMetas = metas.filter(m => m.completed);
-  const streakMult = getStreakMultiplier(stats.streak);
   const levelInfo = getLevelFromXP(stats.xp);
-
-  /* XP bar progress (simple linear within current level range) */
   const xpProgress = Math.min(((stats.xp % 1000) / 1000) * 100, 100);
 
-  /* ────────────────── NEW DashboardHome ────────────────── */
-  const DashboardHome = () => (
-    <div className="space-y-5">
+  const { metas } = useGame();
+  const activeMetas = metas.filter(m => !m.completed);
+  const completedMetas = metas.filter(m => m.completed);
 
-      {/* ── 1. COMMANDER BANNER ─────────────────────────────
-          Full-width hero with player identity + XP bar.
-          STRUCTURAL DIFFERENCE: replaces 3-panel info row
-          + hero card combo with a single unified command strip.
-      ─────────────────────────────────────────────────── */}
-      <section
-        className="relative rounded-3xl overflow-hidden border p-6 md:p-8"
-        style={{
-          background: 'linear-gradient(135deg, hsl(var(--card)) 0%, hsl(222 45% 10%) 100%)',
-          borderColor: 'hsl(var(--primary) / 0.22)'
-        }}
-      >
-        {/* Background atmospheric blobs */}
-        <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-primary/15 blur-3xl pointer-events-none" />
-        <div className="absolute right-32 -bottom-8 w-40 h-40 rounded-full bg-purple-500/10 blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
-
-          {/* Left: identity */}
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-display tracking-[0.32em] text-primary uppercase">
-                Command Center
-              </span>
-              {streakMult > 1 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-body text-orange-400 bg-orange-500/12 border border-orange-500/20 rounded-lg px-2 py-0.5">
-                  <Flame className="w-3 h-3" />
-                  +{Math.round((streakMult - 1) * 100)}% XP
-                </span>
-              )}
-            </div>
-            <h1 className="font-display text-2xl md:text-3xl text-foreground tracking-wider">
-              {levelInfo.icon} {levelInfo.name}
-            </h1>
-            <p className="text-sm text-muted-foreground font-body mt-1">
-              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-            </p>
-          </div>
-
-          {/* Center: live counters */}
-          <div className="flex items-center gap-5 md:gap-8">
-            <div className="text-center">
-              <p className="font-display text-2xl text-primary">{activeMetas.length}</p>
-              <p className="text-[10px] text-muted-foreground font-body tracking-wide uppercase">Metas</p>
-            </div>
-            <div className="w-px h-10 bg-border/50 hidden sm:block" />
-            <div className="text-center">
-              <p className="font-display text-2xl text-orange-400">{stats.streak}</p>
-              <p className="text-[10px] text-muted-foreground font-body tracking-wide uppercase">Streak</p>
-            </div>
-            <div className="w-px h-10 bg-border/50 hidden sm:block" />
-            <div className="text-center">
-              <p className="font-display text-2xl text-green-400">{stats.totalMissionsCompleted}</p>
-              <p className="text-[10px] text-muted-foreground font-body tracking-wide uppercase">Missões</p>
-            </div>
-          </div>
-
-          {/* Right: level badge */}
-          <div className="hidden xl:flex items-center gap-3 rounded-2xl border border-primary/25 bg-primary/8 px-4 py-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-xl">
-              {levelInfo.icon}
-            </div>
-            <div>
-              <p className="text-[9px] font-display tracking-[0.2em] text-primary uppercase">Nível Atual</p>
-              <p className="font-display text-sm text-foreground">{stats.level} · {levelInfo.name}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* XP Progress bar — full width at bottom */}
-        <div className="relative z-10 mt-6 pt-5 border-t border-border/40">
-          <div className="flex justify-between text-[10px] font-body text-muted-foreground mb-2">
-            <span>{stats.xp.toLocaleString()} XP acumulados</span>
-            <span>Nível {stats.level + 1} →</span>
-          </div>
-          <div className="h-2 rounded-full bg-secondary/60">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-blue-400 shadow-[0_0_12px_hsl(var(--primary)/0.5)] transition-all duration-700"
-              style={{ width: `${xpProgress}%` }}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* ── 2. KPI STRIP ─────────────────────────────────────
-          5 tiles (was 4), new icons, new accent colors,
-          new layout with sub-label, different visual treatment.
-      ─────────────────────────────────────────────────── */}
-      <section className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3" aria-label="Indicadores principais">
-        <KpiTile label="XP Total" value={stats.xp.toLocaleString()} accent="#0280FF" icon={<Zap className="w-4 h-4" />} sub="pontos de experiência" />
-        <KpiTile label="Nível" value={String(stats.level)} accent="#a855f7" icon={<Trophy className="w-4 h-4" />} sub={levelInfo.name} />
-        <KpiTile label="Sequência" value={`${stats.streak}d`} accent="#f97316" icon={<Flame className="w-4 h-4" />} sub={streakMult > 1 ? `×${streakMult} XP` : 'Continue assim'} />
-        <KpiTile label="Missões" value={String(stats.totalMissionsCompleted)} accent="#22c55e" icon={<CheckCircle2 className="w-4 h-4" />} sub="concluídas no total" />
-        <KpiTile label="Metas" value={String(stats.totalMetasCompleted)} accent="#eab308" icon={<Star className="w-4 h-4" />} sub={`${activeMetas.length} ativas`} />
-      </section>
-
-      {/* ── 3. ANALYTICS ZONE ────────────────────────────────
-          Layout: 5 + 4 + 3 (was 7 center + 3 right panel)
-          • Col A (5): Main chart (TaskStatsChart)
-          • Col B (4): Quick actions + upcoming tasks
-          • Col C (3): Hydration + ProfileBanner
-      ─────────────────────────────────────────────────── */}
-      <section className="grid grid-cols-1 xl:grid-cols-12 gap-4" aria-label="Zona analítica">
-        <div className="xl:col-span-5">
-          <TaskStatsChart />
-        </div>
-        <div className="xl:col-span-4 space-y-4">
-          <QuickActions onNavigate={setCurrentPage} />
-          <UpcomingTasks />
-        </div>
-        <div className="xl:col-span-3 space-y-4">
-          <HydrationMini />
-          <ProfileBanner />
-        </div>
-      </section>
-
-      {/* ── 4. INTELLIGENCE ZONE ─────────────────────────────
-          Layout: 7 + 5 (content order swapped from analytics)
-          • Col A (7): Recurring chart + Quote
-          • Col B (5): Category overview
-          STRUCTURAL DIFFERENCE: CategoryOverview moved to
-          right column (was in center main column)
-      ─────────────────────────────────────────────────── */}
-      <section className="grid grid-cols-1 xl:grid-cols-12 gap-4" aria-label="Zona inteligência">
-        <div className="xl:col-span-7 space-y-4">
-          <RecurringTasksChart />
-          <QuoteBar />
-        </div>
-        <div className="xl:col-span-5">
-          <CategoryOverview />
-        </div>
-      </section>
-
-      {/* ── 5. OPERATIONS ZONE — Active + Completed Metas ─── */}
-      <section className="grid grid-cols-1 xl:grid-cols-12 gap-5" aria-label="Zona operacional — metas">
-        <div className="xl:col-span-8 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-[10px] tracking-[0.28em] text-muted-foreground uppercase flex items-center gap-2">
-              <Target className="w-3.5 h-3.5 text-primary" />
-              Metas Ativas
-              <span className="text-primary font-body text-xs">({activeMetas.length})</span>
-            </h2>
-            <button
-              onClick={() => setCurrentPage('metas')}
-              className="text-[10px] text-primary font-body inline-flex items-center gap-1 hover:underline"
-            >
-              Ver todas <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-          <CreateMetaDialog />
-          {activeMetas.map(meta => (
-            <MetaCard key={meta.id} meta={meta} />
-          ))}
-        </div>
-
-        <div className="xl:col-span-4 space-y-4">
-          {/* Stats at-a-glance card */}
-          <div className="rounded-2xl border border-border/50 bg-card p-4">
-            <h3 className="font-display text-[10px] tracking-[0.24em] text-muted-foreground uppercase mb-3 flex items-center gap-2">
-              <BarChart3 className="w-3.5 h-3.5 text-primary" /> Resumo
-            </h3>
-            <div className="space-y-2">
-              {[
-                { label: 'Maior sequência', value: `${stats.longestStreak} dias`, color: 'text-orange-400' },
-                { label: 'Dias de uso', value: `${stats.daysUsed} dias`, color: 'text-primary' },
-                { label: 'Metas concluídas', value: String(stats.totalMetasCompleted), color: 'text-green-400' },
-              ].map(row => (
-                <div key={row.label} className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/25 border border-border/40">
-                  <span className="text-[11px] text-muted-foreground font-body">{row.label}</span>
-                  <span className={`text-xs font-body font-semibold ${row.color}`}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right panel with time breakdown + missions */}
-          <RightPanel />
-
-          {/* Completed metas (compact) */}
-          {completedMetas.length > 0 && (
-            <div>
-              <h3 className="font-display text-[10px] tracking-[0.28em] text-muted-foreground uppercase mb-3">
-                🏆 Concluídas ({completedMetas.length})
-              </h3>
-              <div className="space-y-3 opacity-65">
-                {completedMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── 6. EVOLUTION TIMELINE — full width ─────────────── */}
-      <section className="w-full">
-        <EvolutionTimeline />
-      </section>
-    </div>
-  );
-
-  /* ────────────────── Page title map ─────────────────── */
   const pageTitle: Record<Page, string> = {
-    dashboard: 'Command Center',
+    dashboard: 'Início',
     metas: 'Metas',
     afazeres: 'Afazeres',
     agenda: 'Agenda',
@@ -467,11 +757,10 @@ function Dashboard() {
     duelo: 'Duelos',
   };
 
-  /* ────────────────── Page renderer ─────────────────── */
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardHome />;
+        return <DashboardHome onNavigate={setCurrentPage} />;
 
       case 'metas':
         return (
@@ -518,7 +807,7 @@ function Dashboard() {
                 <p className="text-[11px] text-muted-foreground font-body">Sincronize sua agenda com o Google</p>
               </div>
               <button
-                onClick={() => toast.info('Para integrar o Google Calendar, conecte o sistema a um banco de dados primeiro (Lovable Cloud).')}
+                onClick={() => toast.info('Para integrar o Google Calendar, conecte o sistema a um banco de dados (Lovable Cloud).')}
                 className="text-[10px] px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body font-semibold hover:bg-primary/20 transition-colors"
               >
                 Conectar
@@ -543,7 +832,7 @@ function Dashboard() {
           <div className="space-y-5">
             <h1 className="font-display text-lg tracking-wider text-foreground">Progressão & Níveis</h1>
             <p className="text-sm text-muted-foreground font-body">
-              Cada nível representa quem você está se tornando. Você só avança quando o nível anterior estiver completo.
+              Cada nível representa quem você está se tornando.
             </p>
             <LevelProgression />
           </div>
@@ -584,46 +873,37 @@ function Dashboard() {
     }
   };
 
-  /* ────────────────── RENDER ─────────────────────────── */
   return (
     <div className="min-h-screen bg-gradient-hero pb-24 relative overflow-x-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,hsl(var(--primary)/0.14),transparent_40%),radial-gradient(circle_at_100%_15%,hsl(var(--personal-purple)/0.10),transparent_40%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,hsl(var(--primary)/0.12),transparent_40%),radial-gradient(circle_at_100%_15%,hsl(var(--personal-purple)/0.08),transparent_40%)] pointer-events-none" />
 
-      {/* ── HEADER — redesigned: XP bar inline, cleaner layout ── */}
+      {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="px-4 md:px-6">
-          <div className="max-w-[1800px] mx-auto flex items-center gap-3 md:gap-4 py-3">
+          <div className="max-w-[1800px] mx-auto flex items-center gap-3 py-3">
 
-            {/* Brand */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-primary/80 to-blue-400 flex items-center justify-center shadow-[0_0_16px_hsl(var(--primary)/0.45)] ring-1 ring-primary/40">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-primary/80 to-blue-400 flex items-center justify-center shadow-[0_0_14px_hsl(var(--primary)/0.4)] ring-1 ring-primary/30">
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <div className="hidden sm:flex flex-col">
                 <span className="font-display text-[9px] md:text-[10px] tracking-[0.28em] text-primary uppercase">LIFEQUEST</span>
-                <span className="text-[10px] md:text-[11px] font-body text-muted-foreground">
-                  {pageTitle[currentPage]}
-                </span>
+                <span className="text-[10px] md:text-[11px] font-body text-muted-foreground">{pageTitle[currentPage]}</span>
               </div>
             </div>
 
-            {/* Center: inline XP progress bar (desktop only) */}
+            {/* XP bar — desktop only */}
             <div className="hidden lg:flex flex-1 items-center gap-3 px-4">
-              <span className="text-[10px] font-body text-muted-foreground flex-shrink-0">
-                Nv.{stats.level}
-              </span>
+              <span className="text-[10px] font-body text-muted-foreground flex-shrink-0">Nv.{stats.level}</span>
               <div className="flex-1 h-1.5 rounded-full bg-secondary/60">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-primary to-blue-400 shadow-[0_0_8px_hsl(var(--primary)/0.4)] transition-all duration-700"
                   style={{ width: `${xpProgress}%` }}
                 />
               </div>
-              <span className="text-[10px] font-body text-muted-foreground flex-shrink-0">
-                {stats.xp.toLocaleString()} XP
-              </span>
+              <span className="text-[10px] font-body text-muted-foreground flex-shrink-0">{stats.xp.toLocaleString()} XP</span>
             </div>
 
-            {/* Right: streak + level display + avatar */}
             <div className="flex items-center gap-2 ml-auto">
               {stats.streak > 0 && (
                 <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-orange-500/25 bg-orange-500/8 px-2.5 py-1.5">
@@ -635,7 +915,7 @@ function Dashboard() {
                 <Activity className="w-3.5 h-3.5 text-primary" />
                 <span className="text-xs font-body text-muted-foreground">Nível {stats.level}</span>
               </div>
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-sm shadow-[0_0_12px_rgba(234,179,8,0.35)] ring-2 ring-yellow-500/25">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-sm shadow-[0_0_12px_rgba(234,179,8,0.3)] ring-2 ring-yellow-500/20">
                 {levelInfo.icon}
               </div>
             </div>
@@ -643,14 +923,13 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* ── MAIN CONTENT ── */}
+      {/* Main content */}
       <main className="relative z-10 px-4 md:px-6 py-5">
         <div className="max-w-[1800px] mx-auto">
           {renderPage()}
         </div>
       </main>
 
-      {/* Bottom navigation — always preserved */}
       <BottomNav
         currentPage={currentPage}
         onPageChange={setCurrentPage}
