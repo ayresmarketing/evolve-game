@@ -343,34 +343,82 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Top header bar */}
-      <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-md border-b border-border px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-glow-cyan">
-              <Zap className="w-4 h-4 text-primary-foreground" />
+    <div className="min-h-screen bg-gradient-hero pb-20">
+      {/* Top header bar em estilo de HUD */}
+      <header className="sticky top-0 z-30 border-b border-border/70 bg-gradient-to-b from-background/95 via-background/80 to-background/60 backdrop-blur-xl">
+        <div className="px-4">
+          <div className="max-w-2xl mx-auto flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary/90 via-primary/60 to-game-cyan/70 flex items-center justify-center shadow-glow-cyan ring-1 ring-primary/60">
+                <Zap className="w-4 h-4 text-primary-foreground" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-display text-[9px] tracking-[0.28em] text-primary/90 uppercase">
+                  LifeQuest • HUD
+                </span>
+                <span className="text-[11px] font-body text-muted-foreground">
+                  Sua vida em modo jogo, em tempo real
+                </span>
+              </div>
             </div>
-            <span className="font-display text-[10px] tracking-[0.18em] text-primary font-bold">MINHA VIDA É UM JOGO</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-[10px] font-body text-muted-foreground">Nível {stats.level}</p>
-              <p className="text-xs font-display text-foreground font-bold">{stats.xp.toLocaleString()} XP</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-sm ring-2 ring-primary/20">
-              {getLevelFromXP(stats.xp).icon}
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-[10px] font-body text-muted-foreground">Nível {stats.level}</p>
+                <p className="text-xs font-display text-primary text-glow-blue font-semibold">
+                  {stats.xp.toLocaleString()} XP
+                </p>
+              </div>
+              <div className="w-9 h-9 rounded-2xl bg-gradient-gold flex items-center justify-center text-sm shadow-glow-gold ring-2 ring-game-gold/40">
+                {getLevelFromXP(stats.xp).icon}
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="px-4 py-5 max-w-2xl mx-auto">
-        {renderPage()}
+      {/* Main content centralizado como dashboard */}
+      <main className="px-4 py-5">
+        <div className="max-w-2xl mx-auto space-y-4">
+          <section className="glass-card p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-fade-in">
+            <div>
+              <p className="text-xs font-body text-muted-foreground flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-game-green animate-pulse-glow" />
+                Sistema online • {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}
+              </p>
+              <h1 className="mt-2 font-display text-xl md:text-2xl tracking-widest text-foreground">
+                Painel de Evolução
+              </h1>
+              {streakMult > 1 && (
+                <p className="mt-1 text-xs text-game-fire font-body">
+                  🔥 Combo de consistência ativo (+{Math.round((streakMult - 1) * 100)}% XP)
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3 w-full md:w-auto md:min-w-[220px]">
+              <div className="section-card p-3 flex flex-col gap-1">
+                <span className="text-[10px] font-body text-muted-foreground uppercase tracking-[0.18em]">
+                  Missões hoje
+                </span>
+                <span className="text-lg font-display text-foreground">
+                  {stats.totalMissionsCompleted}
+                </span>
+              </div>
+              <div className="section-card p-3 flex flex-col gap-1">
+                <span className="text-[10px] font-body text-muted-foreground uppercase tracking-[0.18em]">
+                  Sequência
+                </span>
+                <span className="text-lg font-display text-foreground">
+                  {stats.streak}d
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {renderPage()}
+        </div>
       </main>
 
-      {/* Bottom navigation */}
+      {/* Bottom navigation sempre visível e centralizado */}
       <BottomNav
         currentPage={currentPage}
         onPageChange={setCurrentPage}
