@@ -1,12 +1,35 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight, ShieldCheck, Gauge, Sparkles } from 'lucide-react';
+import {
+  Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight,
+  Trophy, Flame, CheckCircle2, TrendingUp, Target,
+  Shield, BarChart3, Star
+} from 'lucide-react';
 import { toast } from 'sonner';
+
+/* ─── Preview data (static, for the visual panel) ─── */
+const PREVIEW_STATS = [
+  { label: 'XP Acumulado', value: '12.480', color: '#0280FF' },
+  { label: 'Streak Ativo', value: '23 dias', color: '#f97316' },
+  { label: 'Nível Atual', value: 'Mestre', color: '#a855f7' },
+];
+
+const PREVIEW_MISSIONS = [
+  { title: 'Estudar por 1 hora', done: true },
+  { title: 'Exercício físico', done: true },
+  { title: 'Meditação matinal', done: false },
+];
+
+const FEATURES = [
+  { icon: <Target className="w-4 h-4" />, label: 'Metas com IA', desc: 'Planejamento automático por inteligência artificial', color: '#0280FF' },
+  { icon: <BarChart3 className="w-4 h-4" />, label: 'Analytics', desc: 'Gráficos e métricas de desempenho em tempo real', color: '#a855f7' },
+  { icon: <Shield className="w-4 h-4" />, label: 'Gamificação', desc: 'Níveis, streaks e missões semanais motivadoras', color: '#22c55e' },
+];
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -15,9 +38,9 @@ export default function Auth() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-glow-cyan animate-pulse">
-          <Zap className="w-4 h-4 text-primary-foreground" />
+      <div className="min-h-screen bg-[#030610] flex items-center justify-center">
+        <div className="w-9 h-9 rounded-xl bg-[#0280FF] flex items-center justify-center animate-pulse shadow-[0_0_24px_rgba(2,128,255,0.5)]">
+          <Zap className="w-5 h-5 text-white" />
         </div>
       </div>
     );
@@ -27,168 +50,313 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error('Preencha todos os campos.');
-      return;
-    }
-    if (!isLogin && password.length < 6) {
+    if (!email || !password) { toast.error('Preencha todos os campos.'); return; }
+    if (mode === 'signup' && password.length < 6) {
       toast.error('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
-
     setSubmitting(true);
     try {
-      if (isLogin) {
+      if (mode === 'login') {
         const { error } = await signIn(email, password);
         if (error) {
-          if (error.message.includes('Invalid login')) {
-            toast.error('Email ou senha incorretos.');
-          } else if (error.message.includes('Email not confirmed')) {
-            toast.error('Confirme seu email antes de entrar. Verifique sua caixa de entrada.');
-          } else {
-            toast.error(error.message);
-          }
+          if (error.message.includes('Invalid login')) toast.error('Email ou senha incorretos.');
+          else if (error.message.includes('Email not confirmed')) toast.error('Confirme seu email antes de entrar. Verifique sua caixa de entrada.');
+          else toast.error(error.message);
         }
       } else {
         const { error } = await signUp(email, password, displayName);
-        if (error) {
-          toast.error(error.message);
-        } else {
-          toast.success('Conta criada! Verifique seu email para confirmar o cadastro.');
-          setIsLogin(true);
-        }
+        if (error) { toast.error(error.message); }
+        else { toast.success('Conta criada! Verifique seu email para confirmar o cadastro.'); setMode('login'); }
       }
     } finally {
       setSubmitting(false);
     }
   };
 
+  const switchMode = () => {
+    setMode(m => m === 'login' ? 'signup' : 'login');
+    setEmail(''); setPassword(''); setDisplayName('');
+  };
+
   return (
-    <div className="auth-premium min-h-screen relative overflow-x-hidden bg-[#050a14]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(2,128,255,0.28),transparent_35%),radial-gradient(circle_at_90%_10%,rgba(96,64,255,0.22),transparent_32%),radial-gradient(circle_at_60%_85%,rgba(26,214,173,0.16),transparent_36%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.02),transparent_40%)]" />
+    <div className="min-h-screen flex bg-[#030610] overflow-hidden">
 
-      <div className="relative z-10 min-h-screen p-4 md:p-8">
-        <div className="max-w-[1600px] mx-auto min-h-[calc(100vh-2rem)] grid lg:grid-cols-12 gap-5">
-          <section className="lg:col-span-7 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 flex flex-col justify-between">
+      {/* ══════════════════════════════════════
+          LEFT — AUTH FORM PANEL (5/12)
+          Completely different from old right panel:
+          • Narrower, form-first approach
+          • Tab switcher at top (not a link at bottom)
+          • No max-width card — full panel height
+          • Softer dark bg, accent separator on right
+      ══════════════════════════════════════ */}
+      <div className="w-full lg:w-5/12 flex flex-col relative overflow-hidden">
+
+        {/* Subtle left-panel atmosphere */}
+        <div className="absolute inset-0 bg-[linear-gradient(160deg,#060c1c_0%,#030610_60%,#04080f_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(2,128,255,0.08),transparent_60%)]" />
+        {/* Right edge separator */}
+        <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent hidden lg:block" />
+
+        <div className="relative z-10 flex flex-col h-full min-h-screen lg:min-h-0 px-8 md:px-12 lg:px-14 py-10">
+
+          {/* Brand mark */}
+          <div className="flex items-center gap-3 mb-10">
+            <div className="w-10 h-10 rounded-xl bg-[#0280FF] flex items-center justify-center shadow-[0_0_20px_rgba(2,128,255,0.45)]">
+              <Zap className="w-5 h-5 text-white" />
+            </div>
             <div>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-[linear-gradient(135deg,#0280FF,#5fa9ff)] flex items-center justify-center shadow-glow-cyan">
-                  <Zap className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="font-display text-xl tracking-[0.16em] text-white font-bold">LIFEQUEST</h1>
-                  <p className="text-xs text-white/60 font-body tracking-[0.12em]">PREMIUM CONTROL CENTER</p>
-                </div>
-              </div>
-
-              <h2 className="mt-8 text-4xl md:text-5xl leading-tight font-display text-white max-w-2xl">
-                Uma interface que transforma disciplina em progresso visual.
-              </h2>
-              <p className="mt-4 text-sm md:text-base text-white/75 font-body max-w-2xl">
-                Organize metas, acompanhe gráficos e execute rotinas em uma experiência fluida, responsiva e orientada por performance.
-              </p>
+              <p className="font-display text-[13px] tracking-[0.22em] text-white font-bold">LIFEQUEST</p>
+              <p className="text-[9px] text-white/40 tracking-[0.18em] font-body uppercase">System Access</p>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-8">
-              <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
-                <Gauge className="w-4 h-4 text-[#0280FF] mb-2" />
-                <p className="text-[11px] uppercase tracking-[0.14em] text-white/60">Performance</p>
-                <p className="text-2xl font-display text-white mt-1">Ultra</p>
-              </div>
-              <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
-                <Sparkles className="w-4 h-4 text-[#63ff9f] mb-2" />
-                <p className="text-[11px] uppercase tracking-[0.14em] text-white/60">UX</p>
-                <p className="text-2xl font-display text-white mt-1">Fluida</p>
-              </div>
-              <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
-                <ShieldCheck className="w-4 h-4 text-[#f7b84b] mb-2" />
-                <p className="text-[11px] uppercase tracking-[0.14em] text-white/60">Segurança</p>
-                <p className="text-2xl font-display text-white mt-1">Ativa</p>
-              </div>
-            </div>
-          </section>
+          {/* Mode tab switcher — NEW: was a link toggle at bottom, now tabs at top */}
+          <div className="flex rounded-xl bg-white/5 border border-white/8 p-1 mb-8 w-fit gap-1">
+            {(['login', 'signup'] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setEmail(''); setPassword(''); setDisplayName(''); }}
+                className={`px-6 py-2 rounded-lg text-[11px] font-display tracking-[0.18em] uppercase transition-all ${
+                  mode === m
+                    ? 'bg-[#0280FF] text-white shadow-[0_0_16px_rgba(2,128,255,0.4)]'
+                    : 'text-white/40 hover:text-white/65'
+                }`}
+              >
+                {m === 'login' ? 'Entrar' : 'Cadastrar'}
+              </button>
+            ))}
+          </div>
 
-          <section className="lg:col-span-5 flex items-center">
-            <div className="w-full max-w-[520px] mx-auto rounded-3xl border border-white/15 bg-[#0b1220]/90 backdrop-blur-xl p-6 md:p-8">
-              <p className="text-[10px] text-[#7ebcff] tracking-[0.24em] uppercase font-display">Acesso</p>
-              <h2 className="font-display text-3xl tracking-wider text-white mt-1">
-                {isLogin ? 'Entrar no Painel' : 'Criar Conta Premium'}
-              </h2>
-              <p className="text-xs text-white/60 font-body mt-2">
-                {isLogin ? 'Continue sua jornada de evolução.' : 'Comece agora com a nova experiência LifeQuest.'}
-              </p>
+          {/* Headline */}
+          <div className="mb-7">
+            <h1 className="font-display text-[28px] md:text-[32px] text-white tracking-wider leading-tight">
+              {mode === 'login' ? 'Acesso ao\nSistema' : 'Iniciar\nJornada'}
+            </h1>
+            <p className="text-sm text-white/45 font-body mt-2 leading-relaxed">
+              {mode === 'login'
+                ? 'Entre na sua conta e retome sua evolução de onde parou.'
+                : 'Crie sua conta gratuitamente e comece a evoluir hoje.'}
+            </p>
+          </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-                {!isLogin && (
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/45" />
-                    <input
-                      type="text"
-                      placeholder="Nome de exibição"
-                      value={displayName}
-                      onChange={e => setDisplayName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/12 text-sm font-body text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#0280FF]/45"
-                    />
-                  </div>
-                )}
-
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4 flex-1">
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+                  Nome de Exibição
+                </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/45" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                   <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/12 text-sm font-body text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#0280FF]/45"
-                    required
+                    type="text"
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    placeholder="Como quer ser chamado?"
+                    className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
                   />
                 </div>
+              </div>
+            )}
 
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/45" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Senha"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3.5 rounded-xl bg-white/5 border border-white/12 text-sm font-body text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#0280FF]/45"
-                    required
-                    minLength={6}
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/55 hover:text-white">
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+            <div>
+              <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  required
+                  className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
+                />
+              </div>
+            </div>
 
+            <div>
+              <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+                Senha
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                  className="w-full pl-10 pr-12 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
+                />
                 <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full py-3.5 rounded-xl bg-[linear-gradient(135deg,#0280FF,#49a5ff)] text-white font-display text-sm tracking-wider font-bold flex items-center justify-center gap-2 hover:opacity-95 transition-opacity disabled:opacity-50 shadow-glow-cyan"
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/35 hover:text-white/65 transition-colors"
                 >
-                  {submitting ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      {isLogin ? 'Entrar' : 'Criar Conta'}
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              <div className="text-center mt-5">
-                <button
-                  onClick={() => { setIsLogin(!isLogin); setEmail(''); setPassword(''); setDisplayName(''); }}
-                  className="text-xs text-[#77b8ff] font-body hover:underline"
-                >
-                  {isLogin ? 'Não tem conta? Criar agora' : 'Já tem conta? Entrar'}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-          </section>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full mt-2 py-4 rounded-xl bg-[#0280FF] hover:bg-[#0270ee] text-white font-display text-sm tracking-[0.2em] uppercase font-bold flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 shadow-[0_0_28px_rgba(2,128,255,0.4)] hover:shadow-[0_0_36px_rgba(2,128,255,0.55)]"
+            >
+              {submitting ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  {mode === 'login' ? 'Entrar no Sistema' : 'Criar Conta'}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Footer */}
+          <div className="pt-8 border-t border-white/6 mt-8">
+            <p className="text-[10px] text-white/25 font-body text-center">
+              © 2026 LifeQuest — Plataforma de evolução pessoal gamificada
+            </p>
+          </div>
         </div>
       </div>
+
+      {/* ══════════════════════════════════════
+          RIGHT — VISUAL SHOWCASE PANEL (7/12)
+          Completely new: was 7-col hero text on LEFT.
+          Now RIGHT, wider, with actual app preview cards:
+          • Mesh grid background pattern
+          • Blue radial glow atmosphere
+          • Live preview stats cards
+          • Mission completion feed
+          • Feature list with icons
+          • Level badge at bottom
+      ══════════════════════════════════════ */}
+      <div className="hidden lg:flex lg:w-7/12 relative overflow-hidden flex-col">
+
+        {/* Background layers */}
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#050d1f_0%,#071630_40%,#040c1e_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,rgba(2,128,255,0.22),transparent_55%),radial-gradient(ellipse_at_80%_75%,rgba(124,58,237,0.18),transparent_55%)]" />
+        {/* Mesh grid */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.028)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.028)_1px,transparent_1px)] bg-[size:52px_52px]" />
+        {/* Corner glow accent */}
+        <div className="absolute top-0 left-0 w-80 h-80 rounded-full bg-[#0280FF]/8 blur-3xl -translate-x-1/2 -translate-y-1/2" />
+
+        <div className="relative z-10 flex flex-col h-full p-10 xl:p-14 justify-between">
+
+          {/* Top: headline */}
+          <div>
+            <p className="text-[10px] tracking-[0.36em] font-display text-[#0280FF] uppercase mb-4">
+              Preview do Sistema
+            </p>
+            <h2 className="font-display text-3xl xl:text-4xl text-white leading-tight max-w-md">
+              Transforme disciplina em resultados mensuráveis.
+            </h2>
+            <p className="mt-3 text-sm text-white/50 font-body max-w-sm leading-relaxed">
+              Acompanhe metas, missões e evolução pessoal com dados reais, análises precisas e gamificação inteligente.
+            </p>
+
+            {/* Feature list */}
+            <div className="mt-8 space-y-3">
+              {FEATURES.map(f => (
+                <div key={f.label} className="flex items-start gap-3">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: `${f.color}18`, color: f.color, border: `1px solid ${f.color}30` }}
+                  >
+                    {f.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-body font-semibold text-white">{f.label}</p>
+                    <p className="text-[11px] text-white/40 font-body">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom: app preview cards */}
+          <div className="space-y-4">
+            <p className="text-[10px] tracking-[0.24em] font-display text-white/35 uppercase">
+              Dados de um jogador ativo
+            </p>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3">
+              {PREVIEW_STATS.map(s => (
+                <div
+                  key={s.label}
+                  className="rounded-2xl border bg-white/4 backdrop-blur-sm p-4"
+                  style={{ borderColor: `${s.color}25` }}
+                >
+                  <div className="w-2 h-2 rounded-full mb-3" style={{ backgroundColor: s.color }} />
+                  <p className="text-[10px] text-white/45 font-body tracking-wide uppercase">{s.label}</p>
+                  <p className="font-display text-[19px] text-white mt-0.5">{s.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Mission feed card */}
+            <div className="rounded-2xl border border-white/10 bg-white/4 backdrop-blur-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-display tracking-[0.22em] text-white/40 uppercase">Missões de Hoje</p>
+                <span className="text-[10px] font-body text-[#0280FF] font-semibold">2 / 3 completas</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {PREVIEW_MISSIONS.map((m, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center transition-colors ${
+                      m.done
+                        ? 'bg-[#0280FF] shadow-[0_0_8px_rgba(2,128,255,0.5)]'
+                        : 'border border-white/20 bg-transparent'
+                    }`}>
+                      {m.done && <CheckCircle2 className="w-3 h-3 text-white" />}
+                    </div>
+                    <p className={`text-sm font-body ${m.done ? 'line-through text-white/35' : 'text-white/75'}`}>
+                      {m.title}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mini XP bar */}
+              <div className="mt-4 pt-4 border-t border-white/8">
+                <div className="flex justify-between text-[10px] text-white/35 font-body mb-2">
+                  <span>Progresso XP hoje</span>
+                  <span className="text-[#0280FF]">+340 XP</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-white/8">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#0280FF] to-[#49a5ff] w-[67%] shadow-[0_0_8px_rgba(2,128,255,0.5)]" />
+                </div>
+              </div>
+            </div>
+
+            {/* Level badge */}
+            <div className="rounded-2xl border border-[#0280FF]/25 bg-[#0280FF]/8 p-4 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-[#0280FF]/20 border border-[#0280FF]/30 flex items-center justify-center text-2xl">
+                ⚡
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-display tracking-[0.2em] text-[#0280FF] uppercase">Nível atual</p>
+                <p className="font-display text-white text-base mt-0.5">Mestre · Nível 5</p>
+              </div>
+              <div className="flex items-center gap-1 text-[#0280FF]">
+                <TrendingUp className="w-4 h-4" />
+                <Star className="w-4 h-4" />
+                <Flame className="w-4 h-4 text-orange-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
