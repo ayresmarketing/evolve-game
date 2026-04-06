@@ -64,103 +64,99 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-hero relative overflow-x-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,hsl(var(--primary)/0.22),transparent_34%),radial-gradient(circle_at_85%_12%,hsl(var(--personal-purple)/0.18),transparent_32%),radial-gradient(circle_at_62%_72%,hsl(var(--game-cyan)/0.14),transparent_34%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(120deg,transparent_0%,hsl(var(--primary)/0.06)_35%,transparent_70%)]" />
+    <div className="auth-premium min-h-screen relative overflow-x-hidden bg-[#050a14]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(2,128,255,0.28),transparent_35%),radial-gradient(circle_at_90%_10%,rgba(96,64,255,0.22),transparent_32%),radial-gradient(circle_at_60%_85%,rgba(26,214,173,0.16),transparent_36%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.02),transparent_40%)]" />
 
-      <div className="relative z-10 min-h-screen px-4 py-8 md:py-12">
-        <div className="max-w-[1400px] mx-auto min-h-[calc(100vh-4rem)] grid lg:grid-cols-2 gap-8 items-center">
-          <section className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-game-cyan flex items-center justify-center shadow-glow-cyan">
-                <Zap className="w-6 h-6 text-primary-foreground" />
+      <div className="relative z-10 min-h-screen p-4 md:p-8">
+        <div className="max-w-[1600px] mx-auto min-h-[calc(100vh-2rem)] grid lg:grid-cols-12 gap-5">
+          <section className="lg:col-span-7 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[linear-gradient(135deg,#0280FF,#5fa9ff)] flex items-center justify-center shadow-glow-cyan">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="font-display text-xl tracking-[0.16em] text-white font-bold">LIFEQUEST</h1>
+                  <p className="text-xs text-white/60 font-body tracking-[0.12em]">PREMIUM CONTROL CENTER</p>
+                </div>
               </div>
-              <div>
-                <h1 className="font-display text-xl tracking-[0.16em] text-primary font-bold">LIFEQUEST</h1>
-                <p className="text-xs text-muted-foreground font-body tracking-[0.12em]">GAMIFIED PRODUCTIVITY ENGINE</p>
-              </div>
+
+              <h2 className="mt-8 text-4xl md:text-5xl leading-tight font-display text-white max-w-2xl">
+                Uma interface que transforma disciplina em progresso visual.
+              </h2>
+              <p className="mt-4 text-sm md:text-base text-white/75 font-body max-w-2xl">
+                Organize metas, acompanhe gráficos e execute rotinas em uma experiência fluida, responsiva e orientada por performance.
+              </p>
             </div>
 
-            <div className="section-card p-6 md:p-7 relative overflow-hidden">
-              <div className="absolute -right-16 -bottom-20 w-60 h-60 rounded-full bg-primary/10 blur-3xl" />
-              <p className="text-xs text-primary tracking-[0.2em] uppercase font-display">Dashboard Experience</p>
-              <h2 className="mt-2 text-3xl md:text-4xl font-display text-foreground leading-tight">
-                Interface imersiva, rápida e fluida em qualquer tela
-              </h2>
-              <p className="mt-3 text-sm text-muted-foreground font-body max-w-xl">
-                Organize metas, acompanhe evolução, veja gráficos em tempo real e execute tarefas em poucos toques.
-              </p>
-              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="glass-card p-3">
-                  <Gauge className="w-4 h-4 text-primary mb-2" />
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">Performance</p>
-                  <p className="text-lg font-display text-foreground">100%</p>
-                </div>
-                <div className="glass-card p-3">
-                  <Sparkles className="w-4 h-4 text-game-purple mb-2" />
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">Gamificado</p>
-                  <p className="text-lg font-display text-foreground">UI Pro</p>
-                </div>
-                <div className="glass-card p-3">
-                  <ShieldCheck className="w-4 h-4 text-game-green mb-2" />
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">Segurança</p>
-                  <p className="text-lg font-display text-foreground">Ativa</p>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-8">
+              <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+                <Gauge className="w-4 h-4 text-[#0280FF] mb-2" />
+                <p className="text-[11px] uppercase tracking-[0.14em] text-white/60">Performance</p>
+                <p className="text-2xl font-display text-white mt-1">Ultra</p>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+                <Sparkles className="w-4 h-4 text-[#63ff9f] mb-2" />
+                <p className="text-[11px] uppercase tracking-[0.14em] text-white/60">UX</p>
+                <p className="text-2xl font-display text-white mt-1">Fluida</p>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+                <ShieldCheck className="w-4 h-4 text-[#f7b84b] mb-2" />
+                <p className="text-[11px] uppercase tracking-[0.14em] text-white/60">Segurança</p>
+                <p className="text-2xl font-display text-white mt-1">Ativa</p>
               </div>
             </div>
           </section>
 
-          <section className="w-full">
-            <div className="w-full max-w-md mx-auto section-card p-6 md:p-7 space-y-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-accent" />
-              <div className="text-left">
-                <p className="text-[10px] text-primary tracking-[0.22em] uppercase font-display">Acesso</p>
-                <h2 className="font-display text-2xl tracking-wider text-foreground mt-1">
-                  {isLogin ? 'Entrar no Painel' : 'Criar Nova Conta'}
-                </h2>
-                <p className="text-xs text-muted-foreground font-body mt-1">
-                  {isLogin ? 'Retome sua evolução de onde parou.' : 'Comece agora sua jornada gamificada.'}
-                </p>
-              </div>
+          <section className="lg:col-span-5 flex items-center">
+            <div className="w-full max-w-[520px] mx-auto rounded-3xl border border-white/15 bg-[#0b1220]/90 backdrop-blur-xl p-6 md:p-8">
+              <p className="text-[10px] text-[#7ebcff] tracking-[0.24em] uppercase font-display">Acesso</p>
+              <h2 className="font-display text-3xl tracking-wider text-white mt-1">
+                {isLogin ? 'Entrar no Painel' : 'Criar Conta Premium'}
+              </h2>
+              <p className="text-xs text-white/60 font-body mt-2">
+                {isLogin ? 'Continue sua jornada de evolução.' : 'Comece agora com a nova experiência LifeQuest.'}
+              </p>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4 mt-6">
                 {!isLogin && (
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/45" />
                     <input
                       type="text"
                       placeholder="Nome de exibição"
                       value={displayName}
                       onChange={e => setDisplayName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-secondary/50 border border-border text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/12 text-sm font-body text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#0280FF]/45"
                     />
                   </div>
                 )}
 
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/45" />
                   <input
                     type="email"
                     placeholder="Email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-secondary/50 border border-border text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/12 text-sm font-body text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#0280FF]/45"
                     required
                   />
                 </div>
 
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/45" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Senha"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3.5 rounded-xl bg-secondary/50 border border-border text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-10 pr-12 py-3.5 rounded-xl bg-white/5 border border-white/12 text-sm font-body text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#0280FF]/45"
                     required
                     minLength={6}
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/55 hover:text-white">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
@@ -168,10 +164,10 @@ export default function Auth() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3.5 rounded-xl bg-gradient-accent text-primary-foreground font-display text-sm tracking-wider font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-glow-cyan"
+                  className="w-full py-3.5 rounded-xl bg-[linear-gradient(135deg,#0280FF,#49a5ff)] text-white font-display text-sm tracking-wider font-bold flex items-center justify-center gap-2 hover:opacity-95 transition-opacity disabled:opacity-50 shadow-glow-cyan"
                 >
                   {submitting ? (
-                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
                       {isLogin ? 'Entrar' : 'Criar Conta'}
@@ -181,10 +177,10 @@ export default function Auth() {
                 </button>
               </form>
 
-              <div className="text-center">
+              <div className="text-center mt-5">
                 <button
                   onClick={() => { setIsLogin(!isLogin); setEmail(''); setPassword(''); setDisplayName(''); }}
-                  className="text-xs text-primary font-body hover:underline"
+                  className="text-xs text-[#77b8ff] font-body hover:underline"
                 >
                   {isLogin ? 'Não tem conta? Criar agora' : 'Já tem conta? Entrar'}
                 </button>
