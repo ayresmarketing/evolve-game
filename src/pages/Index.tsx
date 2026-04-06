@@ -20,6 +20,7 @@ import { NotesPanel } from '@/components/game/NotesPanel';
 import { HydrationMini } from '@/components/game/HydrationMini';
 import { DueloPanel } from '@/components/game/DueloPanel';
 import { RecurringTasksChart } from '@/components/game/RecurringTasksChart';
+import { RightPanel } from '@/components/game/RightPanel';
 import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar } from 'lucide-react';
@@ -150,80 +151,92 @@ function Dashboard() {
   const completedMetas = metas.filter(m => m.completed);
   const streakMult = getStreakMultiplier(stats.streak);
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return (
-          <div className="space-y-5">
-            {/* Header */}
-            <header className="flex items-center justify-between">
+  const DashboardHome = () => (
+    <div className="space-y-6">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="section-card p-4">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">XP Total</p>
+          <p className="mt-2 text-2xl font-display text-primary">{stats.xp.toLocaleString()}</p>
+        </div>
+        <div className="section-card p-4">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Nível</p>
+          <p className="mt-2 text-2xl font-display text-foreground">{stats.level}</p>
+        </div>
+        <div className="section-card p-4">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Sequência</p>
+          <p className="mt-2 text-2xl font-display text-game-fire">{stats.streak}d</p>
+        </div>
+        <div className="section-card p-4">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Missões</p>
+          <p className="mt-2 text-2xl font-display text-foreground">{stats.totalMissionsCompleted}</p>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 space-y-6">
+          <section className="section-card p-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <p className="text-sm text-muted-foreground font-body">Olá, Jogador 👋</p>
-                <h1 className="font-display text-lg tracking-wider text-foreground">Dashboard</h1>
+                <h1 className="font-display text-2xl lg:text-3xl tracking-[0.14em] text-foreground">Dashboard Tático</h1>
                 {streakMult > 1 && (
-                  <p className="text-xs text-game-fire font-body mt-0.5">
+                  <p className="text-xs text-game-fire font-body mt-1">
                     🔥 Bônus de consistência: +{Math.round((streakMult - 1) * 100)}% XP
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <div className="px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20">
-                  <span className="font-display text-xs text-primary">{stats.xp.toLocaleString()} XP</span>
-                </div>
+              <div className="px-4 py-2 rounded-2xl bg-primary/10 border border-primary/40">
+                <span className="font-display text-sm text-primary">{stats.xp.toLocaleString()} XP</span>
               </div>
-            </header>
-
-            {/* 1. Quote */}
-            <QuoteBar />
-
-            {/* 2. Upcoming tasks */}
-            <UpcomingTasks />
-
-            {/* 3. Quick actions */}
-            <QuickActions onNavigate={setCurrentPage} />
-
-            {/* 4. Task progress + Hydration */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <TaskStatsChart />
-              <HydrationMini />
             </div>
+          </section>
 
-            {/* 5. Recurring tasks chart */}
-            <RecurringTasksChart />
-
-            {/* 6. Profile overview */}
-            <ProfileBanner />
-
-            {/* 7. Category overview */}
-            <CategoryOverview />
-
-            {/* Active metas */}
-            <section aria-label="Metas ativas">
-              <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
-                🎯 Metas Ativas
-                <span className="text-primary font-body text-xs">({activeMetas.length})</span>
-              </h2>
-              <div className="space-y-4">
-                <CreateMetaDialog />
-                {activeMetas.map(meta => (
-                  <MetaCard key={meta.id} meta={meta} />
-                ))}
-              </div>
-            </section>
-
-            {completedMetas.length > 0 && (
-              <section aria-label="Metas concluídas">
-                <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">🏆 Metas Concluídas ({completedMetas.length})</h2>
-                <div className="space-y-3 opacity-60">
-                  {completedMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
-                </div>
-              </section>
-            )}
-
-            {/* 8. Evolution - LAST position */}
-            <EvolutionTimeline />
+          <QuoteBar />
+          <QuickActions onNavigate={setCurrentPage} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <TaskStatsChart />
+            <HydrationMini />
           </div>
-        );
+          <RecurringTasksChart />
+          <UpcomingTasks />
+          <ProfileBanner />
+          <CategoryOverview />
+          <EvolutionTimeline />
+        </div>
+
+        <aside className="space-y-4">
+          <RightPanel />
+        </aside>
+      </div>
+
+      <section aria-label="Metas ativas">
+        <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
+          🎯 Metas Ativas
+          <span className="text-primary font-body text-xs">({activeMetas.length})</span>
+        </h2>
+        <div className="space-y-4">
+          <CreateMetaDialog />
+          {activeMetas.map(meta => (
+            <MetaCard key={meta.id} meta={meta} />
+          ))}
+        </div>
+      </section>
+
+      {completedMetas.length > 0 && (
+        <section aria-label="Metas concluídas">
+          <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">🏆 Metas Concluídas ({completedMetas.length})</h2>
+          <div className="space-y-3 opacity-60">
+            {completedMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard':
+        return <DashboardHome />;
 
       case 'metas':
         return (
@@ -347,7 +360,7 @@ function Dashboard() {
       {/* Top header bar em estilo de HUD */}
       <header className="sticky top-0 z-30 border-b border-border/70 bg-gradient-to-b from-background/95 via-background/80 to-background/60 backdrop-blur-xl">
         <div className="px-4">
-          <div className="max-w-2xl mx-auto flex items-center justify-between py-3">
+          <div className="max-w-[1600px] mx-auto flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary/90 via-primary/60 to-game-cyan/70 flex items-center justify-center shadow-glow-cyan ring-1 ring-primary/60">
                 <Zap className="w-4 h-4 text-primary-foreground" />
@@ -378,8 +391,8 @@ function Dashboard() {
 
       {/* Main content centralizado como dashboard */}
       <main className="px-4 py-5">
-        <div className="max-w-2xl mx-auto space-y-4">
-          <section className="glass-card p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-fade-in">
+        <div className="max-w-[1600px] mx-auto space-y-4">
+          <section className="glass-card p-4 md:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 animate-fade-in">
             <div>
               <p className="text-xs font-body text-muted-foreground flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-game-green animate-pulse-glow" />
@@ -394,7 +407,7 @@ function Dashboard() {
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3 w-full md:w-auto md:min-w-[220px]">
+            <div className="grid grid-cols-2 gap-3 w-full lg:w-auto lg:min-w-[260px]">
               <div className="section-card p-3 flex flex-col gap-1">
                 <span className="text-[10px] font-body text-muted-foreground uppercase tracking-[0.18em]">
                   Missões hoje

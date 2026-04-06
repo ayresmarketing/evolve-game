@@ -40,7 +40,7 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
       )}
 
       {showMore && (
-        <div className="fixed bottom-[72px] left-3 right-3 z-50 bg-card border border-border rounded-2xl shadow-game-card p-3 animate-slide-up">
+        <div className="fixed bottom-[72px] left-3 right-3 lg:left-1/2 lg:-translate-x-1/2 lg:w-[720px] z-50 bg-card border border-border rounded-2xl shadow-game-card p-3 animate-slide-up">
           <div className="grid grid-cols-5 gap-1">
             {moreItems.map(item => {
               const Icon = item.icon;
@@ -70,7 +70,7 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
       )}
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-[0_-2px_12px_hsl(220_30%_50%/0.06)]">
-        <div className="flex items-center justify-around px-1 py-1.5 max-w-lg mx-auto">
+        <div className="flex items-center justify-around px-2 py-1.5 max-w-[1100px] mx-auto">
           {visibleItems.map(item => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
