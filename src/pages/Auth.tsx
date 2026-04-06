@@ -65,7 +65,8 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen bg-gradient-hero relative overflow-x-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,hsl(var(--primary)/0.2),transparent_35%),radial-gradient(circle_at_80%_15%,hsl(var(--personal-purple)/0.16),transparent_30%),radial-gradient(circle_at_60%_70%,hsl(var(--game-cyan)/0.12),transparent_35%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,hsl(var(--primary)/0.22),transparent_34%),radial-gradient(circle_at_85%_12%,hsl(var(--personal-purple)/0.18),transparent_32%),radial-gradient(circle_at_62%_72%,hsl(var(--game-cyan)/0.14),transparent_34%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(120deg,transparent_0%,hsl(var(--primary)/0.06)_35%,transparent_70%)]" />
 
       <div className="relative z-10 min-h-screen px-4 py-8 md:py-12">
         <div className="max-w-[1400px] mx-auto min-h-[calc(100vh-4rem)] grid lg:grid-cols-2 gap-8 items-center">
@@ -80,7 +81,8 @@ export default function Auth() {
               </div>
             </div>
 
-            <div className="section-card p-6 md:p-7">
+            <div className="section-card p-6 md:p-7 relative overflow-hidden">
+              <div className="absolute -right-16 -bottom-20 w-60 h-60 rounded-full bg-primary/10 blur-3xl" />
               <p className="text-xs text-primary tracking-[0.2em] uppercase font-display">Dashboard Experience</p>
               <h2 className="mt-2 text-3xl md:text-4xl font-display text-foreground leading-tight">
                 Interface imersiva, rápida e fluida em qualquer tela
@@ -109,7 +111,8 @@ export default function Auth() {
           </section>
 
           <section className="w-full">
-            <div className="w-full max-w-md mx-auto section-card p-6 md:p-7 space-y-6">
+            <div className="w-full max-w-md mx-auto section-card p-6 md:p-7 space-y-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-accent" />
               <div className="text-left">
                 <p className="text-[10px] text-primary tracking-[0.22em] uppercase font-display">Acesso</p>
                 <h2 className="font-display text-2xl tracking-wider text-foreground mt-1">

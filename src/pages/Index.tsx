@@ -23,7 +23,7 @@ import { RecurringTasksChart } from '@/components/game/RecurringTasksChart';
 import { RightPanel } from '@/components/game/RightPanel';
 import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
-import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar } from 'lucide-react';
+import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar, Activity, Trophy, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 function UpcomingTasks() {
@@ -152,64 +152,77 @@ function Dashboard() {
   const streakMult = getStreakMultiplier(stats.streak);
 
   const DashboardHome = () => (
-    <div className="space-y-6">
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="section-card p-4">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">XP Total</p>
-          <p className="mt-2 text-2xl font-display text-primary">{stats.xp.toLocaleString()}</p>
-        </div>
-        <div className="section-card p-4">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Nível</p>
-          <p className="mt-2 text-2xl font-display text-foreground">{stats.level}</p>
-        </div>
-        <div className="section-card p-4">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Sequência</p>
-          <p className="mt-2 text-2xl font-display text-game-fire">{stats.streak}d</p>
-        </div>
-        <div className="section-card p-4">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Missões</p>
-          <p className="mt-2 text-2xl font-display text-foreground">{stats.totalMissionsCompleted}</p>
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 space-y-6">
-          <section className="section-card p-5">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div>
-                <p className="text-sm text-muted-foreground font-body">Olá, Jogador 👋</p>
-                <h1 className="font-display text-2xl lg:text-3xl tracking-[0.14em] text-foreground">Dashboard Tático</h1>
-                {streakMult > 1 && (
-                  <p className="text-xs text-game-fire font-body mt-1">
-                    🔥 Bônus de consistência: +{Math.round((streakMult - 1) * 100)}% XP
-                  </p>
-                )}
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+      <div className="xl:col-span-8 space-y-5">
+        <section className="relative overflow-hidden rounded-3xl border border-primary/30 p-6 md:p-7 shadow-glow-cyan bg-[linear-gradient(130deg,hsl(var(--primary)/0.24),hsl(228_90%_12%/0.95)_45%,hsl(228_80%_8%/0.95))]">
+          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-primary/20 blur-3xl" />
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-primary-foreground/80 font-display">Painel Premium</p>
+              <h1 className="mt-2 text-3xl md:text-4xl font-display text-primary-foreground tracking-[0.08em]">LIFEQUEST COMMAND</h1>
+              <p className="mt-2 text-sm text-primary-foreground/85 font-body max-w-xl">
+                Operação diária com métricas, progresso visual e ações rápidas para evoluir sem fricção.
+              </p>
+              {streakMult > 1 && (
+                <p className="mt-2 text-xs font-body text-game-gold">
+                  🔥 Combo ativo: +{Math.round((streakMult - 1) * 100)}% XP por consistência
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-3 w-full lg:w-auto lg:min-w-[360px]">
+              <div className="rounded-2xl border border-white/20 bg-black/20 p-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-primary-foreground/70">XP</p>
+                <p className="text-xl font-display text-primary-foreground">{stats.xp.toLocaleString()}</p>
               </div>
-              <div className="px-4 py-2 rounded-2xl bg-primary/10 border border-primary/40">
-                <span className="font-display text-sm text-primary">{stats.xp.toLocaleString()} XP</span>
+              <div className="rounded-2xl border border-white/20 bg-black/20 p-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-primary-foreground/70">Nível</p>
+                <p className="text-xl font-display text-primary-foreground">{stats.level}</p>
+              </div>
+              <div className="rounded-2xl border border-white/20 bg-black/20 p-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-primary-foreground/70">Streak</p>
+                <p className="text-xl font-display text-primary-foreground">{stats.streak}d</p>
               </div>
             </div>
-          </section>
-
-          <QuoteBar />
-          <QuickActions onNavigate={setCurrentPage} />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <TaskStatsChart />
-            <HydrationMini />
           </div>
-          <RecurringTasksChart />
-          <UpcomingTasks />
-          <ProfileBanner />
-          <CategoryOverview />
-          <EvolutionTimeline />
-        </div>
+        </section>
 
-        <aside className="space-y-4">
-          <RightPanel />
-        </aside>
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="section-card p-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Total de Missões</p>
+            <p className="mt-2 text-2xl font-display text-foreground">{stats.totalMissionsCompleted}</p>
+          </div>
+          <div className="section-card p-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Melhor Sequência</p>
+            <p className="mt-2 text-2xl font-display text-game-fire">{stats.longestStreak}d</p>
+          </div>
+          <div className="section-card p-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Metas Concluídas</p>
+            <p className="mt-2 text-2xl font-display text-game-green">{stats.totalMetasCompleted}</p>
+          </div>
+          <div className="section-card p-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Dias de Uso</p>
+            <p className="mt-2 text-2xl font-display text-primary">{stats.daysUsed}</p>
+          </div>
+        </section>
+
+        <QuickActions onNavigate={setCurrentPage} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TaskStatsChart />
+          <HydrationMini />
+        </div>
+        <RecurringTasksChart />
+        <QuoteBar />
+        <UpcomingTasks />
+        <CategoryOverview />
       </div>
 
-      <section aria-label="Metas ativas">
+      <aside className="xl:col-span-4 space-y-4">
+        <RightPanel />
+        <ProfileBanner />
+        <EvolutionTimeline />
+      </aside>
+
+      <section className="xl:col-span-8" aria-label="Metas ativas">
         <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
           🎯 Metas Ativas
           <span className="text-primary font-body text-xs">({activeMetas.length})</span>
@@ -223,15 +236,28 @@ function Dashboard() {
       </section>
 
       {completedMetas.length > 0 && (
-        <section aria-label="Metas concluídas">
+        <section className="xl:col-span-4" aria-label="Metas concluídas">
           <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">🏆 Metas Concluídas ({completedMetas.length})</h2>
-          <div className="space-y-3 opacity-60">
+          <div className="space-y-3 opacity-70">
             {completedMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
           </div>
         </section>
       )}
     </div>
   );
+
+  const pageTitle: Record<Page, string> = {
+    dashboard: 'Command Center',
+    metas: 'Metas',
+    afazeres: 'Afazeres',
+    agenda: 'Agenda',
+    missao: 'Missão Semanal',
+    progressao: 'Progressão',
+    financeiro: 'Financeiro',
+    hidratacao: 'Hidratação',
+    anotacoes: 'Anotações',
+    duelo: 'Duelos',
+  };
 
   const renderPage = () => {
     switch (currentPage) {
@@ -356,32 +382,34 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-hero pb-20">
-      {/* Top header bar em estilo de HUD */}
-      <header className="sticky top-0 z-30 border-b border-border/70 bg-gradient-to-b from-background/95 via-background/80 to-background/60 backdrop-blur-xl">
-        <div className="px-4">
-          <div className="max-w-[1600px] mx-auto flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary/90 via-primary/60 to-game-cyan/70 flex items-center justify-center shadow-glow-cyan ring-1 ring-primary/60">
-                <Zap className="w-4 h-4 text-primary-foreground" />
+    <div className="min-h-screen bg-gradient-hero pb-24 relative overflow-x-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,hsl(var(--primary)/0.18),transparent_35%),radial-gradient(circle_at_100%_10%,hsl(var(--personal-purple)/0.14),transparent_35%)] pointer-events-none" />
+      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/75 backdrop-blur-xl">
+        <div className="px-4 md:px-6">
+          <div className="max-w-[1700px] mx-auto flex items-center justify-between py-3">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-game-cyan flex items-center justify-center shadow-glow-cyan ring-1 ring-primary/50">
+                <Zap className="w-5 h-5 text-primary-foreground" />
               </div>
               <div className="flex flex-col">
-                <span className="font-display text-[9px] tracking-[0.28em] text-primary/90 uppercase">
-                  LifeQuest • HUD
+                <span className="font-display text-[9px] md:text-[10px] tracking-[0.28em] text-primary uppercase">
+                  LIFEQUEST PREMIUM UI
                 </span>
-                <span className="text-[11px] font-body text-muted-foreground">
-                  Sua vida em modo jogo, em tempo real
+                <span className="text-[11px] md:text-xs font-body text-muted-foreground">
+                  {pageTitle[currentPage]} • produtividade gamificada
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-[10px] font-body text-muted-foreground">Nível {stats.level}</p>
-                <p className="text-xs font-display text-primary text-glow-blue font-semibold">
-                  {stats.xp.toLocaleString()} XP
-                </p>
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="hidden md:flex items-center gap-2 rounded-2xl border border-border bg-card/80 px-3 py-2">
+                <Activity className="w-4 h-4 text-primary" />
+                <span className="text-xs font-body text-muted-foreground">Nível {stats.level}</span>
               </div>
-              <div className="w-9 h-9 rounded-2xl bg-gradient-gold flex items-center justify-center text-sm shadow-glow-gold ring-2 ring-game-gold/40">
+              <div className="hidden md:flex items-center gap-2 rounded-2xl border border-border bg-card/80 px-3 py-2">
+                <Trophy className="w-4 h-4 text-game-gold" />
+                <span className="text-xs font-body text-muted-foreground">{stats.xp.toLocaleString()} XP</span>
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-gradient-gold flex items-center justify-center text-sm shadow-glow-gold ring-2 ring-game-gold/30">
                 {getLevelFromXP(stats.xp).icon}
               </div>
             </div>
@@ -389,41 +417,27 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* Main content centralizado como dashboard */}
-      <main className="px-4 py-5">
-        <div className="max-w-[1600px] mx-auto space-y-4">
-          <section className="glass-card p-4 md:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 animate-fade-in">
-            <div>
-              <p className="text-xs font-body text-muted-foreground flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-game-green animate-pulse-glow" />
-                Sistema online • {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}
-              </p>
-              <h1 className="mt-2 font-display text-xl md:text-2xl tracking-widest text-foreground">
-                Painel de Evolução
-              </h1>
-              {streakMult > 1 && (
-                <p className="mt-1 text-xs text-game-fire font-body">
-                  🔥 Combo de consistência ativo (+{Math.round((streakMult - 1) * 100)}% XP)
-                </p>
-              )}
+      <main className="relative z-10 px-4 md:px-6 py-5">
+        <div className="max-w-[1700px] mx-auto space-y-5">
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="section-card p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Modo</p>
+                <p className="font-display text-base text-foreground">Visual Premium</p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 w-full lg:w-auto lg:min-w-[260px]">
-              <div className="section-card p-3 flex flex-col gap-1">
-                <span className="text-[10px] font-body text-muted-foreground uppercase tracking-[0.18em]">
-                  Missões hoje
-                </span>
-                <span className="text-lg font-display text-foreground">
-                  {stats.totalMissionsCompleted}
-                </span>
-              </div>
-              <div className="section-card p-3 flex flex-col gap-1">
-                <span className="text-[10px] font-body text-muted-foreground uppercase tracking-[0.18em]">
-                  Sequência
-                </span>
-                <span className="text-lg font-display text-foreground">
-                  {stats.streak}d
-                </span>
-              </div>
+            <div className="section-card p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Data</p>
+              <p className="font-display text-base text-foreground mt-1">
+                {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </p>
+            </div>
+            <div className="section-card p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Status</p>
+              <p className="font-display text-base text-game-green mt-1">Sistema online</p>
             </div>
           </section>
 
