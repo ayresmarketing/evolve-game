@@ -23,7 +23,7 @@ import { RecurringTasksChart } from '@/components/game/RecurringTasksChart';
 import { RightPanel } from '@/components/game/RightPanel';
 import { getStreakMultiplier, getLevelFromXP, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
-import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar, Activity, Trophy, Sparkles, Cpu, Workflow, BarChart3 } from 'lucide-react';
+import { Clock, CalendarPlus, Zap, Target, ListChecks, Calendar, Activity, Trophy, Sparkles, Cpu, Workflow, BarChart3, Search, Bell, Settings2, ChevronRight, Layers, TimerReset } from 'lucide-react';
 import { toast } from 'sonner';
 
 function UpcomingTasks() {
@@ -152,27 +152,74 @@ function Dashboard() {
   const streakMult = getStreakMultiplier(stats.streak);
 
   const DashboardHome = () => (
-    <div className="home-premium grid grid-cols-1 2xl:grid-cols-12 gap-5">
-      <div className="hidden 2xl:flex 2xl:col-span-1">
-        <div className="sticky top-24 h-fit w-full section-card p-3 space-y-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center"><Cpu className="w-5 h-5 text-primary" /></div>
-          <div className="w-10 h-10 rounded-xl bg-game-green/15 flex items-center justify-center"><Workflow className="w-5 h-5 text-game-green" /></div>
-          <div className="w-10 h-10 rounded-xl bg-game-purple/15 flex items-center justify-center"><BarChart3 className="w-5 h-5 text-game-purple" /></div>
-        </div>
+    <div className="home-premium grid grid-cols-1 xl:grid-cols-12 gap-5">
+      <div className="hidden xl:flex xl:col-span-2">
+        <aside className="sticky top-24 h-fit w-full section-card p-4 space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-border/50">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+              <Layers className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Workspace</p>
+              <p className="text-sm font-body font-semibold text-foreground">Painel Principal</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="rounded-xl border border-border/60 bg-secondary/30 p-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Execução</p>
+              <p className="text-lg font-display text-foreground mt-1">{stats.totalMissionsCompleted}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-secondary/30 p-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Consistência</p>
+              <p className="text-lg font-display text-game-fire mt-1">{stats.streak} dias</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-secondary/30 p-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Evolução</p>
+              <p className="text-lg font-display text-primary mt-1">{stats.xp.toLocaleString()} XP</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 pt-2">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center"><Cpu className="w-5 h-5 text-primary" /></div>
+            <div className="w-10 h-10 rounded-xl bg-game-green/15 flex items-center justify-center"><Workflow className="w-5 h-5 text-game-green" /></div>
+            <div className="w-10 h-10 rounded-xl bg-game-purple/15 flex items-center justify-center"><BarChart3 className="w-5 h-5 text-game-purple" /></div>
+          </div>
+        </aside>
       </div>
 
-      <div className="2xl:col-span-8 space-y-5">
+      <div className="xl:col-span-7 space-y-5">
+        <section className="section-card p-3 md:p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                aria-label="Pesquisar no dashboard"
+                placeholder="Search anything..."
+                className="w-full h-10 rounded-xl border border-border/60 bg-secondary/20 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/35"
+              />
+            </div>
+            <button className="w-10 h-10 rounded-xl border border-border/60 bg-secondary/20 flex items-center justify-center text-muted-foreground hover:text-foreground">
+              <Bell className="w-4 h-4" />
+            </button>
+            <button className="w-10 h-10 rounded-xl border border-border/60 bg-secondary/20 flex items-center justify-center text-muted-foreground hover:text-foreground">
+              <Settings2 className="w-4 h-4" />
+            </button>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/65 flex items-center justify-center shadow-glow-cyan text-primary-foreground font-display text-sm">
+              {getLevelFromXP(stats.xp).icon}
+            </div>
+          </div>
+        </section>
+
         <section className="premium-hero-card relative overflow-hidden rounded-3xl p-6 md:p-8">
           <div className="absolute -right-20 -top-20 w-64 h-64 rounded-full bg-primary/20 blur-3xl" />
           <div className="absolute right-20 bottom-0 w-72 h-32 bg-gradient-to-l from-primary/30 to-transparent blur-2xl" />
           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
             <div className="lg:col-span-8">
-              <p className="text-[11px] tracking-[0.26em] uppercase text-primary-foreground/80 font-display">Central de Operações</p>
-              <h1 className="mt-2 text-3xl md:text-[42px] font-display text-primary-foreground tracking-[0.06em] leading-tight">
-                Construa sua melhor versão, todos os dias
+              <p className="text-[11px] tracking-[0.26em] uppercase text-primary-foreground/80 font-display">Executive Overview</p>
+              <h1 className="mt-2 text-3xl md:text-[40px] font-display text-primary-foreground tracking-[0.06em] leading-tight">
+                Dashboard de Evolução Premium
               </h1>
               <p className="mt-2 text-sm text-primary-foreground/85 font-body max-w-2xl">
-                Painel executivo para visão completa da sua evolução com metas, progresso e execução.
+                Operação diária com alta clareza visual para metas, rotina e progresso.
               </p>
               {streakMult > 1 && (
                 <p className="mt-3 text-xs font-body text-game-gold">
@@ -181,64 +228,78 @@ function Dashboard() {
               )}
             </div>
             <div className="lg:col-span-4 grid grid-cols-3 lg:grid-cols-1 gap-3">
-              <div className="premium-mini-kpi">
-                <p>XP</p><span>{stats.xp.toLocaleString()}</span>
-              </div>
-              <div className="premium-mini-kpi">
-                <p>Nível</p><span>{stats.level}</span>
-              </div>
-              <div className="premium-mini-kpi">
-                <p>Streak</p><span>{stats.streak}d</span>
-              </div>
+              <div className="premium-mini-kpi"><p>XP</p><span>{stats.xp.toLocaleString()}</span></div>
+              <div className="premium-mini-kpi"><p>Nível</p><span>{stats.level}</span></div>
+              <div className="premium-mini-kpi"><p>Streak</p><span>{stats.streak}d</span></div>
             </div>
           </div>
         </section>
 
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="premium-stat-tile">
-            <p>Total de Missões</p>
-            <h3>{stats.totalMissionsCompleted}</h3>
-          </div>
-          <div className="premium-stat-tile">
-            <p>Melhor Sequência</p>
-            <h3>{stats.longestStreak}d</h3>
-          </div>
-          <div className="premium-stat-tile">
-            <p>Metas Concluídas</p>
-            <h3>{stats.totalMetasCompleted}</h3>
-          </div>
-          <div className="premium-stat-tile">
-            <p>Dias de Uso</p>
-            <h3>{stats.daysUsed}</h3>
-          </div>
+          <div className="premium-stat-tile"><p>Total de Missões</p><h3>{stats.totalMissionsCompleted}</h3></div>
+          <div className="premium-stat-tile"><p>Melhor Sequência</p><h3>{stats.longestStreak}d</h3></div>
+          <div className="premium-stat-tile"><p>Metas Concluídas</p><h3>{stats.totalMetasCompleted}</h3></div>
+          <div className="premium-stat-tile"><p>Dias de Uso</p><h3>{stats.daysUsed}</h3></div>
         </section>
 
-        <QuickActions onNavigate={setCurrentPage} />
-
-        <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <TaskStatsChart />
-          <HydrationMini />
+        <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+          <div className="xl:col-span-7"><TaskStatsChart /></div>
+          <div className="xl:col-span-5"><HydrationMini /></div>
         </section>
 
-        <section className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-          <div className="xl:col-span-3 space-y-4">
+        <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+          <div className="xl:col-span-7 space-y-4">
             <QuoteBar />
             <RecurringTasksChart />
           </div>
-          <div className="xl:col-span-2">
+          <div className="xl:col-span-5">
             <UpcomingTasks />
           </div>
+        </section>
+
+        <section className="section-card p-4 md:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase">Ações Táticas</h2>
+            <button
+              onClick={() => setCurrentPage('agenda')}
+              className="text-xs text-primary font-body inline-flex items-center gap-1"
+            >
+              Abrir Agenda <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+          <QuickActions onNavigate={setCurrentPage} />
         </section>
 
         <CategoryOverview />
       </div>
 
-      <aside className="2xl:col-span-3 space-y-4">
+      <aside className="xl:col-span-3 space-y-4">
+        <div className="section-card p-4">
+          <h3 className="font-display text-[10px] tracking-[0.2em] text-muted-foreground uppercase mb-3 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" /> Sistema
+          </h3>
+          <div className="space-y-2">
+            <div className="rounded-xl border border-border/60 bg-secondary/25 p-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-body">Modo</span>
+              <span className="text-xs text-foreground font-body font-semibold">{darkMode ? 'Dark' : 'Light'}</span>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-secondary/25 p-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-body">Status</span>
+              <span className="text-xs text-game-green font-body font-semibold">Online</span>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-secondary/25 p-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-body">Sessão</span>
+              <span className="text-xs text-foreground font-body font-semibold inline-flex items-center gap-1">
+                <TimerReset className="w-3 h-3 text-primary" /> Ativa
+              </span>
+            </div>
+          </div>
+        </div>
         <RightPanel />
         <ProfileBanner />
       </aside>
 
-      <section className="2xl:col-span-9" aria-label="Metas ativas">
+      <section className="xl:col-span-9" aria-label="Metas ativas">
         <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
           🎯 Metas Ativas
           <span className="text-primary font-body text-xs">({activeMetas.length})</span>
@@ -252,7 +313,7 @@ function Dashboard() {
       </section>
 
       {completedMetas.length > 0 && (
-        <section className="2xl:col-span-3" aria-label="Metas concluídas">
+        <section className="xl:col-span-3" aria-label="Metas concluídas">
           <h2 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">🏆 Metas Concluídas ({completedMetas.length})</h2>
           <div className="space-y-3 opacity-70">
             {completedMetas.map(meta => <MetaCard key={meta.id} meta={meta} />)}
@@ -260,7 +321,7 @@ function Dashboard() {
         </section>
       )}
 
-      <section className="2xl:col-span-12">
+      <section className="xl:col-span-12">
         <EvolutionTimeline />
       </section>
     </div>
