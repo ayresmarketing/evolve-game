@@ -658,11 +658,14 @@ export function FinancePanel() {
   const deleteTransaction = useCallback(async (t: Transaction) => {
     if (!financeClient) return;
     try {
-      const { error } = await financeClient.from(t._sourceTable).delete().eq('id', t._sourceId) as any;
+      const { error } = await (financeClient.from(t._sourceTable) as any).delete().eq('id', t._sourceId);
       if (error) throw error;
+      // Remove imediatamente do estado local + força re-fetch
+      setTransactions(prev => prev.filter(tx => tx.id !== t.id));
       toast.success('Excluído!');
-    } catch (err: any) { toast.error('Erro ao excluir: ' + (err.message || '')); }
-  }, []);
+      fetchAll();
+    } catch (err: any) { toast.error('Erro ao excluir: ' + (err.message || 'sem permissão?')); }
+  }, [fetchAll]);
 
   /* ── UPDATE ── */
   const updateTransaction = useCallback(async (t: Transaction, patch: Partial<Transaction>) => {
@@ -674,19 +677,22 @@ export function FinancePanel() {
         if (patch.amount !== undefined)   u.valor_gasto     = patch.amount;
         if (patch.category !== undefined) u.categoria_gasto = CATEGORY_SUPABASE_LABEL[patch.category];
         if (patch.date !== undefined)     u.data_do_gasto   = patch.date;
-        const { error } = await financeClient.from('Gastos').update(u as any).eq('id', t._sourceId) as any;
+        const { error } = await (financeClient.from('Gastos') as any).update(u).eq('id', t._sourceId);
         if (error) throw error;
       } else {
         const u: Record<string, unknown> = {};
         if (patch.title !== undefined)  u.receb_nome  = patch.title;
         if (patch.amount !== undefined) u.receb_fixos = patch.amount;
         if (patch.date !== undefined)   u.data_receb  = patch.date;
-        const { error } = await financeClient.from('Recebimentos').update(u as any).eq('id', t._sourceId) as any;
+        const { error } = await (financeClient.from('Recebimentos') as any).update(u).eq('id', t._sourceId);
         if (error) throw error;
       }
+      // Atualiza estado local imediatamente + força re-fetch
+      setTransactions(prev => prev.map(tx => tx.id === t.id ? { ...tx, ...patch } : tx));
       toast.success('Atualizado!');
-    } catch (err: any) { toast.error('Erro ao atualizar: ' + (err.message || '')); }
-  }, []);
+      fetchAll();
+    } catch (err: any) { toast.error('Erro ao atualizar: ' + (err.message || 'sem permissão?')); }
+  }, [fetchAll]);
 
   /* ── Derived ── */
   const now = new Date();
