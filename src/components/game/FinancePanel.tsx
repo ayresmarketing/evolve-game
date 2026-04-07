@@ -1,16 +1,19 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Plus, Trash2, TrendingUp, TrendingDown, Wallet,
   ArrowUpRight, ArrowDownRight, Pencil, Check, X,
-  CalendarDays, Sliders, BarChart3,
+  CalendarDays, Sliders, BarChart3, Settings, Phone,
+  RefreshCw, Wifi, WifiOff, AlertCircle,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 /* ═══════════════════════════════════════════════════════
-   TYPES & CONSTANTS
+   TYPES
 ═══════════════════════════════════════════════════════ */
 type TransactionType = 'income' | 'expense';
 
@@ -28,44 +31,65 @@ interface Transaction {
   category: ExpenseCategory;
   date: string;
   isRecurrent: boolean;
+  _sourceTable: 'Gastos' | 'Recebimentos';
+  _sourceId: number;
 }
 
-interface FinanceState {
-  transactions: Transaction[];
-  monthlyBudget: number;
+interface GastoRow {
+  id: number;
+  created_at: string;
+  lead_nome: string | null;
+  whatsapp: string | null;
+  nome_gasto: string | null;
+  valor_gasto: number | null;
+  categoria_gasto: string | null;
+  data_do_gasto: string | null;
+  gasto_id: string | null;
 }
 
-const STORAGE_KEY = 'lifequest_finance';
+interface RecebimentoRow {
+  id: number;
+  created_at: string;
+  lead_nome: string | null;
+  whatsapp: string | null;
+  receb_fixos: number | null;
+  receb_id: string | null;
+  receb_var: number | null;
+  data_receb: string | null;
+  receb_nome: string | null;
+  receb_categoria: string | null;
+  tipo: string | null;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════ */
+const WA_STORAGE_KEY = 'lifequest_whatsapp_phone';
 
 const CATEGORIES: Record<ExpenseCategory, { label: string; emoji: string; color: string }> = {
-  alimentacao:  { label: 'Alimentação',            emoji: '🍽',  color: '#f97316' },
-  transporte:   { label: 'Transporte',              emoji: '🚗',  color: '#3b82f6' },
-  moradia:      { label: 'Moradia',                 emoji: '🏠',  color: '#8b5cf6' },
-  saude:        { label: 'Despesas médicas',         emoji: '🦩',  color: '#ec4899' },
-  lazer:        { label: 'Lazer',                   emoji: '🎉',  color: '#eab308' },
-  educacao:     { label: 'Educação',                emoji: '🎓',  color: '#06b6d4' },
-  vestuario:    { label: 'Vestuário',               emoji: '👗',  color: '#f43f5e' },
-  pets:         { label: 'Pets',                    emoji: '🐾',  color: '#84cc16' },
-  beleza:       { label: 'Beleza e cuidados',       emoji: '💇',  color: '#a855f7' },
-  filhos:       { label: 'Filhos',                  emoji: '🧸',  color: '#fb923c' },
-  assinaturas:  { label: 'Assinaturas e serviços',  emoji: '📺',  color: '#22d3ee' },
-  presentes:    { label: 'Presentes e doações',     emoji: '🎁',  color: '#f472b6' },
-  emergencias:  { label: 'Emergências',             emoji: '🚨',  color: '#ef4444' },
-  investimentos:{ label: 'Investimentos',           emoji: '📈',  color: '#22c55e' },
-  dividas:      { label: 'Dívidas / Empréstimos',  emoji: '💳',  color: '#64748b' },
-  eletronicos:  { label: 'Eletrônicos',             emoji: '🔌',  color: '#0ea5e9' },
-  outros:       { label: 'Outros',                  emoji: '📦',  color: '#94a3b8' },
+  alimentacao:   { label: 'Alimentação',           emoji: '🍽',  color: '#f97316' },
+  transporte:    { label: 'Transporte',             emoji: '🚗',  color: '#3b82f6' },
+  moradia:       { label: 'Moradia',                emoji: '🏠',  color: '#8b5cf6' },
+  saude:         { label: 'Despesas médicas',        emoji: '🦩',  color: '#ec4899' },
+  lazer:         { label: 'Lazer',                  emoji: '🎉',  color: '#eab308' },
+  educacao:      { label: 'Educação',               emoji: '🎓',  color: '#06b6d4' },
+  vestuario:     { label: 'Vestuário',              emoji: '👗',  color: '#f43f5e' },
+  pets:          { label: 'Pets',                   emoji: '🐾',  color: '#84cc16' },
+  beleza:        { label: 'Beleza e cuidados',      emoji: '💇',  color: '#a855f7' },
+  filhos:        { label: 'Filhos',                 emoji: '🧸',  color: '#fb923c' },
+  assinaturas:   { label: 'Assinaturas e serviços', emoji: '📺',  color: '#22d3ee' },
+  presentes:     { label: 'Presentes e doações',    emoji: '🎁',  color: '#f472b6' },
+  emergencias:   { label: 'Emergências',            emoji: '🚨',  color: '#ef4444' },
+  investimentos: { label: 'Investimentos',          emoji: '📈',  color: '#22c55e' },
+  dividas:       { label: 'Dívidas / Empréstimos', emoji: '💳',  color: '#64748b' },
+  eletronicos:   { label: 'Eletrônicos',            emoji: '🔌',  color: '#0ea5e9' },
+  outros:        { label: 'Outros',                 emoji: '📦',  color: '#94a3b8' },
 };
 
+/* ═══════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════ */
 function generateId() { return Math.random().toString(36).substring(2, 15); }
-
-function loadState(): FinanceState {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return { transactions: [], monthlyBudget: 0 };
-}
 
 function formatCurrency(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -93,9 +117,58 @@ function getDateRange(days: number, startDate?: string, endDate?: string): strin
   });
 }
 
-/* ═══════════════════════════════════════════════════════
-   TOOLTIP STYLE
-═══════════════════════════════════════════════════════ */
+function mapCategory(cat: string | null): ExpenseCategory {
+  if (!cat) return 'outros';
+  const c = cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (c.includes('aliment') || c.includes('mercado') || c.includes('comida') || c.includes('ifood')) return 'alimentacao';
+  if (c.includes('transport') || c.includes('uber') || c.includes('gasolina') || c.includes('onibus')) return 'transporte';
+  if (c.includes('morad') || c.includes('aluguel') || c.includes('luz') || c.includes('agua')) return 'moradia';
+  if (c.includes('saude') || c.includes('medic') || c.includes('farmac') || c.includes('consulta')) return 'saude';
+  if (c.includes('lazer') || c.includes('cinema') || c.includes('bar') || c.includes('viagem')) return 'lazer';
+  if (c.includes('educa') || c.includes('curso') || c.includes('livro') || c.includes('escola')) return 'educacao';
+  if (c.includes('vestuario') || c.includes('roupa') || c.includes('tenis') || c.includes('calcado')) return 'vestuario';
+  if (c.includes('pet') || c.includes('racao') || c.includes('veterinario')) return 'pets';
+  if (c.includes('beleza') || c.includes('salao') || c.includes('academia') || c.includes('cabelo')) return 'beleza';
+  if (c.includes('filho') || c.includes('crianca') || c.includes('fralda') || c.includes('brinquedo')) return 'filhos';
+  if (c.includes('assina') || c.includes('netflix') || c.includes('spotify') || c.includes('streaming')) return 'assinaturas';
+  if (c.includes('presente') || c.includes('doacao')) return 'presentes';
+  if (c.includes('emergencia') || c.includes('imprevisto') || c.includes('multa') || c.includes('conserto')) return 'emergencias';
+  if (c.includes('invest') || c.includes('acoes') || c.includes('poupanca')) return 'investimentos';
+  if (c.includes('divida') || c.includes('emprestimo') || c.includes('parcela') || c.includes('financiamento')) return 'dividas';
+  if (c.includes('eletronico') || c.includes('celular') || c.includes('tablet') || c.includes('computador')) return 'eletronicos';
+  return 'outros';
+}
+
+function gastoToTransaction(row: GastoRow): Transaction {
+  const dateStr = row.data_do_gasto || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
+  return {
+    id: `gasto_${row.id}`,
+    title: row.nome_gasto || '(sem nome)',
+    amount: Number(row.valor_gasto) || 0,
+    type: 'expense',
+    category: mapCategory(row.categoria_gasto),
+    date: dateStr,
+    isRecurrent: false,
+    _sourceTable: 'Gastos',
+    _sourceId: row.id,
+  };
+}
+
+function recebimentoToTransaction(row: RecebimentoRow): Transaction {
+  const dateStr = row.data_receb || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
+  return {
+    id: `receb_${row.id}`,
+    title: row.receb_nome || '(sem nome)',
+    amount: Number(row.receb_fixos || 0) + Number(row.receb_var || 0),
+    type: 'income',
+    category: 'outros',
+    date: dateStr,
+    isRecurrent: row.tipo === 'fixo',
+    _sourceTable: 'Recebimentos',
+    _sourceId: row.id,
+  };
+}
+
 const tooltipStyle = {
   backgroundColor: 'hsl(240 16% 10%)',
   border: '1px solid hsl(240 14% 20%)',
@@ -119,78 +192,54 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
     return getDateRange(range);
   }, [range, useCustom, customStart, customEnd]);
 
-  const chartData = useMemo(() => {
-    return dateRange.map(date => {
+  const chartData = useMemo(() =>
+    dateRange.map(date => {
       const dayTx = transactions.filter(t => t.date === date);
       return {
         label: dateLabel(date),
         Receitas: dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
         Despesas: dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
       };
-    });
-  }, [dateRange, transactions]);
+    }), [dateRange, transactions]);
 
   const isEmpty = chartData.every(d => d.Receitas === 0 && d.Despesas === 0);
 
   return (
     <div className="section-card">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
           <BarChart3 className="w-3.5 h-3.5 text-primary" /> Receitas e Despesas por Dia
         </h3>
         <div className="flex items-center gap-1.5 flex-wrap">
           {[7, 14, 30].map(d => (
-            <button
-              key={d}
+            <button key={d}
               onClick={() => { setRange(d); setUseCustom(false); setShowCustom(false); }}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
                 !useCustom && range === d
                   ? 'border-primary/60 bg-primary/15 text-primary'
                   : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
-              }`}
-            >
-              {d}d
-            </button>
+              }`}>{d}d</button>
           ))}
-          <button
-            onClick={() => setShowCustom(v => !v)}
+          <button onClick={() => setShowCustom(v => !v)}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
-              useCustom
-                ? 'border-primary/60 bg-primary/15 text-primary'
-                : 'border-border text-muted-foreground hover:border-primary/30'
-            }`}
-          >
-            <Sliders className="w-2.5 h-2.5" /> Período
-          </button>
+              useCustom ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'
+            }`}><Sliders className="w-2.5 h-2.5" /> Período</button>
         </div>
       </div>
 
-      {/* Custom date inputs */}
       {showCustom && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-          <input
-            type="date"
-            value={customStart}
+          <input type="date" value={customStart}
             onChange={e => { setCustomStart(e.target.value); if (customEnd) setUseCustom(true); }}
-            className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50"
-          />
+            className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
           <span className="text-[10px] text-muted-foreground">até</span>
-          <input
-            type="date"
-            value={customEnd}
-            min={customStart}
+          <input type="date" value={customEnd} min={customStart}
             onChange={e => { setCustomEnd(e.target.value); if (customStart) setUseCustom(true); }}
-            className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50"
-          />
+            className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
           {useCustom && (
-            <button
-              onClick={() => { setUseCustom(false); setCustomStart(''); setCustomEnd(''); setShowCustom(false); }}
-              className="text-[10px] text-destructive font-body hover:underline"
-            >
-              Limpar
-            </button>
+            <button onClick={() => { setUseCustom(false); setCustomStart(''); setCustomEnd(''); setShowCustom(false); }}
+              className="text-[10px] text-destructive font-body hover:underline">Limpar</button>
           )}
         </div>
       )}
@@ -208,11 +257,8 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 14% 18%)" />
                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'hsl(240 8% 56%)' }} />
                 <YAxis tick={{ fontSize: 9, fill: 'hsl(240 8% 56%)' }} tickFormatter={v => `R$${v}`} allowDecimals={false} />
-                <ChartTooltip
-                  contentStyle={tooltipStyle}
-                  labelStyle={{ color: '#f5f0e0', marginBottom: 4 }}
-                  formatter={(v: number) => [formatCurrency(v)]}
-                />
+                <ChartTooltip contentStyle={tooltipStyle} labelStyle={{ color: '#f5f0e0', marginBottom: 4 }}
+                  formatter={(v: number) => [formatCurrency(v)]} />
                 <Bar dataKey="Receitas" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={28} />
                 <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.85} />
               </BarChart>
@@ -242,13 +288,7 @@ function CategoryDashboard({ transactions }: { transactions: Transaction[] }) {
       map.set(t.category, (map.get(t.category) || 0) + t.amount);
     });
     return Array.from(map.entries())
-      .map(([cat, value]) => ({
-        cat,
-        name: CATEGORIES[cat].label,
-        emoji: CATEGORIES[cat].emoji,
-        color: CATEGORIES[cat].color,
-        value,
-      }))
+      .map(([cat, value]) => ({ cat, name: CATEGORIES[cat].label, emoji: CATEGORIES[cat].emoji, color: CATEGORIES[cat].color, value }))
       .sort((a, b) => b.value - a.value);
   }, [transactions]);
 
@@ -257,9 +297,7 @@ function CategoryDashboard({ transactions }: { transactions: Transaction[] }) {
   if (expensesByCategory.length === 0) {
     return (
       <div className="section-card">
-        <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
-          🗂 Gastos por Categoria
-        </h3>
+        <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">🗂 Gastos por Categoria</h3>
         <div className="flex flex-col items-center py-10 text-center">
           <p className="text-sm text-muted-foreground font-body">Nenhuma despesa registrada ainda</p>
         </div>
@@ -267,40 +305,21 @@ function CategoryDashboard({ transactions }: { transactions: Transaction[] }) {
     );
   }
 
-  const pieData = expensesByCategory.slice(0, 8);
-
   return (
     <div className="section-card">
-      <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
-        🗂 Gastos por Categoria
-      </h3>
-
+      <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">🗂 Gastos por Categoria</h3>
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Donut chart */}
         <div className="w-full lg:w-[180px] h-[180px] shrink-0 mx-auto lg:mx-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={80}
-                paddingAngle={2}
-                dataKey="value"
-                stroke="none"
-              >
-                {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+              <Pie data={expensesByCategory.slice(0, 8)} cx="50%" cy="50%"
+                innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value" stroke="none">
+                {expensesByCategory.slice(0, 8).map((d, i) => <Cell key={i} fill={d.color} />)}
               </Pie>
-              <ChartTooltip
-                contentStyle={tooltipStyle}
-                formatter={(v: number, name: string) => [formatCurrency(v), name]}
-              />
+              <ChartTooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => [formatCurrency(v), name]} />
             </PieChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Category list with progress bars */}
         <div className="flex-1 space-y-2.5 min-w-0">
           {expensesByCategory.map(cat => {
             const pct = total > 0 ? Math.round((cat.value / total) * 100) : 0;
@@ -317,10 +336,8 @@ function CategoryDashboard({ transactions }: { transactions: Transaction[] }) {
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full bg-secondary/60">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${pct}%`, backgroundColor: cat.color }}
-                  />
+                  <div className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${pct}%`, backgroundColor: cat.color }} />
                 </div>
               </div>
             );
@@ -335,13 +352,11 @@ function CategoryDashboard({ transactions }: { transactions: Transaction[] }) {
    COMPONENT — Editable Transaction Row
 ═══════════════════════════════════════════════════════ */
 function TransactionRow({
-  t,
-  onDelete,
-  onUpdate,
+  t, onDelete, onUpdate,
 }: {
   t: Transaction;
-  onDelete: (id: string) => void;
-  onUpdate: (id: string, patch: Partial<Transaction>) => void;
+  onDelete: (t: Transaction) => void;
+  onUpdate: (t: Transaction, patch: Partial<Transaction>) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ title: t.title, amount: String(t.amount), date: t.date, category: t.category });
@@ -350,12 +365,7 @@ function TransactionRow({
   const save = () => {
     const amount = parseFloat(draft.amount);
     if (!draft.title || isNaN(amount) || amount <= 0) return;
-    onUpdate(t.id, { title: draft.title, amount, date: draft.date, category: draft.category as ExpenseCategory });
-    setEditing(false);
-  };
-
-  const cancel = () => {
-    setDraft({ title: t.title, amount: String(t.amount), date: t.date, category: t.category });
+    onUpdate(t, { title: draft.title, amount, date: draft.date, category: draft.category as ExpenseCategory });
     setEditing(false);
   };
 
@@ -363,48 +373,26 @@ function TransactionRow({
     return (
       <div className="p-3 rounded-xl bg-secondary/40 border border-primary/25 space-y-2 animate-slide-up">
         <div className="grid grid-cols-2 gap-2">
-          <input
-            value={draft.title}
-            onChange={e => setDraft(p => ({ ...p, title: e.target.value }))}
-            placeholder="Descrição"
-            className="col-span-2 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
-          />
-          <input
-            type="number"
-            value={draft.amount}
-            onChange={e => setDraft(p => ({ ...p, amount: e.target.value }))}
-            placeholder="Valor"
-            className="bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
-          />
-          <input
-            type="date"
-            value={draft.date}
-            onChange={e => setDraft(p => ({ ...p, date: e.target.value }))}
-            className="bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50"
-          />
+          <input value={draft.title} onChange={e => setDraft(p => ({ ...p, title: e.target.value }))} placeholder="Descrição"
+            className="col-span-2 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50" />
+          <input type="number" value={draft.amount} onChange={e => setDraft(p => ({ ...p, amount: e.target.value }))} placeholder="Valor"
+            className="bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
+          <input type="date" value={draft.date} onChange={e => setDraft(p => ({ ...p, date: e.target.value }))}
+            className="bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
           {t.type === 'expense' && (
-            <select
-              value={draft.category}
-              onChange={e => setDraft(p => ({ ...p, category: e.target.value as ExpenseCategory }))}
-              className="col-span-2 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50"
-            >
-              {Object.entries(CATEGORIES).map(([k, v]) => (
-                <option key={k} value={k}>{v.emoji} {v.label}</option>
-              ))}
+            <select value={draft.category} onChange={e => setDraft(p => ({ ...p, category: e.target.value as ExpenseCategory }))}
+              className="col-span-2 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50">
+              {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
             </select>
           )}
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={save}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-display text-[10px] tracking-wider hover:opacity-90 transition-all"
-          >
+          <button onClick={save}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-display text-[10px] tracking-wider hover:opacity-90 transition-all">
             <Check className="w-3 h-3" /> Salvar
           </button>
-          <button
-            onClick={cancel}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground font-display text-[10px] tracking-wider hover:border-border/80 transition-all"
-          >
+          <button onClick={() => setEditing(false)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground font-display text-[10px] tracking-wider hover:border-border/80 transition-all">
             <X className="w-3 h-3" /> Cancelar
           </button>
         </div>
@@ -414,17 +402,9 @@ function TransactionRow({
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/50 group hover:border-border transition-all">
-      {/* Type icon */}
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-        t.type === 'income' ? 'bg-green-500/10' : 'bg-red-500/10'
-      }`}>
-        {t.type === 'income'
-          ? <TrendingUp className="w-4 h-4 text-green-400" />
-          : <span className="text-base leading-none">{cat.emoji}</span>
-        }
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${t.type === 'income' ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+        {t.type === 'income' ? <TrendingUp className="w-4 h-4 text-green-400" /> : <span className="text-base leading-none">{cat.emoji}</span>}
       </div>
-
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-body font-semibold text-foreground truncate">{t.title}</p>
         <div className="flex items-center gap-2 flex-wrap">
@@ -432,38 +412,24 @@ function TransactionRow({
             {new Date(t.date + 'T12:00').toLocaleDateString('pt-BR')}
           </span>
           {t.type === 'expense' && (
-            <span
-              className="text-[9px] px-1.5 py-0.5 rounded-md font-body"
-              style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
-            >
-              {cat.label}
-            </span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-md font-body"
+              style={{ backgroundColor: `${cat.color}20`, color: cat.color }}>{cat.label}</span>
           )}
           {t.isRecurrent && (
             <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-primary/10 text-primary font-body">Recorrente</span>
           )}
         </div>
       </div>
-
-      {/* Amount */}
       <span className={`font-display text-sm font-bold shrink-0 ${t.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
         {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
       </span>
-
-      {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-        <button
-          onClick={() => setEditing(true)}
-          className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-          title="Editar"
-        >
+        <button onClick={() => setEditing(true)}
+          className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Editar">
           <Pencil className="w-3.5 h-3.5" />
         </button>
-        <button
-          onClick={() => onDelete(t.id)}
-          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-          title="Excluir"
-        >
+        <button onClick={() => onDelete(t)}
+          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Excluir">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -472,68 +438,273 @@ function TransactionRow({
 }
 
 /* ═══════════════════════════════════════════════════════
+   COMPONENT — Settings Panel
+═══════════════════════════════════════════════════════ */
+function SettingsPanel({ current, onSave, onClose }: { current: string; onSave: (p: string) => void; onClose: () => void }) {
+  const [input, setInput] = useState(current);
+
+  const handleSave = () => {
+    const cleaned = input.replace(/\D/g, '');
+    if (cleaned.length < 11) {
+      toast.error('Número inválido. Use: código do país + DDD + número (ex: 553100000000)');
+      return;
+    }
+    onSave(cleaned);
+  };
+
+  return (
+    <div className="section-card border-primary/30 animate-slide-up">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
+          <Settings className="w-3.5 h-3.5 text-primary" /> Configurações — WhatsApp
+        </h3>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <p className="text-xs font-body text-muted-foreground mb-4 leading-relaxed">
+        Informe seu número de WhatsApp para sincronizar seus gastos e recebimentos em tempo real.<br />
+        <span className="text-primary/80">Formato: código do país + DDD + número, sem traços ou espaços.</span><br />
+        <span className="text-muted-foreground/60">Exemplo: <code className="bg-secondary px-1 rounded">553100000000</code></span>
+      </p>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input type="tel" value={input} onChange={e => setInput(e.target.value)} placeholder="553100000000"
+            onKeyDown={e => e.key === 'Enter' && handleSave()}
+            className="w-full pl-10 pr-4 py-2.5 bg-secondary/50 border border-border rounded-xl text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50" />
+        </div>
+        <button onClick={handleSave}
+          className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-display text-xs tracking-wider hover:opacity-90 transition-all flex items-center gap-1.5">
+          <Check className="w-3.5 h-3.5" /> Salvar
+        </button>
+      </div>
+      {current && (
+        <p className="mt-3 text-[10px] text-muted-foreground font-body flex items-center gap-1.5">
+          <Wifi className="w-3 h-3 text-green-400" /> Conectado:
+          <code className="bg-secondary px-1.5 py-0.5 rounded text-foreground">{current}</code>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    MAIN — FinancePanel
 ═══════════════════════════════════════════════════════ */
 export function FinancePanel() {
-  const [state, setState] = useState<FinanceState>(loadState);
+  const [whatsappPhone, setWhatsappPhone] = useState(() => localStorage.getItem(WA_STORAGE_KEY) || '');
+  const [showSettings, setShowSettings] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   const [form, setForm] = useState({
-    title: '',
-    amount: '',
-    type: 'expense' as TransactionType,
+    title: '', amount: '', type: 'expense' as TransactionType,
     category: 'outros' as ExpenseCategory,
     date: new Date().toISOString().split('T')[0],
     isRecurrent: false,
   });
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+  /* ── Fetch all ── */
+  const fetchAll = useCallback(async (phone?: string) => {
+    const wp = phone ?? whatsappPhone;
+    if (!wp) return;
+    setLoading(true);
+    try {
+      const [gastosRes, recebRes] = await Promise.all([
+        supabase.from('Gastos' as any).select('*').eq('whatsapp', wp),
+        supabase.from('Recebimentos' as any).select('*').eq('whatsapp', wp),
+      ]);
+      if (gastosRes.error) throw gastosRes.error;
+      if (recebRes.error) throw recebRes.error;
 
+      const gastos = ((gastosRes.data as GastoRow[]) || []).map(gastoToTransaction);
+      const recebimentos = ((recebRes.data as RecebimentoRow[]) || []).map(recebimentoToTransaction);
+      setTransactions([...gastos, ...recebimentos]);
+      setConnected(true);
+    } catch (err: any) {
+      console.error('Supabase fetch error:', err);
+      toast.error('Erro ao buscar dados: ' + (err.message || 'verifique sua conexão'));
+      setConnected(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [whatsappPhone]);
+
+  useEffect(() => {
+    if (whatsappPhone) fetchAll();
+    else { setTransactions([]); setConnected(false); }
+  }, [whatsappPhone, fetchAll]);
+
+  /* ── Realtime ── */
+  useEffect(() => {
+    if (!whatsappPhone) return;
+    if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
+
+    const ch = supabase.channel(`finance-${whatsappPhone}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Gastos' }, () => fetchAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Recebimentos' }, () => fetchAll())
+      .subscribe(status => setConnected(status === 'SUBSCRIBED'));
+
+    channelRef.current = ch;
+    return () => { supabase.removeChannel(ch); channelRef.current = null; };
+  }, [whatsappPhone, fetchAll]);
+
+  /* ── Save phone ── */
+  const handleSavePhone = (phone: string) => {
+    localStorage.setItem(WA_STORAGE_KEY, phone);
+    setWhatsappPhone(phone);
+    setShowSettings(false);
+    toast.success('Número salvo! Buscando seus dados...');
+  };
+
+  /* ── ADD ── */
+  const addTransaction = useCallback(async () => {
+    if (!whatsappPhone) { toast.error('Configure seu WhatsApp primeiro.'); setShowSettings(true); return; }
+    const amount = parseFloat(form.amount);
+    if (!form.title || isNaN(amount) || amount <= 0) { toast.error('Preencha descrição e valor.'); return; }
+
+    try {
+      if (form.type === 'expense') {
+        const { error } = await supabase.from('Gastos' as any).insert({
+          whatsapp: whatsappPhone, nome_gasto: form.title, valor_gasto: amount,
+          categoria_gasto: form.category, data_do_gasto: form.date, gasto_id: generateId(),
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('Recebimentos' as any).insert({
+          whatsapp: whatsappPhone, receb_nome: form.title, receb_fixos: amount,
+          receb_var: 0, data_receb: form.date, receb_id: generateId(),
+          receb_categoria: 'receita', tipo: form.isRecurrent ? 'fixo' : 'variável',
+        });
+        if (error) throw error;
+      }
+      setForm({ title: '', amount: '', type: 'expense', category: 'outros', date: new Date().toISOString().split('T')[0], isRecurrent: false });
+      toast.success('Transação adicionada!');
+    } catch (err: any) {
+      toast.error('Erro ao salvar: ' + (err.message || 'tente novamente'));
+    }
+  }, [form, whatsappPhone]);
+
+  /* ── DELETE ── */
+  const deleteTransaction = useCallback(async (t: Transaction) => {
+    try {
+      const tbl = t._sourceTable === 'Gastos' ? 'Gastos' : 'Recebimentos';
+      const { error } = await supabase.from(tbl as any).delete().eq('id', t._sourceId);
+      if (error) throw error;
+      toast.success('Excluído!');
+    } catch (err: any) { toast.error('Erro ao excluir: ' + (err.message || '')); }
+  }, []);
+
+  /* ── UPDATE ── */
+  const updateTransaction = useCallback(async (t: Transaction, patch: Partial<Transaction>) => {
+    try {
+      if (t._sourceTable === 'Gastos') {
+        const u: Record<string, unknown> = {};
+        if (patch.title !== undefined)    u.nome_gasto      = patch.title;
+        if (patch.amount !== undefined)   u.valor_gasto     = patch.amount;
+        if (patch.category !== undefined) u.categoria_gasto = patch.category;
+        if (patch.date !== undefined)     u.data_do_gasto   = patch.date;
+        const { error } = await supabase.from('Gastos' as any).update(u).eq('id', t._sourceId);
+        if (error) throw error;
+      } else {
+        const u: Record<string, unknown> = {};
+        if (patch.title !== undefined)  u.receb_nome  = patch.title;
+        if (patch.amount !== undefined) u.receb_fixos = patch.amount;
+        if (patch.date !== undefined)   u.data_receb  = patch.date;
+        const { error } = await supabase.from('Recebimentos' as any).update(u).eq('id', t._sourceId);
+        if (error) throw error;
+      }
+      toast.success('Atualizado!');
+    } catch (err: any) { toast.error('Erro ao atualizar: ' + (err.message || '')); }
+  }, []);
+
+  /* ── Derived ── */
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
   const monthTransactions = useMemo(() =>
-    state.transactions.filter(t => t.date.startsWith(currentMonth)),
-    [state.transactions, currentMonth]
-  );
+    transactions.filter(t => t.date.startsWith(currentMonth)), [transactions, currentMonth]);
 
   const totalIncome   = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const totalExpenses = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const balance       = totalIncome - totalExpenses;
 
-  const addTransaction = useCallback(() => {
-    const amount = parseFloat(form.amount);
-    if (!form.title || isNaN(amount) || amount <= 0) return;
-    setState(prev => ({
-      ...prev,
-      transactions: [...prev.transactions, { ...form, id: generateId(), amount }],
-    }));
-    setForm({
-      title: '', amount: '', type: 'expense', category: 'outros',
-      date: new Date().toISOString().split('T')[0], isRecurrent: false,
-    });
-  }, [form]);
-
-  const deleteTransaction = useCallback((id: string) => {
-    setState(prev => ({ ...prev, transactions: prev.transactions.filter(t => t.id !== id) }));
-  }, []);
-
-  const updateTransaction = useCallback((id: string, patch: Partial<Transaction>) => {
-    setState(prev => ({
-      ...prev,
-      transactions: prev.transactions.map(t => t.id === id ? { ...t, ...patch } : t),
-    }));
-  }, []);
-
+  /* ── Render ── */
   return (
     <div className="space-y-5">
 
-      {/* ── KPI Cards ── */}
+      {/* Status bar */}
+      <div className="flex items-center justify-between gap-3 px-1">
+        <div className="flex items-center gap-2 min-w-0">
+          {whatsappPhone ? (
+            loading ? (
+              <span className="flex items-center gap-1.5 text-[10px] font-body text-muted-foreground">
+                <RefreshCw className="w-3 h-3 animate-spin" /> Sincronizando...
+              </span>
+            ) : connected ? (
+              <span className="flex items-center gap-1.5 text-[10px] font-body text-green-400 truncate">
+                <Wifi className="w-3 h-3 shrink-0" /> Conectado ·
+                <code className="text-muted-foreground">{whatsappPhone}</code>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[10px] font-body text-red-400">
+                <WifiOff className="w-3 h-3" /> Desconectado
+              </span>
+            )
+          ) : (
+            <span className="flex items-center gap-1.5 text-[10px] font-body text-yellow-400">
+              <AlertCircle className="w-3 h-3" /> Configure seu WhatsApp para sincronizar
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {whatsappPhone && (
+            <button onClick={() => fetchAll()}
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Atualizar">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button onClick={() => setShowSettings(v => !v)}
+            className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground hover:text-foreground'}`}
+            title="Configurações WhatsApp">
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Settings panel */}
+      {showSettings && <SettingsPanel current={whatsappPhone} onSave={handleSavePhone} onClose={() => setShowSettings(false)} />}
+
+      {/* No phone prompt */}
+      {!whatsappPhone && !showSettings && (
+        <div className="section-card border-yellow-500/20 bg-yellow-500/5">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-body font-semibold text-foreground">WhatsApp não configurado</p>
+              <p className="text-xs font-body text-muted-foreground mt-1">
+                Clique na engrenagem ⚙ acima e informe seu número para sincronizar seus dados financeiros em tempo real.
+              </p>
+              <button onClick={() => setShowSettings(true)}
+                className="mt-3 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-display text-xs tracking-wider hover:opacity-90 transition-all flex items-center gap-1.5">
+                <Settings className="w-3.5 h-3.5" /> Configurar agora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Receitas',  value: totalIncome,   icon: ArrowUpRight,   color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20' },
-          { label: 'Despesas',  value: totalExpenses, icon: ArrowDownRight, color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20'   },
-          { label: 'Saldo',     value: balance,       icon: Wallet,          color: balance >= 0 ? 'text-green-400' : 'text-red-400', bg: balance >= 0 ? 'bg-green-500/10' : 'bg-red-500/10', border: balance >= 0 ? 'border-green-500/20' : 'border-red-500/20' },
+          { label: 'Receitas',  value: totalIncome,   icon: ArrowUpRight,   color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
+          { label: 'Despesas',  value: totalExpenses, icon: ArrowDownRight, color: 'text-red-400',   bg: 'bg-red-500/10',   border: 'border-red-500/20'   },
+          { label: 'Saldo',     value: balance,       icon: Wallet,
+            color: balance >= 0 ? 'text-green-400' : 'text-red-400',
+            bg: balance >= 0 ? 'bg-green-500/10' : 'bg-red-500/10',
+            border: balance >= 0 ? 'border-green-500/20' : 'border-red-500/20' },
         ].map(card => (
           <div key={card.label} className={`rounded-2xl border ${card.border} ${card.bg} p-4 flex flex-col items-center text-center gap-2`}>
             <div className="w-9 h-9 rounded-xl bg-card/60 flex items-center justify-center">
@@ -547,115 +718,83 @@ export function FinancePanel() {
         ))}
       </div>
 
-      {/* ── Daily Chart ── */}
-      <DailyCashFlowChart transactions={state.transactions} />
+      {/* Loading */}
+      {loading && transactions.length === 0 && (
+        <div className="section-card flex items-center justify-center py-12">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            <span className="text-sm font-body">Buscando dados do Supabase...</span>
+          </div>
+        </div>
+      )}
 
-      {/* ── Category Dashboard ── */}
-      <CategoryDashboard transactions={monthTransactions} />
+      {/* Charts */}
+      {!loading && transactions.length > 0 && (
+        <>
+          <DailyCashFlowChart transactions={transactions} />
+          <CategoryDashboard transactions={monthTransactions} />
+        </>
+      )}
 
-      {/* ── Add Transaction ── */}
+      {/* Add Transaction */}
       <div className="section-card">
         <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase flex items-center gap-2">
           <Plus className="w-3.5 h-3.5 text-primary" /> Nova Transação
         </h3>
-
         <div className="space-y-3">
-          {/* Type toggle */}
           <div className="flex gap-2">
             {(['expense', 'income'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setForm(p => ({ ...p, type: t }))}
+              <button key={t} onClick={() => setForm(p => ({ ...p, type: t }))}
                 className={`flex-1 py-2 rounded-xl text-xs font-display tracking-wider transition-all border ${
                   form.type === t
-                    ? t === 'income'
-                      ? 'bg-green-500/15 text-green-400 border-green-500/30'
-                      : 'bg-red-500/15 text-red-400 border-red-500/30'
+                    ? t === 'income' ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'bg-red-500/15 text-red-400 border-red-500/30'
                     : 'bg-secondary text-muted-foreground border-border'
-                }`}
-              >
-                {t === 'income' ? '↑ Receita' : '↓ Despesa'}
-              </button>
+                }`}>{t === 'income' ? '↑ Receita' : '↓ Despesa'}</button>
             ))}
           </div>
-
-          <input
-            placeholder="Descrição"
-            value={form.title}
-            onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-            className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
-          />
-
+          <input placeholder="Descrição" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+            className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50" />
           <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              placeholder="Valor (R$)"
-              value={form.amount}
-              onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
-              className="bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
-            />
-            <input
-              type="date"
-              value={form.date}
-              onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-              className="bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50 w-full"
-            />
+            <input type="number" placeholder="Valor (R$)" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+              className="bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50" />
+            <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+              className="bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50 w-full" />
           </div>
-
           {form.type === 'expense' && (
-            <select
-              value={form.category}
-              onChange={e => setForm(p => ({ ...p, category: e.target.value as ExpenseCategory }))}
-              className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50"
-            >
-              {Object.entries(CATEGORIES).map(([k, v]) => (
-                <option key={k} value={k}>{v.emoji} {v.label}</option>
-              ))}
+            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value as ExpenseCategory }))}
+              className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50">
+              {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
             </select>
           )}
-
           <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.isRecurrent}
-              onChange={e => setForm(p => ({ ...p, isRecurrent: e.target.checked }))}
-              className="rounded border-border"
-            />
+            <input type="checkbox" checked={form.isRecurrent} onChange={e => setForm(p => ({ ...p, isRecurrent: e.target.checked }))}
+              className="rounded border-border" />
             <span className="text-xs font-body text-muted-foreground">Transação recorrente (mensal)</span>
           </label>
-
-          <button
-            onClick={addTransaction}
-            className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-display text-sm tracking-wider hover:opacity-90 transition-all shadow-[0_0_16px_hsl(45_95%_52%/0.25)]"
-          >
-            Adicionar
+          <button onClick={addTransaction}
+            className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-display text-sm tracking-wider hover:opacity-90 transition-all shadow-[0_0_16px_hsl(45_95%_52%/0.25)]">
+            Adicionar no Supabase
           </button>
         </div>
       </div>
 
-      {/* ── Transaction List ── */}
+      {/* Transaction List */}
       <div className="section-card">
-        <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-4 uppercase">
-          Transações de {now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-        </h3>
-
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase">
+            Transações de {now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+          </h3>
+          <span className="text-[10px] text-muted-foreground font-body">{monthTransactions.length} registros</span>
+        </div>
         {monthTransactions.length === 0 ? (
           <p className="text-sm text-muted-foreground font-body text-center py-6">
-            Nenhuma transação registrada neste mês
+            {whatsappPhone ? 'Nenhuma transação neste mês' : 'Configure seu WhatsApp para ver os dados'}
           </p>
         ) : (
           <div className="space-y-2">
-            {[...monthTransactions]
-              .sort((a, b) => b.date.localeCompare(a.date))
-              .map(t => (
-                <TransactionRow
-                  key={t.id}
-                  t={t}
-                  onDelete={deleteTransaction}
-                  onUpdate={updateTransaction}
-                />
-              ))
-            }
+            {[...monthTransactions].sort((a, b) => b.date.localeCompare(a.date)).map(t => (
+              <TransactionRow key={t.id} t={t} onDelete={deleteTransaction} onUpdate={updateTransaction} />
+            ))}
           </div>
         )}
       </div>
