@@ -817,7 +817,7 @@ export function FinancePanel() {
           </label>
           <button onClick={addTransaction}
             className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-display text-sm tracking-wider hover:opacity-90 transition-all shadow-[0_0_16px_hsl(45_95%_52%/0.25)]">
-            Adicionar no Supabase
+            {form.type === 'expense' ? 'Adicionar gasto' : 'Adicionar recebimento'}
           </button>
         </div>
       </div>
