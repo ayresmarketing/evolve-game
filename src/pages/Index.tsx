@@ -140,7 +140,7 @@ function FutureProjection({ meta }: { meta: any }) {
 ═══════════════════════════════════════════════ */
 function QuickActions({ onNavigate }: { onNavigate: (page: Page) => void }) {
   const actions = [
-    { label: 'Nova Meta', desc: 'Criar objetivo com IA', icon: <Target className="w-4 h-4" />, color: '#0280FF', isMeta: true },
+    { label: 'Nova Meta', desc: 'Criar objetivo com IA', icon: <Target className="w-4 h-4" />, color: '#EAB308', isMeta: true },
     { label: 'Novo Afazer', desc: 'Tarefa avulsa rápida', icon: <ListChecks className="w-4 h-4" />, color: '#f97316', page: 'afazeres' as Page },
     { label: 'Ver Agenda', desc: 'Planejar calendário', icon: <Calendar className="w-4 h-4" />, color: '#a855f7', page: 'agenda' as Page },
   ];
@@ -424,7 +424,7 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
                     <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
                     <ChartTooltip contentStyle={tooltipStyle} labelStyle={{ color: 'hsl(var(--foreground))' }} />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                    <Bar dataKey="Concluídas" fill="#0280FF" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                    <Bar dataKey="Concluídas" fill="hsl(45 95% 52%)" radius={[4, 4, 0, 0]} maxBarSize={28} />
                     <Bar dataKey="Perdidas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.75} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -452,7 +452,7 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <div className="space-y-3">
             {[
               { label: 'Sono', value: timeStats.sleep, icon: <Moon className="w-4 h-4" />, color: '#a855f7', bg: 'bg-purple-500' },
-              { label: 'Tempo ocupado', value: timeStats.busy, icon: <Activity className="w-4 h-4" />, color: '#0280FF', bg: 'bg-primary' },
+              { label: 'Tempo ocupado', value: timeStats.busy, icon: <Activity className="w-4 h-4" />, color: '#EAB308', bg: 'bg-primary' },
               { label: 'Tempo livre', value: timeStats.free, icon: <Sun className="w-4 h-4" />, color: '#22c55e', bg: 'bg-green-500' },
             ].map(item => {
               const total = timeStats.sleep + timeStats.busy + timeStats.free || 1;
@@ -647,8 +647,8 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
                         return [`${v}ml`, 'Ingestão'];
                       }}
                     />
-                    <ReferenceLine y={hydData[0]?.meta || 2000} stroke="#0280FF" strokeDasharray="6 3" strokeWidth={1.5} label={{ value: 'Meta', position: 'right', fontSize: 9, fill: '#0280FF' }} />
-                    <Bar dataKey="Ingestão (ml)" fill="#0280FF" radius={[4, 4, 0, 0]} maxBarSize={30} fillOpacity={0.85} />
+                    <ReferenceLine y={hydData[0]?.meta || 2000} stroke="#EAB308" strokeDasharray="6 3" strokeWidth={1.5} label={{ value: 'Meta', position: 'right', fontSize: 9, fill: '#EAB308' }} />
+                    <Bar dataKey="Ingestão (ml)" fill="#EAB308" radius={[4, 4, 0, 0]} maxBarSize={30} fillOpacity={0.85} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -681,9 +681,9 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
                 const colorMap: Record<string, string> = {
                   'personal-purple': '#a855f7',
                   'game-orange': '#f97316',
-                  'game-blue': '#0280FF',
+                  'game-blue': '#EAB308',
                 };
-                const hex = colorMap[c.color] || '#0280FF';
+                const hex = colorMap[c.color] || '#EAB308';
                 return (
                   <div key={c.cat}>
                     <div className="flex items-center justify-between mb-2">
@@ -714,7 +714,7 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `${v}%`} />
                     <ChartTooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`, 'Progresso']} />
-                    <Bar dataKey="Progresso" fill="#0280FF" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="Progresso" fill="#EAB308" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

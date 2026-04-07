@@ -6,136 +6,136 @@
 
 @layer base {
   :root {
-    --background: 222 40% 6%;
-    --foreground: 220 20% 96%;
+    --background: 240 18% 5%;
+    --foreground: 45 20% 96%;
 
-    --card: 222 40% 9%;
-    --card-foreground: 220 20% 96%;
+    --card: 240 16% 8%;
+    --card-foreground: 45 20% 96%;
 
-    --popover: 222 40% 10%;
-    --popover-foreground: 220 20% 96%;
+    --popover: 240 16% 9%;
+    --popover-foreground: 45 20% 96%;
 
-    /* Base principal em #0280FF */
-    --primary: 209 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    /* Primary: Yellow/Gold — matches landing page CTA */
+    --primary: 45 95% 52%;
+    --primary-foreground: 240 18% 6%;
 
-    --secondary: 222 35% 14%;
-    --secondary-foreground: 220 15% 80%;
+    --secondary: 240 14% 13%;
+    --secondary-foreground: 45 10% 78%;
 
-    --muted: 222 30% 16%;
-    --muted-foreground: 220 15% 60%;
+    --muted: 240 12% 16%;
+    --muted-foreground: 240 8% 56%;
 
-    --accent: 209 100% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 45 95% 52%;
+    --accent-foreground: 240 18% 6%;
 
-    --destructive: 0 65% 52%;
+    --destructive: 0 68% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 35% 20%;
-    --input: 222 35% 20%;
-    --ring: 209 100% 50%;
+    --border: 240 14% 18%;
+    --input: 240 14% 18%;
+    --ring: 45 95% 52%;
 
     --radius: 1rem;
 
     /* Game tokens */
-    --xp-gold: 45 90% 50%;
-    --xp-gold-glow: 45 100% 60%;
+    --xp-gold: 45 95% 52%;
+    --xp-gold-glow: 45 100% 62%;
     --health-green: 155 65% 42%;
     --health-green-glow: 155 75% 52%;
     --game-green: 155 65% 42%;
-    --spiritual-blue: 224 75% 52%;
-    --spiritual-blue-glow: 224 85% 62%;
+    --spiritual-blue: 224 75% 58%;
+    --spiritual-blue-glow: 224 85% 68%;
     --work-orange: 25 85% 52%;
     --work-orange-glow: 25 95% 62%;
-    --personal-purple: 260 60% 55%;
-    --personal-purple-glow: 260 70% 65%;
-    --danger-red: 0 65% 52%;
+    --personal-purple: 260 60% 58%;
+    --personal-purple-glow: 260 70% 68%;
+    --danger-red: 0 68% 52%;
     --streak-fire: 15 90% 52%;
-    --game-cyan: 224 75% 52%;
-    --game-cyan-glow: 224 85% 62%;
+    --game-cyan: 195 90% 52%;
+    --game-cyan-glow: 195 95% 62%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(45 90% 50%), hsl(35 100% 42%));
-    --gradient-xp: linear-gradient(90deg, hsl(224 75% 52%), hsl(224 85% 62%));
-    --gradient-card: linear-gradient(145deg, hsl(222 40% 10%), hsl(222 40% 6%));
-    --gradient-hero: linear-gradient(135deg, hsl(222 40% 8%), hsl(222 40% 4%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(222 40% 8%), hsl(222 40% 4%));
-    --gradient-accent: linear-gradient(135deg, hsl(209 100% 50%), hsl(222 90% 60%));
+    --gradient-gold: linear-gradient(135deg, hsl(45 95% 52%), hsl(35 100% 44%));
+    --gradient-xp: linear-gradient(90deg, hsl(45 95% 52%), hsl(35 100% 44%));
+    --gradient-card: linear-gradient(145deg, hsl(240 16% 10%), hsl(240 18% 6%));
+    --gradient-hero: linear-gradient(135deg, hsl(240 20% 6%), hsl(240 25% 4%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(240 18% 7%), hsl(240 22% 4%));
+    --gradient-accent: linear-gradient(135deg, hsl(45 95% 52%), hsl(35 100% 44%));
 
-    --shadow-gold: 0 0 20px hsl(45 90% 50% / 0.25);
-    --shadow-card: 0 18px 45px hsl(222 80% 2% / 0.8), 0 0 0 1px hsl(222 50% 40% / 0.14);
-    --shadow-glow: 0 0 30px hsl(209 100% 50% / 0.35);
-    --shadow-glow-cyan: 0 0 26px hsl(209 100% 55% / 0.5);
+    --shadow-gold: 0 0 24px hsl(45 95% 52% / 0.35);
+    --shadow-card: 0 18px 45px hsl(240 30% 2% / 0.85), 0 0 0 1px hsl(240 20% 40% / 0.12);
+    --shadow-glow: 0 0 30px hsl(45 95% 52% / 0.4);
+    --shadow-glow-cyan: 0 0 26px hsl(45 95% 52% / 0.5);
 
     --font-display: 'Orbitron', sans-serif;
     --font-body: 'Rajdhani', sans-serif;
     --font-clean: 'Inter', sans-serif;
 
-    --sidebar-background: 222 40% 6%;
-    --sidebar-foreground: 220 20% 80%;
-    --sidebar-primary: 209 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 35% 14%;
-    --sidebar-accent-foreground: 220 20% 90%;
-    --sidebar-border: 222 35% 20%;
-    --sidebar-ring: 209 100% 50%;
+    --sidebar-background: 240 18% 5%;
+    --sidebar-foreground: 45 10% 78%;
+    --sidebar-primary: 45 95% 52%;
+    --sidebar-primary-foreground: 240 18% 6%;
+    --sidebar-accent: 240 14% 13%;
+    --sidebar-accent-foreground: 45 15% 88%;
+    --sidebar-border: 240 14% 18%;
+    --sidebar-ring: 45 95% 52%;
   }
 
   .dark {
-    --background: 222 40% 4%;
-    --foreground: 220 20% 96%;
+    --background: 240 20% 4%;
+    --foreground: 45 20% 96%;
 
-    --card: 222 45% 7%;
-    --card-foreground: 220 20% 96%;
+    --card: 240 18% 7%;
+    --card-foreground: 45 20% 96%;
 
-    --popover: 222 45% 8%;
-    --popover-foreground: 220 20% 96%;
+    --popover: 240 18% 8%;
+    --popover-foreground: 45 20% 96%;
 
-    --primary: 209 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 45 95% 52%;
+    --primary-foreground: 240 18% 6%;
 
-    --secondary: 222 40% 10%;
-    --secondary-foreground: 220 15% 80%;
+    --secondary: 240 16% 10%;
+    --secondary-foreground: 45 10% 78%;
 
-    --muted: 222 35% 14%;
-    --muted-foreground: 220 15% 60%;
+    --muted: 240 14% 14%;
+    --muted-foreground: 240 8% 54%;
 
-    --accent: 209 100% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 45 95% 52%;
+    --accent-foreground: 240 18% 6%;
 
-    --destructive: 0 65% 52%;
-    --destructive-foreground: 220 15% 95%;
+    --destructive: 0 68% 52%;
+    --destructive-foreground: 45 15% 95%;
 
-    --border: 222 40% 18%;
-    --input: 222 40% 18%;
-    --ring: 209 100% 50%;
+    --border: 240 16% 17%;
+    --input: 240 16% 17%;
+    --ring: 45 95% 52%;
 
-    --xp-gold: 45 90% 55%;
+    --xp-gold: 45 95% 55%;
     --health-green: 155 70% 45%;
     --game-green: 155 70% 45%;
-    --spiritual-blue: 224 80% 58%;
+    --spiritual-blue: 224 80% 60%;
     --work-orange: 25 90% 55%;
-    --personal-purple: 260 65% 60%;
-    --danger-red: 0 65% 52%;
+    --personal-purple: 260 65% 62%;
+    --danger-red: 0 68% 52%;
     --streak-fire: 15 95% 55%;
-    --game-cyan: 209 100% 50%;
+    --game-cyan: 195 90% 52%;
 
-    --gradient-card: linear-gradient(145deg, hsl(222 50% 10%), hsl(222 50% 6%));
-    --gradient-hero: linear-gradient(135deg, hsl(222 50% 7%), hsl(222 60% 5%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(222 50% 8%), hsl(222 50% 4%));
-    --gradient-accent: linear-gradient(135deg, hsl(209 100% 50%), hsl(222 90% 60%));
+    --gradient-card: linear-gradient(145deg, hsl(240 18% 9%), hsl(240 22% 5%));
+    --gradient-hero: linear-gradient(135deg, hsl(240 22% 6%), hsl(240 28% 4%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(240 20% 7%), hsl(240 26% 4%));
+    --gradient-accent: linear-gradient(135deg, hsl(45 95% 52%), hsl(35 100% 44%));
 
-    --shadow-card: 0 22px 55px hsl(222 80% 2% / 0.85), 0 0 0 1px hsl(222 55% 45% / 0.18);
-    --shadow-glow: 0 0 32px hsl(209 100% 50% / 0.5);
-    --shadow-glow-cyan: 0 0 26px hsl(209 100% 55% / 0.7);
+    --shadow-card: 0 22px 55px hsl(240 30% 2% / 0.9), 0 0 0 1px hsl(240 22% 40% / 0.16);
+    --shadow-glow: 0 0 32px hsl(45 95% 52% / 0.45);
+    --shadow-glow-cyan: 0 0 26px hsl(45 95% 52% / 0.6);
 
-    --sidebar-background: 222 50% 4%;
-    --sidebar-foreground: 220 15% 80%;
-    --sidebar-primary: 209 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 45% 10%;
-    --sidebar-accent-foreground: 220 20% 94%;
-    --sidebar-border: 222 45% 18%;
-    --sidebar-ring: 209 100% 50%;
+    --sidebar-background: 240 22% 4%;
+    --sidebar-foreground: 45 10% 78%;
+    --sidebar-primary: 45 95% 52%;
+    --sidebar-primary-foreground: 240 18% 6%;
+    --sidebar-accent: 240 18% 10%;
+    --sidebar-accent-foreground: 45 15% 92%;
+    --sidebar-border: 240 18% 17%;
+    --sidebar-ring: 45 95% 52%;
   }
 }
 
@@ -182,16 +182,16 @@
   }
 
   .text-glow-gold {
-    text-shadow: 0 0 10px hsl(45 90% 50% / 0.4);
+    text-shadow: 0 0 12px hsl(45 95% 52% / 0.5);
   }
   .text-glow-cyan {
-    text-shadow: 0 0 10px hsl(224 75% 52% / 0.4);
+    text-shadow: 0 0 12px hsl(195 90% 52% / 0.4);
   }
   .text-glow-green {
     text-shadow: 0 0 10px hsl(155 65% 42% / 0.4);
   }
   .text-glow-blue {
-    text-shadow: 0 0 10px hsl(224 75% 52% / 0.4);
+    text-shadow: 0 0 12px hsl(45 95% 52% / 0.4);
   }
 
   .shadow-game-card {
@@ -232,12 +232,12 @@
   }
 
   .nav-active {
-    background: linear-gradient(90deg, hsl(224 75% 52% / 0.12), transparent);
+    background: linear-gradient(90deg, hsl(45 95% 52% / 0.12), transparent);
     border-left: 3px solid hsl(var(--primary));
   }
 
   .ring-glow {
-    filter: drop-shadow(0 0 6px hsl(224 75% 52% / 0.3));
+    filter: drop-shadow(0 0 6px hsl(45 95% 52% / 0.35));
   }
 
   @keyframes pulse-glow {
