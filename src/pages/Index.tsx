@@ -15,12 +15,14 @@ import { FinancePanel } from '@/components/game/FinancePanel';
 import { HydrationPanel } from '@/components/game/HydrationPanel';
 import { NotesPanel } from '@/components/game/NotesPanel';
 import { DueloPanel } from '@/components/game/DueloPanel';
+import { GoogleCalendarDialog } from '@/components/game/GoogleCalendarDialog';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { getLevelFromXP, CATEGORY_CONFIG, DayOfWeek } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import {
   Zap, Target, ListChecks, Calendar, Activity, ChevronRight, Flame,
   CalendarDays, Droplets, Moon, Sun, BarChart3, TrendingUp,
-  CheckCircle2, Clock, CalendarPlus, Sliders
+  CheckCircle2, Clock, CalendarPlus, Sliders, CreditCard, Settings
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -725,6 +727,36 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
 }
 
 /* ═══════════════════════════════════════════════
+   COMPONENT — Agenda page with Google Calendar
+═══════════════════════════════════════════════ */
+function AgendaPage() {
+  const [gcalOpen, setGcalOpen] = useState(false);
+  return (
+    <div className="space-y-5">
+      <h1 className="font-display text-lg tracking-wider text-foreground">Agenda</h1>
+      <div className="section-card flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Calendar className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-body font-semibold text-foreground">Google Agenda</p>
+          <p className="text-[11px] text-muted-foreground font-body">Sincronize seus eventos com o Google</p>
+        </div>
+        <button
+          onClick={() => setGcalOpen(true)}
+          className="text-[10px] px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body font-semibold hover:bg-primary/20 transition-colors"
+        >
+          Integrar
+        </button>
+      </div>
+      <CalendarView />
+      <SchedulePanel />
+      <GoogleCalendarDialog open={gcalOpen} onOpenChange={setGcalOpen} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    COMPONENT — Dashboard shell
 ═══════════════════════════════════════════════ */
 function Dashboard() {
@@ -795,28 +827,7 @@ function Dashboard() {
         );
 
       case 'agenda':
-        return (
-          <div className="space-y-5">
-            <h1 className="font-display text-lg tracking-wider text-foreground">Agenda</h1>
-            <div className="section-card flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-body font-semibold text-foreground">Google Calendar</p>
-                <p className="text-[11px] text-muted-foreground font-body">Sincronize sua agenda com o Google</p>
-              </div>
-              <button
-                onClick={() => toast.info('Para integrar o Google Calendar, conecte o sistema a um banco de dados (Lovable Cloud).')}
-                className="text-[10px] px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body font-semibold hover:bg-primary/20 transition-colors"
-              >
-                Conectar
-              </button>
-            </div>
-            <CalendarView />
-            <SchedulePanel />
-          </div>
-        );
+        return <AgendaPage />;
 
       case 'missao':
         return (

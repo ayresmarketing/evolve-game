@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { SubscriptionGate } from "@/components/game/SubscriptionGate";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
@@ -24,7 +26,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/auth" replace />;
-  return <>{children}</>;
+  return (
+    <SubscriptionGate>
+      {children}
+    </SubscriptionGate>
+  );
 }
 
 const App = () => (
@@ -34,12 +40,14 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <SubscriptionProvider>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </SubscriptionProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
