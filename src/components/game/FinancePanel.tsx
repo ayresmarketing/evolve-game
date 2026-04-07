@@ -760,8 +760,8 @@ export function FinancePanel() {
         </div>
       )}
 
-      {/* Charts */}
-      {!loading && transactions.length > 0 && (
+      {/* Charts — sempre visíveis */}
+      {!loading && (
         <>
           <DailyCashFlowChart transactions={transactions} />
           <CategoryDashboard transactions={monthTransactions} />
