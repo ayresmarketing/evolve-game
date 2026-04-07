@@ -27,6 +27,7 @@ type ExpenseCategory =
 
 interface Transaction {
   id: string;
+  shortId: string;       // gasto_id / receb_id — shown in UI
   title: string;
   amount: number;
   type: TransactionType;
@@ -91,7 +92,30 @@ const CATEGORIES: Record<ExpenseCategory, { label: string; emoji: string; color:
 /* ═══════════════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════════════ */
-function generateId() { return Math.random().toString(36).substring(2, 15); }
+function generateId() {
+  return Math.random().toString(36).substring(2, 7); // max 5 chars
+}
+
+/** Map internal category key → exact Supabase label */
+const CATEGORY_SUPABASE_LABEL: Record<ExpenseCategory, string> = {
+  alimentacao:   'Alimentação',
+  transporte:    'Transporte',
+  moradia:       'Moradia',
+  saude:         'Despesas médicas',
+  lazer:         'Lazer',
+  educacao:      'Educação',
+  vestuario:     'Vestuário',
+  pets:          'Pets',
+  beleza:        'Beleza e cuidados pessoais',
+  filhos:        'Filhos',
+  assinaturas:   'Assinaturas e serviços',
+  presentes:     'Presentes e doações',
+  emergencias:   'Emergências / Imprevistos',
+  investimentos: 'Investimentos',
+  dividas:       'Dívidas / Empréstimos',
+  eletronicos:   'Eletrônicos',
+  outros:        'Outros',
+};
 
 function formatCurrency(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -145,6 +169,7 @@ function gastoToTransaction(row: GastoRow): Transaction {
   const dateStr = row.data_do_gasto || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
   return {
     id: `gasto_${row.id}`,
+    shortId: row.gasto_id || String(row.id),
     title: row.nome_gasto || '(sem nome)',
     amount: Number(row.valor_gasto) || 0,
     type: 'expense',
@@ -160,6 +185,7 @@ function recebimentoToTransaction(row: RecebimentoRow): Transaction {
   const dateStr = row.data_receb || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
   return {
     id: `receb_${row.id}`,
+    shortId: row.receb_id || String(row.id),
     title: row.receb_nome || '(sem nome)',
     amount: Number(row.receb_fixos || 0) + Number(row.receb_var || 0),
     type: 'income',
@@ -432,6 +458,7 @@ function TransactionRow({
           {t.isRecurrent && (
             <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-primary/10 text-primary font-body">Recorrente</span>
           )}
+          <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-secondary font-mono text-muted-foreground">#{t.shortId}</span>
         </div>
       </div>
       <span className={`font-display text-sm font-bold shrink-0 ${t.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
@@ -609,7 +636,7 @@ export function FinancePanel() {
       if (form.type === 'expense') {
         const { error } = await financeClient.from('Gastos').insert({
           whatsapp: whatsappPhone, nome_gasto: form.title, valor_gasto: amount,
-          categoria_gasto: form.category, data_do_gasto: form.date, gasto_id: generateId(),
+          categoria_gasto: CATEGORY_SUPABASE_LABEL[form.category], data_do_gasto: form.date, gasto_id: generateId(),
         } as any);
         if (error) throw error;
       } else {
@@ -645,7 +672,7 @@ export function FinancePanel() {
         const u: Record<string, unknown> = {};
         if (patch.title !== undefined)    u.nome_gasto      = patch.title;
         if (patch.amount !== undefined)   u.valor_gasto     = patch.amount;
-        if (patch.category !== undefined) u.categoria_gasto = patch.category;
+        if (patch.category !== undefined) u.categoria_gasto = CATEGORY_SUPABASE_LABEL[patch.category];
         if (patch.date !== undefined)     u.data_do_gasto   = patch.date;
         const { error } = await financeClient.from('Gastos').update(u as any).eq('id', t._sourceId) as any;
         if (error) throw error;
