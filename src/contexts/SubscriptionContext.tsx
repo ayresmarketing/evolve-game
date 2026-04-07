@@ -17,6 +17,8 @@ interface SubscriptionContextType extends SubscriptionState {
   openCustomerPortal: () => Promise<void>;
 }
 
+const OWNER_EMAIL = 'ayresmarketingoficial@gmail.com';
+
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
@@ -28,6 +30,11 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   });
 
   const checkSubscription = useCallback(async () => {
+    // Owner account always bypasses Stripe
+    if (user?.email === OWNER_EMAIL) {
+      setState({ subscribed: true, trial: false, subscriptionEnd: null, trialEnd: null, status: 'owner', loading: false });
+      return;
+    }
     if (!session?.access_token) {
       setState(prev => ({ ...prev, loading: false }));
       return;
@@ -47,7 +54,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       console.error('Failed to check subscription:', err);
       setState(prev => ({ ...prev, loading: false }));
     }
-  }, [session?.access_token]);
+  }, [user?.email, session?.access_token]);
 
   // Check on mount and every 60 seconds
   useEffect(() => {
