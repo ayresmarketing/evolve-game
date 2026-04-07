@@ -10,6 +10,8 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
+import { financeClient, financeConfigured } from '@/integrations/supabase/financeClient';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 /* ═══════════════════════════════════════════════════════
@@ -493,6 +495,7 @@ function SettingsPanel({ current, onSave, onClose }: { current: string; onSave: 
    MAIN — FinancePanel
 ═══════════════════════════════════════════════════════ */
 export function FinancePanel() {
+  const { user } = useAuth();
   const [whatsappPhone, setWhatsappPhone] = useState(() => localStorage.getItem(WA_STORAGE_KEY) || '');
   const [showSettings, setShowSettings] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -507,25 +510,41 @@ export function FinancePanel() {
     isRecurrent: false,
   });
 
-  /* ── Fetch all ── */
+  /* ── Carregar número salvo no banco ao montar ── */
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('user_whatsapp_config' as any)
+      .select('whatsapp_phone')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.whatsapp_phone) {
+          localStorage.setItem(WA_STORAGE_KEY, data.whatsapp_phone);
+          setWhatsappPhone(data.whatsapp_phone);
+        }
+      });
+  }, [user]);
+
+  /* ── Fetch dados financeiros ── */
   const fetchAll = useCallback(async (phone?: string) => {
     const wp = phone ?? whatsappPhone;
-    if (!wp) return;
+    if (!wp || !financeClient) return;
     setLoading(true);
     try {
       const [gastosRes, recebRes] = await Promise.all([
-        supabase.from('Gastos' as any).select('*').eq('whatsapp', wp),
-        supabase.from('Recebimentos' as any).select('*').eq('whatsapp', wp),
+        financeClient.from('Gastos').select('*').eq('whatsapp', wp),
+        financeClient.from('Recebimentos').select('*').eq('whatsapp', wp),
       ]);
       if (gastosRes.error) throw gastosRes.error;
       if (recebRes.error) throw recebRes.error;
 
-      const gastos = ((gastosRes.data as GastoRow[]) || []).map(gastoToTransaction);
-      const recebimentos = ((recebRes.data as RecebimentoRow[]) || []).map(recebimentoToTransaction);
+      const gastos = ((gastosRes.data as unknown as GastoRow[]) || []).map(gastoToTransaction);
+      const recebimentos = ((recebRes.data as unknown as RecebimentoRow[]) || []).map(recebimentoToTransaction);
       setTransactions([...gastos, ...recebimentos]);
       setConnected(true);
     } catch (err: any) {
-      console.error('Supabase fetch error:', err);
+      console.error('Finance DB fetch error:', err);
       toast.error('Erro ao buscar dados: ' + (err.message || 'verifique sua conexão'));
       setConnected(false);
     } finally {
@@ -534,51 +553,59 @@ export function FinancePanel() {
   }, [whatsappPhone]);
 
   useEffect(() => {
-    if (whatsappPhone) fetchAll();
+    if (whatsappPhone && financeClient) fetchAll();
     else { setTransactions([]); setConnected(false); }
   }, [whatsappPhone, fetchAll]);
 
-  /* ── Realtime ── */
+  /* ── Realtime (banco financeiro) ── */
   useEffect(() => {
-    if (!whatsappPhone) return;
-    if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
+    if (!whatsappPhone || !financeClient) return;
+    if (channelRef.current) { financeClient.removeChannel(channelRef.current); channelRef.current = null; }
 
-    const ch = supabase.channel(`finance-${whatsappPhone}`)
+    const ch = financeClient.channel(`finance-${whatsappPhone}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'Gastos' }, () => fetchAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'Recebimentos' }, () => fetchAll())
       .subscribe(status => setConnected(status === 'SUBSCRIBED'));
 
     channelRef.current = ch;
-    return () => { supabase.removeChannel(ch); channelRef.current = null; };
+    return () => { financeClient.removeChannel(ch); channelRef.current = null; };
   }, [whatsappPhone, fetchAll]);
 
-  /* ── Save phone ── */
-  const handleSavePhone = (phone: string) => {
+  /* ── Salvar número no banco (app Supabase) + localStorage ── */
+  const handleSavePhone = async (phone: string) => {
     localStorage.setItem(WA_STORAGE_KEY, phone);
     setWhatsappPhone(phone);
     setShowSettings(false);
+
+    if (user) {
+      await supabase.from('user_whatsapp_config' as any).upsert(
+        { user_id: user.id, whatsapp_phone: phone, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
+    }
     toast.success('Número salvo! Buscando seus dados...');
   };
 
   /* ── ADD ── */
   const addTransaction = useCallback(async () => {
     if (!whatsappPhone) { toast.error('Configure seu WhatsApp primeiro.'); setShowSettings(true); return; }
+    if (!financeClient) { toast.error('Banco financeiro não configurado. Verifique as variáveis de ambiente.'); return; }
     const amount = parseFloat(form.amount);
     if (!form.title || isNaN(amount) || amount <= 0) { toast.error('Preencha descrição e valor.'); return; }
 
     try {
       if (form.type === 'expense') {
-        const { error } = await supabase.from('Gastos' as any).insert({
+        const { error } = await financeClient.from('Gastos').insert({
           whatsapp: whatsappPhone, nome_gasto: form.title, valor_gasto: amount,
           categoria_gasto: form.category, data_do_gasto: form.date, gasto_id: generateId(),
-        });
+        } as any);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('Recebimentos' as any).insert({
+        const { error } = await financeClient.from('Recebimentos').insert({
           whatsapp: whatsappPhone, receb_nome: form.title, receb_fixos: amount,
           receb_var: 0, data_receb: form.date, receb_id: generateId(),
           receb_categoria: 'receita', tipo: form.isRecurrent ? 'fixo' : 'variável',
-        });
+        } as any);
         if (error) throw error;
       }
       setForm({ title: '', amount: '', type: 'expense', category: 'outros', date: new Date().toISOString().split('T')[0], isRecurrent: false });
@@ -590,9 +617,9 @@ export function FinancePanel() {
 
   /* ── DELETE ── */
   const deleteTransaction = useCallback(async (t: Transaction) => {
+    if (!financeClient) return;
     try {
-      const tbl = t._sourceTable === 'Gastos' ? 'Gastos' : 'Recebimentos';
-      const { error } = await supabase.from(tbl as any).delete().eq('id', t._sourceId);
+      const { error } = await financeClient.from(t._sourceTable).delete().eq('id', t._sourceId) as any;
       if (error) throw error;
       toast.success('Excluído!');
     } catch (err: any) { toast.error('Erro ao excluir: ' + (err.message || '')); }
@@ -600,6 +627,7 @@ export function FinancePanel() {
 
   /* ── UPDATE ── */
   const updateTransaction = useCallback(async (t: Transaction, patch: Partial<Transaction>) => {
+    if (!financeClient) return;
     try {
       if (t._sourceTable === 'Gastos') {
         const u: Record<string, unknown> = {};
@@ -607,14 +635,14 @@ export function FinancePanel() {
         if (patch.amount !== undefined)   u.valor_gasto     = patch.amount;
         if (patch.category !== undefined) u.categoria_gasto = patch.category;
         if (patch.date !== undefined)     u.data_do_gasto   = patch.date;
-        const { error } = await supabase.from('Gastos' as any).update(u).eq('id', t._sourceId);
+        const { error } = await financeClient.from('Gastos').update(u as any).eq('id', t._sourceId) as any;
         if (error) throw error;
       } else {
         const u: Record<string, unknown> = {};
         if (patch.title !== undefined)  u.receb_nome  = patch.title;
         if (patch.amount !== undefined) u.receb_fixos = patch.amount;
         if (patch.date !== undefined)   u.data_receb  = patch.date;
-        const { error } = await supabase.from('Recebimentos' as any).update(u).eq('id', t._sourceId);
+        const { error } = await financeClient.from('Recebimentos').update(u as any).eq('id', t._sourceId) as any;
         if (error) throw error;
       }
       toast.success('Atualizado!');
@@ -638,7 +666,11 @@ export function FinancePanel() {
       {/* Status bar */}
       <div className="flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2 min-w-0">
-          {whatsappPhone ? (
+          {!financeConfigured ? (
+            <span className="flex items-center gap-1.5 text-[10px] font-body text-yellow-400">
+              <AlertCircle className="w-3 h-3" /> Adicione VITE_FINANCE_SUPABASE_URL e VITE_FINANCE_SUPABASE_ANON_KEY no .env
+            </span>
+          ) : whatsappPhone ? (
             loading ? (
               <span className="flex items-center gap-1.5 text-[10px] font-body text-muted-foreground">
                 <RefreshCw className="w-3 h-3 animate-spin" /> Sincronizando...
