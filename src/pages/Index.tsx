@@ -727,6 +727,36 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
 }
 
 /* ═══════════════════════════════════════════════
+   COMPONENT — Agenda page with Google Calendar
+═══════════════════════════════════════════════ */
+function AgendaPage() {
+  const [gcalOpen, setGcalOpen] = useState(false);
+  return (
+    <div className="space-y-5">
+      <h1 className="font-display text-lg tracking-wider text-foreground">Agenda</h1>
+      <div className="section-card flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Calendar className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-body font-semibold text-foreground">Google Agenda</p>
+          <p className="text-[11px] text-muted-foreground font-body">Sincronize seus eventos com o Google</p>
+        </div>
+        <button
+          onClick={() => setGcalOpen(true)}
+          className="text-[10px] px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body font-semibold hover:bg-primary/20 transition-colors"
+        >
+          Integrar
+        </button>
+      </div>
+      <CalendarView />
+      <SchedulePanel />
+      <GoogleCalendarDialog open={gcalOpen} onOpenChange={setGcalOpen} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    COMPONENT — Dashboard shell
 ═══════════════════════════════════════════════ */
 function Dashboard() {
