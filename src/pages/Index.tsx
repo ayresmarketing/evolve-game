@@ -15,12 +15,14 @@ import { FinancePanel } from '@/components/game/FinancePanel';
 import { HydrationPanel } from '@/components/game/HydrationPanel';
 import { NotesPanel } from '@/components/game/NotesPanel';
 import { DueloPanel } from '@/components/game/DueloPanel';
+import { GoogleCalendarDialog } from '@/components/game/GoogleCalendarDialog';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { getLevelFromXP, CATEGORY_CONFIG, DayOfWeek } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import {
   Zap, Target, ListChecks, Calendar, Activity, ChevronRight, Flame,
   CalendarDays, Droplets, Moon, Sun, BarChart3, TrendingUp,
-  CheckCircle2, Clock, CalendarPlus, Sliders
+  CheckCircle2, Clock, CalendarPlus, Sliders, CreditCard, Settings
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
