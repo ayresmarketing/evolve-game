@@ -39,11 +39,10 @@ serve(async (req) => {
 
     const prefs = (profile?.preferences as any) || {};
     const googleToken = prefs.google_access_token;
-    const integrationMode = prefs.google_calendar_mode; // 'partial' | 'total'
     const selectedCalendarId = prefs.google_calendar_id || "primary";
 
+    // ── save-token ──────────────────────────────────────────────────
     if (action === "save-token") {
-      // Save Google OAuth token to profile preferences
       const newPrefs = {
         ...prefs,
         google_access_token: body.access_token,
@@ -55,12 +54,12 @@ serve(async (req) => {
         .from("profiles")
         .update({ preferences: newPrefs })
         .eq("user_id", userId);
-
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // ── disconnect ───────────────────────────────────────────────────
     if (action === "disconnect") {
       const newPrefs = { ...prefs };
       delete newPrefs.google_access_token;
@@ -71,7 +70,6 @@ serve(async (req) => {
         .from("profiles")
         .update({ preferences: newPrefs })
         .eq("user_id", userId);
-
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -84,93 +82,75 @@ serve(async (req) => {
       });
     }
 
+    // ── status ───────────────────────────────────────────────────────
     if (action === "status") {
-      return new Response(JSON.stringify({ 
-        connected: true, 
-        mode: integrationMode || "partial" 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({
+        connected: true,
+        mode: prefs.google_calendar_mode || "partial",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ── create-event ─────────────────────────────────────────────────
     if (action === "create-event") {
       const { summary, description, startDateTime, endDateTime, startDate, endDate } = body;
-      
+
       const eventBody: any = {
         summary,
         description: description || "",
       };
 
-      if (startDateTime && endDateTime) {
+      if (startDateTime) {
+        // Timed event
+        const endDT = endDateTime || startDateTime; // fallback: same time
         eventBody.start = { dateTime: startDateTime, timeZone: "America/Sao_Paulo" };
-        eventBody.end = { dateTime: endDateTime, timeZone: "America/Sao_Paulo" };
+        eventBody.end   = { dateTime: endDT,         timeZone: "America/Sao_Paulo" };
       } else if (startDate) {
+        // All-day event
         eventBody.start = { date: startDate };
-        eventBody.end = { date: endDate || startDate };
+        eventBody.end   = { date: endDate || startDate };
       }
 
       const gcalRes = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${googleToken}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${googleToken}`, "Content-Type": "application/json" },
           body: JSON.stringify(eventBody),
         }
       );
-
       if (!gcalRes.ok) {
         const errText = await gcalRes.text();
         throw new Error(`Google Calendar API error: ${gcalRes.status} - ${errText}`);
       }
-
       const event = await gcalRes.json();
       return new Response(JSON.stringify({ success: true, eventId: event.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (action === "list-events") {
-      const { timeMin, timeMax } = body;
-      const params = new URLSearchParams({
-        timeMin: timeMin || new Date().toISOString(),
-        timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        singleEvents: "true",
-        orderBy: "startTime",
-        maxResults: "100",
-      });
-
-      const gcalRes = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events?${params}`,
-        {
-          headers: { Authorization: `Bearer ${googleToken}` },
-        }
-      );
+    // ── update-event ─────────────────────────────────────────────────
     if (action === "update-event") {
       const { eventId, summary, description, startDateTime, endDateTime, startDate, endDate } = body;
       if (!eventId) throw new Error("eventId required");
 
       const eventBody: any = {};
-      if (summary !== undefined) eventBody.summary = summary;
-      if (description !== undefined) eventBody.description = description;
-      if (startDateTime && endDateTime) {
+      if (summary !== undefined)      eventBody.summary     = summary;
+      if (description !== undefined)  eventBody.description = description;
+
+      if (startDateTime) {
+        const endDT = endDateTime || startDateTime;
         eventBody.start = { dateTime: startDateTime, timeZone: "America/Sao_Paulo" };
-        eventBody.end = { dateTime: endDateTime, timeZone: "America/Sao_Paulo" };
+        eventBody.end   = { dateTime: endDT,         timeZone: "America/Sao_Paulo" };
       } else if (startDate) {
         eventBody.start = { date: startDate };
-        eventBody.end = { date: endDate || startDate };
+        eventBody.end   = { date: endDate || startDate };
       }
 
       const gcalRes = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events/${encodeURIComponent(eventId)}`,
         {
           method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${googleToken}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${googleToken}`, "Content-Type": "application/json" },
           body: JSON.stringify(eventBody),
         }
       );
@@ -183,9 +163,11 @@ serve(async (req) => {
       });
     }
 
+    // ── delete-event ─────────────────────────────────────────────────
     if (action === "delete-event") {
       const { eventId } = body;
       if (!eventId) throw new Error("eventId required");
+
       const gcalRes = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events/${encodeURIComponent(eventId)}`,
         {
@@ -193,7 +175,8 @@ serve(async (req) => {
           headers: { Authorization: `Bearer ${googleToken}` },
         }
       );
-      if (!gcalRes.ok && gcalRes.status !== 410 && gcalRes.status !== 404) {
+      // 404 / 410 = already deleted, treat as success
+      if (!gcalRes.ok && gcalRes.status !== 404 && gcalRes.status !== 410) {
         const errText = await gcalRes.text();
         throw new Error(`Google Calendar API error: ${gcalRes.status} - ${errText}`);
       }
@@ -202,12 +185,25 @@ serve(async (req) => {
       });
     }
 
+    // ── list-events ───────────────────────────────────────────────────
+    if (action === "list-events") {
+      const { timeMin, timeMax } = body;
+      const params = new URLSearchParams({
+        timeMin: timeMin || new Date().toISOString(),
+        timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        singleEvents: "true",
+        orderBy: "startTime",
+        maxResults: "250",
+      });
 
+      const gcalRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events?${params}`,
+        { headers: { Authorization: `Bearer ${googleToken}` } }
+      );
       if (!gcalRes.ok) {
         const errText = await gcalRes.text();
         throw new Error(`Google Calendar API error: ${gcalRes.status} - ${errText}`);
       }
-
       const data = await gcalRes.json();
       return new Response(JSON.stringify({ events: data.items || [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -218,6 +214,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });
+
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return new Response(JSON.stringify({ error: msg }), {

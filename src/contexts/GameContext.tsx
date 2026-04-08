@@ -1,7 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { googleCreateEvent, googleDeleteEvent } from '@/lib/googleSync';
+import { googleCreateEvent, googleDeleteEvent, googleUpdateEvent } from '@/lib/googleSync';
+
+/** Monta startDateTime/endDateTime a partir de date + time (HH:MM), adicionando 1h no end se não houver endTime */
+function makeGoogleDateTimes(date: string, startTime?: string, endTime?: string) {
+  if (!startTime) return { startDate: date, endDate: date };
+  const start = `${date}T${startTime}:00`;
+  let end: string;
+  if (endTime) {
+    end = `${date}T${endTime}:00`;
+  } else {
+    const [h, m] = startTime.split(':').map(Number);
+    const endH = String((h + 1) % 24).padStart(2, '0');
+    end = `${date}T${endH}:${String(m).padStart(2, '0')}:00`;
+  }
+  return { startDateTime: start, endDateTime: end };
+}
+
 import { Meta, Mission, PlayerStats, Quote, Justificativa, Category, LifeGoal, WeeklyMission, Afazer, DEFAULT_QUOTES, ALTRUISTIC_MISSIONS, getLevelFromXP, getStreakMultiplier, Etapa } from '@/types/game';
 import { toast } from 'sonner';
 
@@ -384,15 +400,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         sort_order: missions.indexOf(m),
       } as any);
 
-      // Google Calendar sync (partial/total)
+      // Google Calendar sync: usa datetime se tiver horário, senão dia inteiro
       if (m.scheduledDay) {
+        const googleTimes = makeGoogleDateTimes(m.scheduledDay, m.scheduledTime);
         googleCreateEvent({
           summary: `🎯 ${m.title}`,
           description: `Meta: ${meta.title}`,
-          startDate: m.scheduledDay,
-          endDate: m.scheduledDay,
+          ...googleTimes,
           sourceType: 'meta',
           sourceId: m.id,
+        }).then(eventId => {
+          if (eventId) {
+            supabase.from('missions').update({ google_event_id: eventId } as any).eq('id', m.id);
+          }
         });
       }
 
@@ -479,9 +499,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const deleteMission = useCallback(async (metaId: string, missionId: string) => {
     if (!userId) return;
+    // Busca o google_event_id antes de deletar
+    const { data: mRow } = await supabase.from('missions').select('google_event_id').eq('id', missionId).single() as any;
     await supabase.from('etapas').delete().eq('mission_id', missionId);
     await supabase.from('missions').delete().eq('id', missionId);
-    googleDeleteEvent(missionId);
+    if (mRow?.google_event_id) googleDeleteEvent(mRow.google_event_id);
     setState(prev => {
       const meta = prev.metas.find(m => m.id === metaId);
       if (!meta) return prev;
@@ -638,6 +660,24 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const scheduleMission = useCallback(async (metaId: string, missionId: string, time: string, day?: string) => {
     if (!userId) return;
     await supabase.from('missions').update({ scheduled_time: time, scheduled_day: day || null }).eq('id', missionId);
+    // Sincroniza horário no Google Calendar
+    if (day) {
+      const { data: mRow } = await supabase.from('missions').select('google_event_id, title').eq('id', missionId).single() as any;
+      const googleTimes = makeGoogleDateTimes(day, time);
+      if (mRow?.google_event_id) {
+        googleUpdateEvent({ eventId: mRow.google_event_id, ...googleTimes });
+      } else {
+        // Evento ainda não existe, cria agora
+        const meta = state.metas.find(m => m.id === metaId);
+        googleCreateEvent({
+          summary: `🎯 ${mRow?.title || ''}`,
+          description: meta ? `Meta: ${meta.title}` : '',
+          ...googleTimes,
+        }).then(eventId => {
+          if (eventId) supabase.from('missions').update({ google_event_id: eventId } as any).eq('id', missionId);
+        });
+      }
+    }
     setState(prev => ({
       ...prev,
       metas: prev.metas.map(meta => {
@@ -645,7 +685,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         return { ...meta, missions: meta.missions.map(m => m.id === missionId ? { ...m, scheduledTime: time, scheduledDay: day } : m) };
       }),
     }));
-  }, [userId]) as (metaId: string, missionId: string, time: string, day?: string) => void;
+  }, [userId, state.metas]) as (metaId: string, missionId: string, time: string, day?: string) => void;
 
   const scheduleAllMissions = useCallback(async (metaId: string) => {
     if (!userId) return;
@@ -695,14 +735,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       estimated_minutes: data.estimatedMinutes || null,
     } as any);
 
-    // Google Calendar sync (partial/total)
+    // Google Calendar sync: usa datetime se tiver horário
+    const googleTimes = makeGoogleDateTimes(data.startDate, data.startTime, data.endTime);
     googleCreateEvent({
       summary: `✅ ${data.title}`,
       description: data.description || '',
-      startDate: data.startDate,
-      endDate: data.endDate || data.startDate,
+      ...googleTimes,
       sourceType: 'afazer',
       sourceId: id,
+    }).then(eventId => {
+      if (eventId) supabase.from('afazeres').update({ google_event_id: eventId } as any).eq('id', id);
     });
 
     setState(prev => {
@@ -833,8 +875,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAfazer = useCallback(async (id: string) => {
     if (!userId) return;
+    // Busca o google_event_id antes de deletar
+    const { data: aRow } = await supabase.from('afazeres').select('google_event_id').eq('id', id).single() as any;
     await supabase.from('afazeres').delete().eq('id', id);
-    googleDeleteEvent(id);
+    if (aRow?.google_event_id) googleDeleteEvent(aRow.google_event_id);
     setState(prev => ({ ...prev, afazeres: prev.afazeres.filter(a => a.id !== id) }));
   }, [userId]) as (id: string) => void;
 
