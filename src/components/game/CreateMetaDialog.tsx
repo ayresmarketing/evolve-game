@@ -252,7 +252,9 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
   const frequencyOptions = ['diária', '2x por semana', '3x por semana', '4x por semana', '5x por semana', '1x por semana', 'semanal'];
 
   return (
-    <div className="glass-card rounded-2xl p-6 animate-slide-up">
+    /* Modal overlay */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass-card rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slide-up shadow-2xl">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-primary" />
@@ -749,6 +751,7 @@ function ManualPlanningStep({
         className="w-full py-2.5 rounded-xl border border-dashed border-primary/30 text-xs text-primary hover:border-primary/60 hover:bg-primary/5 font-body font-semibold transition-all">
         + Adicionar nova missão
       </button>
-    </div>
+    </div>  {/* fecha inner card */}
+    </div>  {/* fecha modal overlay */}
   );
 }

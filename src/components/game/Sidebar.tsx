@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp, DollarSign, Droplets, StickyNote, Swords, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp, DollarSign, Droplets, StickyNote, Swords, Sun, Moon, LogOut } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { getLevelFromXP } from '@/types/game';
 
 export type Page = 'dashboard' | 'metas' | 'afazeres' | 'agenda' | 'missao' | 'progressao' | 'financeiro' | 'hidratacao' | 'anotacoes' | 'duelo';
@@ -27,20 +28,28 @@ const navItems: { id: Page; label: string; icon: React.ElementType }[] = [
 
 export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }: BottomNavProps) {
   const { stats } = useGame();
+  const { signOut } = useAuth();
   const { level, name, icon } = getLevelFromXP(stats.xp);
   const [showMore, setShowMore] = useState(false);
 
   const visibleItems = navItems.slice(0, 5);
   const moreItems = navItems.slice(5);
 
+  const close = () => setShowMore(false);
+
   return (
     <>
+      {/* Backdrop — sem backdrop-blur para não causar reflow */}
       {showMore && (
-        <div className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" onClick={() => setShowMore(false)} />
+        <div
+          className="fixed inset-0 z-40"
+          onClick={close}
+        />
       )}
 
+      {/* More menu — ancorado ao bottom da tela sem transform que cause salto */}
       {showMore && (
-        <div className="fixed bottom-[72px] left-3 right-3 lg:left-1/2 lg:-translate-x-1/2 lg:w-[720px] z-50 bg-card border border-border rounded-2xl shadow-game-card p-3 animate-slide-up">
+        <div className="fixed bottom-[68px] left-3 right-3 z-50 bg-card border border-border rounded-2xl shadow-game-card p-3">
           <div className="grid grid-cols-5 gap-1">
             {moreItems.map(item => {
               const Icon = item.icon;
@@ -48,7 +57,7 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
               return (
                 <button
                   key={item.id}
-                  onClick={() => { onPageChange(item.id); setShowMore(false); }}
+                  onClick={() => { onPageChange(item.id); close(); }}
                   className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl transition-all ${
                     isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
@@ -58,12 +67,23 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
                 </button>
               );
             })}
+
+            {/* Tema claro/escuro */}
             <button
-              onClick={onToggleTheme}
+              onClick={() => { onToggleTheme(); close(); }}
               className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl text-muted-foreground hover:text-foreground transition-all"
             >
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               <span className="text-[10px] font-body font-semibold leading-tight">{darkMode ? 'Claro' : 'Escuro'}</span>
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={async () => { close(); await signOut(); }}
+              className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl text-destructive/70 hover:text-destructive hover:bg-destructive/8 transition-all"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="text-[10px] font-body font-semibold leading-tight">Sair</span>
             </button>
           </div>
         </div>
@@ -77,7 +97,7 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
             return (
               <button
                 key={item.id}
-                onClick={() => { onPageChange(item.id); setShowMore(false); }}
+                onClick={() => { onPageChange(item.id); close(); }}
                 className={`flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all min-w-[56px] ${
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -91,7 +111,7 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
           })}
 
           <button
-            onClick={() => setShowMore(!showMore)}
+            onClick={() => setShowMore(v => !v)}
             className={`flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all min-w-[56px] ${
               showMore || moreItems.some(i => i.id === currentPage)
                 ? 'text-primary'

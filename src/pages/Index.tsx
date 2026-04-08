@@ -178,7 +178,7 @@ function QuickActions({ onNavigate }: { onNavigate: (page: Page) => void }) {
    Contains all 8 blocks + global date selector
 ═══════════════════════════════════════════════ */
 function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
-  const { metas } = useGame();
+  const { metas, afazeres } = useGame();
   const { getDaySchedule } = useSchedule();
 
   /* ── Date range state ── */
@@ -235,16 +235,21 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
     let sleep = 0, busy = 0, free = 0;
     range.forEach(date => {
       const dow = dayMap[new Date(date + 'T12:00').getDay()];
-      const scheduled = metas.flatMap(m => m.missions)
+      // Missões agendadas para esse dia
+      const missionMins = metas.flatMap(m => m.missions)
         .filter(mi => mi.scheduledDay === date && mi.estimatedMinutes)
         .reduce((s, mi) => s + (mi.estimatedMinutes || 0), 0);
-      const sched = getDaySchedule(dow, scheduled);
+      // Afazeres agendados para esse dia
+      const afazerMins = afazeres
+        .filter(a => a.startDate === date && a.estimatedMinutes)
+        .reduce((s, a) => s + (a.estimatedMinutes || 0), 0);
+      const sched = getDaySchedule(dow, missionMins + afazerMins);
       sleep += sched.sleepMinutes;
       busy += sched.busyMinutes;
       free += sched.freeMinutes;
     });
     return { sleep, busy, free, days: range.length };
-  }, [timeRange, globalRange, metas, getDaySchedule, useCustom, customStart, customEnd]);
+  }, [timeRange, globalRange, metas, afazeres, getDaySchedule, useCustom, customStart, customEnd]);
 
   const metricsData = useMemo(() => {
     const range = effectiveDateRange(metricsRange);
@@ -330,6 +335,16 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
         </div>
 
         <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => { setGlobalRange(1); setUseCustom(false); setShowCustomInputs(false); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-display tracking-wider transition-all border ${
+              !useCustom && globalRange === 1
+                ? 'border-primary/50 bg-primary/12 text-primary'
+                : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
+            }`}
+          >
+            Hoje
+          </button>
           {[7, 14, 30].map(d => (
             <button
               key={d}
@@ -925,9 +940,6 @@ function Dashboard() {
               <div className="hidden md:flex items-center gap-2 rounded-xl border border-border bg-card/80 px-2.5 py-1.5">
                 <Activity className="w-3.5 h-3.5 text-primary" />
                 <span className="text-xs font-body text-muted-foreground">Nível {stats.level}</span>
-              </div>
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-sm shadow-[0_0_12px_rgba(234,179,8,0.3)] ring-2 ring-yellow-500/20">
-                {levelInfo.icon}
               </div>
             </div>
           </div>
