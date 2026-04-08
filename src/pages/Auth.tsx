@@ -135,12 +135,17 @@ export default function Auth() {
         }
         const { error } = await signUp(email, password, displayName, phoneE164);
         if (error) { toast.error(error.message); return; }
-        toast.success('Conta criada com sucesso! Faça login para continuar.');
-        setMode('login');
-        setEmail(email);
-        setPassword('');
-        setDisplayName('');
-        setWhatsapp('');
+        // Auto-login após cadastro (não exige verificação de e-mail)
+        const { error: loginErr } = await signIn(email, password);
+        if (loginErr) {
+          toast.success('Conta criada! Faça login para continuar.');
+          setMode('login');
+          setPassword('');
+          setDisplayName('');
+          setWhatsapp('');
+        } else {
+          toast.success('Conta criada com sucesso!');
+        }
       }
     } finally {
       setSubmitting(false);

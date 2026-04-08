@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
