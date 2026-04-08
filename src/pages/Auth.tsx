@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { financeClient } from '@/integrations/supabase/financeClient';
+import { supabase } from '@/integrations/supabase/client';
 
 /* ── Floating particle ── */
 function Particle({ style }: { style: React.CSSProperties }) {
@@ -33,25 +33,14 @@ const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
   } as React.CSSProperties,
 }));
 
-/* ─── check phone uniqueness against finance Supabase ─── */
-async function isPhoneAlreadyRegistered(normalized: string): Promise<boolean> {
-  try {
-    // Check if the phone is already linked to an app account
-    // by querying Gastos in the finance DB - if phone exists there,
-    // it means the number is already a registered customer
-    // We want to ensure no TWO APP ACCOUNTS share the same phone,
-    // so we query the app's user_whatsapp_config via financeClient
-    // Actually: per user request, query finance DB Gastos.whatsapp
-    const { data, error } = await financeClient
-      .from('Gastos')
-      .select('whatsapp')
-      .eq('whatsapp', normalized)
-      .limit(1);
-    if (error) return false; // if error, don't block registration
-    return (data?.length ?? 0) > 0;
-  } catch {
-    return false;
-  }
+/* ─── criar conta via edge function (já confirma o e-mail) ─── */
+async function createConfirmedUser(email: string, password: string, displayName: string, whatsappNormalized: string) {
+  const { data, error } = await supabase.functions.invoke('create-confirmed-user', {
+    body: { email, password, displayName, whatsappNormalized },
+  });
+  if (error) return { error };
+  if (data?.error) return { error: { message: data.error } };
+  return { error: null };
 }
 
 export default function Auth() {
@@ -127,15 +116,10 @@ export default function Auth() {
           toast.error('Informe DDD + número (8 dígitos).');
           return;
         }
-        // Check uniqueness against finance DB
-        const alreadyInUse = await isPhoneAlreadyRegistered(phoneE164);
-        if (alreadyInUse) {
-          toast.error('Este número já está associado a uma conta. Use outro número.');
-          return;
-        }
-        const { error } = await signUp(email, password, displayName, phoneE164);
-        if (error) { toast.error(error.message); return; }
-        // Auto-login após cadastro (não exige verificação de e-mail)
+        // Cria usuário já confirmado via edge function (sem e-mail de confirmação)
+        const { error } = await createConfirmedUser(email, password, displayName, phoneE164);
+        if (error) { toast.error((error as any).message || 'Erro ao criar conta.'); return; }
+        // Faz login imediatamente após criar a conta
         const { error: loginErr } = await signIn(email, password);
         if (loginErr) {
           toast.success('Conta criada! Faça login para continuar.');
