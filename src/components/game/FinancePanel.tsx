@@ -553,7 +553,7 @@ export function FinancePanel() {
     isRecurrent: false,
   });
 
-  /* ── Carregar número salvo no banco ao montar ── */
+  /* ── Carregar número: tabela → user_metadata (fallback) → salvar automaticamente ── */
   useEffect(() => {
     if (!user) return;
     supabase
@@ -561,10 +561,23 @@ export function FinancePanel() {
       .select('whatsapp_phone_normalized, whatsapp_phone')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         const wp = data?.whatsapp_phone_normalized || data?.whatsapp_phone || '';
-        if (wp) {
-          setWhatsappPhone(wp);
+        if (wp) { setWhatsappPhone(wp); return; }
+
+        // Fallback: número vem do user_metadata salvo no signup
+        const meta = user.user_metadata as any;
+        const fromMeta = meta?.whatsapp_normalized || meta?.whatsapp_raw || '';
+        if (fromMeta) {
+          // Salva na tabela para próximas sessões
+          await supabase.from('user_whatsapp_config' as any).upsert({
+            user_id: user.id,
+            whatsapp_phone: fromMeta,
+            whatsapp_phone_raw: fromMeta,
+            whatsapp_phone_normalized: fromMeta,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+          setWhatsappPhone(fromMeta);
         }
       });
   }, [user]);
@@ -727,8 +740,7 @@ export function FinancePanel() {
         </div>
       </div>
 
-      {/* Phone setup — só aparece se não tiver número vinculado */}
-      {!whatsappPhone && <PhoneSetupInline onSave={(phone) => { setWhatsappPhone(phone); fetchAll(phone); }} userId={user?.id || ''} />}
+      {/* Phone setup — só aparece se não tiver número vinculado e não houver no metadata */}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-3">
