@@ -1,65 +1,105 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
-import {
-  Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight,
-  Trophy, Flame, CheckCircle2, TrendingUp, Target,
-  Shield, BarChart3, Star
-} from 'lucide-react';
+import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { financeClient } from '@/integrations/supabase/financeClient';
 
-/* ─── Preview data (static, for the visual panel) ─── */
-const PREVIEW_STATS = [
-  { label: 'XP Acumulado', value: '12.480', color: '#0280FF' },
-  { label: 'Streak Ativo', value: '23 dias', color: '#f97316' },
-  { label: 'Nível Atual', value: 'Mestre', color: '#a855f7' },
-];
+/* ── Floating particle ── */
+function Particle({ style }: { style: React.CSSProperties }) {
+  return (
+    <div
+      className="absolute rounded-full pointer-events-none"
+      style={style}
+    />
+  );
+}
 
-const PREVIEW_MISSIONS = [
-  { title: 'Estudar por 1 hora', done: true },
-  { title: 'Exercício físico', done: true },
-  { title: 'Meditação matinal', done: false },
-];
+const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
+  key: i,
+  style: {
+    width: `${4 + (i % 5) * 3}px`,
+    height: `${4 + (i % 5) * 3}px`,
+    left: `${(i * 37 + 11) % 100}%`,
+    top: `${(i * 53 + 7) % 100}%`,
+    background: i % 3 === 0
+      ? 'rgba(251,191,36,0.25)'
+      : i % 3 === 1
+      ? 'rgba(234,179,8,0.15)'
+      : 'rgba(255,255,255,0.06)',
+    animation: `float-${(i % 3) + 1} ${5 + (i % 4)}s ease-in-out infinite`,
+    animationDelay: `${(i * 0.4) % 3}s`,
+    filter: 'blur(1px)',
+  } as React.CSSProperties,
+}));
 
-const FEATURES = [
-  { icon: <Target className="w-4 h-4" />, label: 'Metas com IA', desc: 'Planejamento automático por inteligência artificial', color: '#0280FF' },
-  { icon: <BarChart3 className="w-4 h-4" />, label: 'Analytics', desc: 'Gráficos e métricas de desempenho em tempo real', color: '#a855f7' },
-  { icon: <Shield className="w-4 h-4" />, label: 'Gamificação', desc: 'Níveis, streaks e missões semanais motivadoras', color: '#22c55e' },
-];
+/* ─── check phone uniqueness against finance Supabase ─── */
+async function isPhoneAlreadyRegistered(normalized: string): Promise<boolean> {
+  try {
+    // Check if the phone is already linked to an app account
+    // by querying Gastos in the finance DB - if phone exists there,
+    // it means the number is already a registered customer
+    // We want to ensure no TWO APP ACCOUNTS share the same phone,
+    // so we query the app's user_whatsapp_config via financeClient
+    // Actually: per user request, query finance DB Gastos.whatsapp
+    const { data, error } = await financeClient
+      .from('Gastos')
+      .select('whatsapp')
+      .eq('whatsapp', normalized)
+      .limit(1);
+    if (error) return false; // if error, don't block registration
+    return (data?.length ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
 
 export default function Auth() {
-  const { user, loading, signIn, signUp, sendPhoneCode, verifyPhoneCode } = useAuth();
+  const { user, loading, signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [awaitingCode, setAwaitingCode] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [pendingPhoneE164, setPendingPhoneE164] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Floating particle animation keyframes injected once
+  useEffect(() => {
+    const id = 'auth-particle-style';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      @keyframes float-1 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-18px) scale(1.1)} }
+      @keyframes float-2 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-10px) scale(0.9)} }
+      @keyframes float-3 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-25px) scale(1.05)} }
+      @keyframes glow-pulse { 0%,100%{opacity:.55} 50%{opacity:.85} }
+      @keyframes drift-x { 0%,100%{transform:translateX(0)} 50%{transform:translateX(30px)} }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
   const toDigits = (v: string) => v.replace(/\D/g, '');
-  // DDD + 8 digitos
-  const formatNational = (digits: string) => {
+  const formatPhone = (digits: string) => {
     const d = digits.slice(0, 10);
     const ddd = d.slice(0, 2);
-    const p1 = d.slice(2, 6);
-    const p2 = d.slice(6, 10);
+    const p1  = d.slice(2, 6);
+    const p2  = d.slice(6, 10);
     if (!ddd) return '';
-    if (!p1) return `(${ddd}`;
-    if (!p2) return `(${ddd}) ${p1}`;
+    if (!p1)  return `(${ddd}`;
+    if (!p2)  return `(${ddd}) ${p1}`;
     return `(${ddd}) ${p1}-${p2}`;
   };
-  const phoneDigits = toDigits(whatsapp).slice(0, 10);
-  const phoneE164 = phoneDigits.length === 10 ? `55${phoneDigits}` : '';
+
+  const phoneDigits    = toDigits(whatsapp).slice(0, 10);
+  const phoneE164      = phoneDigits.length === 10 ? `55${phoneDigits}` : '';
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#030610] flex items-center justify-center">
-        <div className="w-9 h-9 rounded-xl bg-[#0280FF] flex items-center justify-center animate-pulse shadow-[0_0_24px_rgba(2,128,255,0.5)]">
-          <Zap className="w-5 h-5 text-white" />
+        <div className="w-10 h-10 rounded-xl bg-yellow-400 flex items-center justify-center animate-pulse shadow-[0_0_24px_rgba(251,191,36,0.5)]">
+          <Zap className="w-5 h-5 text-black" />
         </div>
       </div>
     );
@@ -80,7 +120,6 @@ export default function Auth() {
         const { error } = await signIn(email, password);
         if (error) {
           if (error.message.includes('Invalid login')) toast.error('Email ou senha incorretos.');
-          else if (error.message.includes('Email not confirmed')) toast.error('Confirme seu email antes de entrar. Verifique sua caixa de entrada.');
           else toast.error(error.message);
         }
       } else {
@@ -88,70 +127,92 @@ export default function Auth() {
           toast.error('Informe DDD + número (8 dígitos).');
           return;
         }
+        // Check uniqueness against finance DB
+        const alreadyInUse = await isPhoneAlreadyRegistered(phoneE164);
+        if (alreadyInUse) {
+          toast.error('Este número já está associado a uma conta. Use outro número.');
+          return;
+        }
         const { error } = await signUp(email, password, displayName, phoneE164);
         if (error) { toast.error(error.message); return; }
-        const sent = await sendPhoneCode(phoneE164);
-        if (sent.error) { toast.error(sent.error.message || 'Erro ao enviar código SMS'); return; }
-        setPendingPhoneE164(phoneE164);
-        setAwaitingCode(true);
-        toast.success('Conta criada! Digite o código enviado por SMS.');
+        toast.success('Conta criada com sucesso! Faça login para continuar.');
+        setMode('login');
+        setEmail(email);
+        setPassword('');
+        setDisplayName('');
+        setWhatsapp('');
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const switchMode = () => {
-    setMode(m => m === 'login' ? 'signup' : 'login');
+  const switchMode = (m: 'login' | 'signup') => {
+    setMode(m);
     setEmail(''); setPassword(''); setDisplayName(''); setWhatsapp('');
-    setAwaitingCode(false); setOtpCode(''); setPendingPhoneE164('');
   };
 
   return (
-    <div className="min-h-screen flex bg-[#030610] overflow-hidden">
+    <div className="min-h-screen bg-[#030610] flex items-center justify-center overflow-hidden relative">
 
-      {/* ══════════════════════════════════════
-          LEFT — AUTH FORM PANEL (5/12)
-          Completely different from old right panel:
-          • Narrower, form-first approach
-          • Tab switcher at top (not a link at bottom)
-          • No max-width card — full panel height
-          • Softer dark bg, accent separator on right
-      ══════════════════════════════════════ */}
-      <div className="w-full lg:w-5/12 flex flex-col relative overflow-hidden">
+      {/* ── Background atmospheric glows ── */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div
+          className="absolute w-[600px] h-[600px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(251,191,36,0.12) 0%, transparent 70%)',
+            top: '-15%', left: '-15%',
+            animation: 'glow-pulse 4s ease-in-out infinite, drift-x 8s ease-in-out infinite',
+          }}
+        />
+        <div
+          className="absolute w-[500px] h-[500px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(234,179,8,0.10) 0%, transparent 70%)',
+            bottom: '-15%', right: '-10%',
+            animation: 'glow-pulse 5s ease-in-out infinite reverse',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+          }}
+        />
+      </div>
 
-        {/* Subtle left-panel atmosphere */}
-        <div className="absolute inset-0 bg-[linear-gradient(160deg,#060c1c_0%,#030610_60%,#04080f_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(2,128,255,0.08),transparent_60%)]" />
-        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_20%_20%,rgba(255,255,255,.25)_1px,transparent_1px)] [background-size:28px_28px]" />
-        <div className="absolute -top-20 -left-20 w-60 h-60 rounded-full bg-[#7c3aed]/20 blur-3xl animate-pulse" />
-        <div className="absolute -bottom-20 right-0 w-72 h-72 rounded-full bg-[#0280FF]/20 blur-3xl animate-pulse" />
-        {/* Right edge separator */}
-        <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent hidden lg:block" />
+      {/* ── Floating particles ── */}
+      {PARTICLES.map(p => <Particle key={p.key} style={p.style} />)}
 
-        <div className="relative z-10 flex flex-col h-full min-h-screen lg:min-h-0 px-8 md:px-12 lg:px-14 py-10">
+      {/* ── Center card ── */}
+      <div className="relative z-10 w-full max-w-sm mx-4">
 
-          {/* Brand mark */}
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-xl bg-[#0280FF] flex items-center justify-center shadow-[0_0_20px_rgba(2,128,255,0.45)]">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <p className="font-display text-[13px] tracking-[0.22em] text-white font-bold">LIFEQUEST</p>
-              <p className="text-[9px] text-white/40 tracking-[0.18em] font-body uppercase">System Access</p>
-            </div>
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8 gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-yellow-400 flex items-center justify-center shadow-[0_0_32px_rgba(251,191,36,0.55)] mb-1">
+            <Zap className="w-7 h-7 text-black" />
           </div>
+          <div className="text-center">
+            <p className="font-display text-[15px] tracking-[0.28em] text-white font-bold">LIFEQUEST</p>
+            <p className="text-[9px] text-white/35 tracking-[0.22em] font-body uppercase mt-0.5">Plataforma de evolução pessoal</p>
+          </div>
+        </div>
 
-          {/* Mode tab switcher — NEW: was a link toggle at bottom, now tabs at top */}
-          <div className="flex rounded-xl bg-white/5 border border-white/8 p-1 mb-8 w-fit gap-1">
+        {/* Glass card */}
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_80px_rgba(0,0,0,0.6)] px-7 py-8">
+
+          {/* Tab switcher — no white bg container */}
+          <div className="flex mb-7 border-b border-white/10">
             {(['login', 'signup'] as const).map(m => (
               <button
                 key={m}
-                onClick={() => { setMode(m); setEmail(''); setPassword(''); setDisplayName(''); }}
-                className={`px-6 py-2 rounded-lg text-[11px] font-display tracking-[0.18em] uppercase transition-all ${
+                type="button"
+                onClick={() => switchMode(m)}
+                className={`flex-1 pb-3 text-[11px] font-display tracking-[0.2em] uppercase transition-all ${
                   mode === m
-                    ? 'bg-[#0280FF] text-white shadow-[0_0_16px_rgba(2,128,255,0.4)]'
-                    : 'text-white/40 hover:text-white/65'
+                    ? 'text-yellow-400 border-b-2 border-yellow-400 -mb-px'
+                    : 'text-white/35 hover:text-white/55'
                 }`}
               >
                 {m === 'login' ? 'Entrar' : 'Cadastrar'}
@@ -160,61 +221,32 @@ export default function Auth() {
           </div>
 
           {/* Headline */}
-          <div className="mb-7">
-            <h1 className="font-display text-[28px] md:text-[32px] text-white tracking-wider leading-tight">
-              {mode === 'login' ? 'Acesso ao\nSistema' : 'Iniciar\nJornada'}
+          <div className="mb-6">
+            <h1 className="font-display text-[22px] text-white tracking-wide">
+              {mode === 'login' ? 'Acesso ao Sistema' : 'Iniciar Jornada'}
             </h1>
-            <p className="text-sm text-white/45 font-body mt-2 leading-relaxed">
+            <p className="text-[11px] text-white/40 font-body mt-1.5 leading-relaxed">
               {mode === 'login'
-                ? 'Entre na sua conta e retome sua evolução de onde parou.'
-                : 'Crie sua conta gratuitamente e comece a evoluir hoje.'}
+                ? 'Entre e retome sua evolução de onde parou.'
+                : 'Crie sua conta e comece a evoluir hoje.'}
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 flex-1">
-            {awaitingCode ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
-                    Código SMS
-                  </label>
-                  <input
-                    value={otpCode}
-                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const { error } = await verifyPhoneCode(pendingPhoneE164, otpCode);
-                    if (error) { toast.error(error.message || 'Código inválido'); return; }
-                    toast.success('Telefone validado! Você já pode entrar.');
-                    setAwaitingCode(false);
-                    setMode('login');
-                  }}
-                  className="w-full mt-2 py-4 rounded-xl bg-[#0280FF] text-white font-display text-sm tracking-[0.2em] uppercase font-bold"
-                >
-                  Validar código
-                </button>
-              </div>
-            ) : (
-              <>
+          <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+                <label className="block text-[9px] font-display tracking-[0.24em] text-white/35 uppercase mb-1.5">
                   Nome de Exibição
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                   <input
                     type="text"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
                     placeholder="Como quer ser chamado?"
-                    className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
+                    className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 font-body focus:outline-none focus:border-yellow-400/40 focus:bg-yellow-400/[0.04] transition-all"
                   />
                 </div>
               </div>
@@ -222,45 +254,47 @@ export default function Auth() {
 
             {mode === 'signup' && (
               <div>
-                <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+                <label className="block text-[9px] font-display tracking-[0.24em] text-white/35 uppercase mb-1.5">
                   WhatsApp
                 </label>
-                <div className="relative flex items-center gap-2">
-                  <div className="px-3 py-3.5 rounded-xl bg-white/10 border border-white/10 text-white text-sm font-body">🇧🇷 +55</div>
+                <div className="relative">
+                  {/* Flag inside the input field */}
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base leading-none select-none">🇧🇷</span>
                   <input
                     type="tel"
-                    value={formatNational(phoneDigits)}
+                    value={formatPhone(phoneDigits)}
                     onChange={e => setWhatsapp(e.target.value)}
                     placeholder="(31) 1234-5678"
-                    className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
+                    className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 font-body focus:outline-none focus:border-yellow-400/40 focus:bg-yellow-400/[0.04] transition-all"
                   />
                 </div>
+                <p className="text-[9px] text-white/25 font-body mt-1 ml-0.5">DDD + 8 dígitos</p>
               </div>
             )}
 
             <div>
-              <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+              <label className="block text-[9px] font-display tracking-[0.24em] text-white/35 uppercase mb-1.5">
                 Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   required
-                  className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
+                  className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 font-body focus:outline-none focus:border-yellow-400/40 focus:bg-yellow-400/[0.04] transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+              <label className="block text-[9px] font-display tracking-[0.24em] text-white/35 uppercase mb-1.5">
                 Senha
               </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
@@ -268,14 +302,14 @@ export default function Auth() {
                   placeholder="••••••••"
                   required
                   minLength={6}
-                  className="w-full pl-10 pr-12 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
+                  className="w-full pl-9 pr-11 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 font-body focus:outline-none focus:border-yellow-400/40 focus:bg-yellow-400/[0.04] transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/35 hover:text-white/65 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/55 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -283,10 +317,10 @@ export default function Auth() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full mt-2 py-4 rounded-xl bg-[#0280FF] hover:bg-[#0270ee] text-white font-display text-sm tracking-[0.2em] uppercase font-bold flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 shadow-[0_0_28px_rgba(2,128,255,0.4)] hover:shadow-[0_0_36px_rgba(2,128,255,0.55)]"
+              className="w-full mt-2 py-3.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black font-display text-sm tracking-[0.18em] uppercase font-bold flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 shadow-[0_0_28px_rgba(251,191,36,0.4)] hover:shadow-[0_0_36px_rgba(251,191,36,0.6)]"
             >
               {submitting ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-4.5 h-4.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
               ) : (
                 <>
                   {mode === 'login' ? 'Entrar no Sistema' : 'Criar Conta'}
@@ -294,149 +328,14 @@ export default function Auth() {
                 </>
               )}
             </button>
-            </>
-            )}
           </form>
 
-          {/* Footer */}
-          <div className="pt-8 border-t border-white/6 mt-8">
-            <p className="text-[10px] text-white/25 font-body text-center">
-              © 2026 LifeQuest — Plataforma de evolução pessoal gamificada
-            </p>
-          </div>
+          {/* Footer note */}
+          <p className="text-[9px] text-white/20 font-body text-center mt-6">
+            © 2026 LifeQuest — Plataforma de evolução pessoal gamificada
+          </p>
         </div>
       </div>
-
-      {/* ══════════════════════════════════════
-          RIGHT — VISUAL SHOWCASE PANEL (7/12)
-          Completely new: was 7-col hero text on LEFT.
-          Now RIGHT, wider, with actual app preview cards:
-          • Mesh grid background pattern
-          • Blue radial glow atmosphere
-          • Live preview stats cards
-          • Mission completion feed
-          • Feature list with icons
-          • Level badge at bottom
-      ══════════════════════════════════════ */}
-      <div className="hidden lg:flex lg:w-7/12 relative overflow-hidden flex-col">
-
-        {/* Background layers */}
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,#180833_0%,#26104d_40%,#1a0d3a_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,rgba(2,128,255,0.22),transparent_55%),radial-gradient(ellipse_at_80%_75%,rgba(124,58,237,0.18),transparent_55%)]" />
-        {/* Mesh grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.028)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.028)_1px,transparent_1px)] bg-[size:52px_52px]" />
-        {/* Corner glow accent */}
-        <div className="absolute top-0 left-0 w-80 h-80 rounded-full bg-[#0280FF]/8 blur-3xl -translate-x-1/2 -translate-y-1/2" />
-
-        <div className="relative z-10 flex flex-col h-full p-10 xl:p-14 justify-between">
-
-          {/* Top: headline */}
-          <div>
-            <p className="text-[10px] tracking-[0.36em] font-display text-[#0280FF] uppercase mb-4">
-              Preview do Sistema
-            </p>
-            <h2 className="font-display text-3xl xl:text-4xl text-white leading-tight max-w-md">
-              Transforme disciplina em resultados mensuráveis.
-            </h2>
-            <p className="mt-3 text-sm text-white/50 font-body max-w-sm leading-relaxed">
-              Acompanhe metas, missões e evolução pessoal com dados reais, análises precisas e gamificação inteligente.
-            </p>
-
-            {/* Feature list */}
-            <div className="mt-8 space-y-3">
-              {FEATURES.map(f => (
-                <div key={f.label} className="flex items-start gap-3">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ backgroundColor: `${f.color}18`, color: f.color, border: `1px solid ${f.color}30` }}
-                  >
-                    {f.icon}
-                  </div>
-                  <div>
-                    <p className="text-sm font-body font-semibold text-white">{f.label}</p>
-                    <p className="text-[11px] text-white/40 font-body">{f.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom: app preview cards */}
-          <div className="space-y-4">
-            <p className="text-[10px] tracking-[0.24em] font-display text-white/35 uppercase">
-              Dados de um jogador ativo
-            </p>
-
-            {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3">
-              {PREVIEW_STATS.map(s => (
-                <div
-                  key={s.label}
-                  className="rounded-2xl border bg-white/4 backdrop-blur-sm p-4"
-                  style={{ borderColor: `${s.color}25` }}
-                >
-                  <div className="w-2 h-2 rounded-full mb-3" style={{ backgroundColor: s.color }} />
-                  <p className="text-[10px] text-white/45 font-body tracking-wide uppercase">{s.label}</p>
-                  <p className="font-display text-[19px] text-white mt-0.5">{s.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Mission feed card */}
-            <div className="rounded-2xl border border-white/10 bg-white/4 backdrop-blur-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[10px] font-display tracking-[0.22em] text-white/40 uppercase">Missões de Hoje</p>
-                <span className="text-[10px] font-body text-[#0280FF] font-semibold">2 / 3 completas</span>
-              </div>
-
-              <div className="space-y-2.5">
-                {PREVIEW_MISSIONS.map((m, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center transition-colors ${
-                      m.done
-                        ? 'bg-[#0280FF] shadow-[0_0_8px_rgba(2,128,255,0.5)]'
-                        : 'border border-white/20 bg-transparent'
-                    }`}>
-                      {m.done && <CheckCircle2 className="w-3 h-3 text-white" />}
-                    </div>
-                    <p className={`text-sm font-body ${m.done ? 'line-through text-white/35' : 'text-white/75'}`}>
-                      {m.title}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Mini XP bar */}
-              <div className="mt-4 pt-4 border-t border-white/8">
-                <div className="flex justify-between text-[10px] text-white/35 font-body mb-2">
-                  <span>Progresso XP hoje</span>
-                  <span className="text-[#0280FF]">+340 XP</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-white/8">
-                  <div className="h-full rounded-full bg-gradient-to-r from-[#0280FF] to-[#49a5ff] w-[67%] shadow-[0_0_8px_rgba(2,128,255,0.5)]" />
-                </div>
-              </div>
-            </div>
-
-            {/* Level badge */}
-            <div className="rounded-2xl border border-[#0280FF]/25 bg-[#0280FF]/8 p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#0280FF]/20 border border-[#0280FF]/30 flex items-center justify-center text-2xl">
-                ⚡
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-display tracking-[0.2em] text-[#0280FF] uppercase">Nível atual</p>
-                <p className="font-display text-white text-base mt-0.5">Mestre · Nível 5</p>
-              </div>
-              <div className="flex items-center gap-1 text-[#0280FF]">
-                <TrendingUp className="w-4 h-4" />
-                <Star className="w-4 h-4" />
-                <Flame className="w-4 h-4 text-orange-400" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }

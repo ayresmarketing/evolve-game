@@ -6,8 +6,6 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  sendPhoneCode: (phoneE164: string) => Promise<{ error: any }>;
-  verifyPhoneCode: (phoneE164: string, code: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, displayName?: string, whatsappRaw?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -38,27 +36,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const normalizePhone = (value: string) => value.replace(/\D/g, '');
 
-  const sendPhoneCode = async (phoneE164: string) => {
-    const { error } = await supabase.functions.invoke('send-phone-code', {
-      body: { phone: phoneE164 },
-    });
-    return { error };
-  };
-
-  const verifyPhoneCode = async (phoneE164: string, code: string) => {
-    const { error } = await supabase.functions.invoke('verify-phone-code', {
-      body: { phone: phoneE164, code },
-    });
-    return { error };
-  };
-
   const signUp = async (email: string, password: string, displayName?: string, whatsappRaw?: string) => {
     const whatsappNormalized = whatsappRaw ? normalizePhone(whatsappRaw) : undefined;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { display_name: displayName, whatsapp_raw: whatsappRaw, whatsapp_normalized: whatsappNormalized },
+        data: {
+          display_name: displayName,
+          whatsapp_raw: whatsappRaw,
+          whatsapp_normalized: whatsappNormalized,
+        },
       },
     });
     if (!error && data.user && whatsappNormalized) {
@@ -86,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, sendPhoneCode, verifyPhoneCode, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
