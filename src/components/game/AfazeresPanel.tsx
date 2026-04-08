@@ -83,10 +83,10 @@ export function AfazeresPanel() {
     setEstimatedMinutes(''); setShowForm(false); setShowLinkPrompt(false); setPendingAfazer(null);
   };
 
-  const pendingAfazeres = afazeres.filter(a => !a.completed);
   const completedAfazeres = afazeres.filter(a => a.completed);
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayAfazeres = afazeres.filter(a => a.startDate === todayStr || (a.isRecurrent && !a.completed));
+  const todayAfazeres = afazeres.filter(a => !a.completed && (a.startDate === todayStr || (a.isRecurrent && !a.completed)));
+  const upcomingAfazeres = afazeres.filter(a => !a.completed && a.startDate && a.startDate > todayStr && !a.isRecurrent);
 
   const categories: { value: Category; label: string; icon: string; activeClass: string }[] = [
     { value: 'pessoal', label: 'Pessoal', icon: '🟣', activeClass: 'border-game-purple bg-game-purple/10 text-game-purple' },
@@ -260,12 +260,12 @@ export function AfazeresPanel() {
         </section>
       )}
 
-      {/* Pending */}
-      {pendingAfazeres.length > 0 && (
-        <section aria-label="Tarefas pendentes">
-          <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase">📋 Pendentes ({pendingAfazeres.length})</h3>
+      {/* Upcoming */}
+      {upcomingAfazeres.length > 0 && (
+        <section aria-label="Próximas tarefas">
+          <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase">📋 Próximas ({upcomingAfazeres.length})</h3>
           <div className="space-y-2">
-            {pendingAfazeres.map(a => <AfazerItem key={a.id} afazer={a} />)}
+            {upcomingAfazeres.map(a => <AfazerItem key={a.id} afazer={a} />)}
           </div>
         </section>
       )}
