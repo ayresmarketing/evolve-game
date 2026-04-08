@@ -477,8 +477,67 @@ function TransactionRow({
 }
 
 /* ═══════════════════════════════════════════════════════
-   MAIN — FinancePanel
+   PHONE SETUP — inline (sem popup agressivo)
 ═══════════════════════════════════════════════════════ */
+function PhoneSetupInline({ onSave, userId }: { onSave: (phone: string) => void; userId: string }) {
+  const [digits, setDigits] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const toDigits = (v: string) => v.replace(/\D/g, '');
+  const format = (d: string) => {
+    const s = d.slice(0, 13); // 55 + 11 dígitos máx
+    if (s.length <= 2)  return s;
+    if (s.length <= 4)  return `+${s.slice(0,2)} (${s.slice(2)}`;
+    if (s.length <= 9)  return `+${s.slice(0,2)} (${s.slice(2,4)}) ${s.slice(4)}`;
+    return `+${s.slice(0,2)} (${s.slice(2,4)}) ${s.slice(4,9)}-${s.slice(9)}`;
+  };
+
+  const handleSave = async () => {
+    const raw = toDigits(digits);
+    if (raw.length < 12) { toast.error('Informe o número completo: código do país + DDD + número'); return; }
+    setSaving(true);
+    try {
+      await supabase.from('user_whatsapp_config' as any).upsert({
+        user_id: userId,
+        whatsapp_phone: raw,
+        whatsapp_phone_raw: raw,
+        whatsapp_phone_normalized: raw,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+      toast.success('WhatsApp vinculado com sucesso!');
+      onSave(raw);
+    } catch {
+      toast.error('Erro ao salvar número.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-secondary/20 p-4">
+      <p className="text-xs font-body text-muted-foreground mb-3">
+        Informe seu número de WhatsApp para ver seus dados financeiros (ex: <code>5531999999999</code>)
+      </p>
+      <div className="flex gap-2">
+        <input
+          type="tel"
+          value={format(toDigits(digits))}
+          onChange={e => setDigits(e.target.value)}
+          placeholder="+55 (31) 99999-9999"
+          className="flex-1 px-3 py-2.5 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 font-body"
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving || toDigits(digits).length < 12}
+          className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-display tracking-wider uppercase disabled:opacity-50 hover:opacity-90 transition-opacity"
+        >
+          {saving ? '...' : 'Salvar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function FinancePanel() {
   const { user } = useAuth();
   const [whatsappPhone, setWhatsappPhone] = useState('');
@@ -641,11 +700,7 @@ export function FinancePanel() {
       {/* Status bar */}
       <div className="flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2 min-w-0">
-          {!financeConfigured ? (
-            <span className="flex items-center gap-1.5 text-[10px] font-body text-yellow-400">
-              <AlertCircle className="w-3 h-3" /> Adicione VITE_FINANCE_SUPABASE_URL e VITE_FINANCE_SUPABASE_ANON_KEY no .env
-            </span>
-          ) : whatsappPhone ? (
+          {whatsappPhone ? (
             loading ? (
               <span className="flex items-center gap-1.5 text-[10px] font-body text-muted-foreground">
                 <RefreshCw className="w-3 h-3 animate-spin" /> Sincronizando...
@@ -660,11 +715,7 @@ export function FinancePanel() {
                 <WifiOff className="w-3 h-3" /> Desconectado
               </span>
             )
-          ) : (
-            <span className="flex items-center gap-1.5 text-[10px] font-body text-yellow-400">
-              <AlertCircle className="w-3 h-3" /> Configure seu WhatsApp para sincronizar
-            </span>
-          )}
+          ) : null}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {whatsappPhone && (
@@ -676,20 +727,8 @@ export function FinancePanel() {
         </div>
       </div>
 
-      {/* No phone prompt */}
-      {!whatsappPhone && (
-        <div className="section-card border-yellow-500/20 bg-yellow-500/5">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-body font-semibold text-foreground">WhatsApp não vinculado na conta</p>
-              <p className="text-xs font-body text-muted-foreground mt-1">
-                Para usar o financeiro, cadastre seu número no fluxo de criação da conta (código do país + DDD + número).
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Phone setup — só aparece se não tiver número vinculado */}
+      {!whatsappPhone && <PhoneSetupInline onSave={(phone) => { setWhatsappPhone(phone); fetchAll(phone); }} userId={user?.id || ''} />}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-3">
