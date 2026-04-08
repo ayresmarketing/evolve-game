@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, displayName?: string, whatsappRaw?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -34,15 +34,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
-    const { error } = await supabase.auth.signUp({
+  const normalizePhone = (value: string) => value.replace(/\D/g, '');
+
+  const signUp = async (email: string, password: string, displayName?: string, whatsappRaw?: string) => {
+    const whatsappNormalized = whatsappRaw ? normalizePhone(whatsappRaw) : undefined;
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { display_name: displayName },
+        data: { display_name: displayName, whatsapp_raw: whatsappRaw, whatsapp_normalized: whatsappNormalized },
         emailRedirectTo: window.location.origin,
       },
     });
+    if (!error && data.user && whatsappNormalized) {
+      await supabase.from('user_whatsapp_config' as any).upsert(
+        {
+          user_id: data.user.id,
+          whatsapp_phone: whatsappNormalized,
+          whatsapp_phone_raw: whatsappRaw ?? whatsappNormalized,
+          whatsapp_phone_normalized: whatsappNormalized,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
+    }
     return { error };
   };
 

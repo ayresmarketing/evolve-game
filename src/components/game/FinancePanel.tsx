@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Plus, Trash2, TrendingUp, TrendingDown, Wallet,
+  Plus, Trash2, TrendingUp, Wallet,
   ArrowUpRight, ArrowDownRight, Pencil, Check, X,
-  CalendarDays, Sliders, BarChart3, Settings, Phone,
+  CalendarDays, Sliders, BarChart3,
   RefreshCw, Wifi, WifiOff, AlertCircle,
 } from 'lucide-react';
 import {
@@ -67,8 +67,6 @@ interface RecebimentoRow {
 /* ═══════════════════════════════════════════════════════
    CONSTANTS
 ═══════════════════════════════════════════════════════ */
-const WA_STORAGE_KEY = 'lifequest_whatsapp_phone';
-
 const CATEGORIES: Record<ExpenseCategory, { label: string; emoji: string; color: string }> = {
   alimentacao:   { label: 'Alimentação',           emoji: '🍽',  color: '#f97316' },
   transporte:    { label: 'Transporte',             emoji: '🚗',  color: '#3b82f6' },
@@ -479,68 +477,15 @@ function TransactionRow({
 }
 
 /* ═══════════════════════════════════════════════════════
-   COMPONENT — Settings Panel
-═══════════════════════════════════════════════════════ */
-function SettingsPanel({ current, onSave, onClose }: { current: string; onSave: (p: string) => void; onClose: () => void }) {
-  const [input, setInput] = useState(current);
-
-  const handleSave = () => {
-    const cleaned = input.replace(/\D/g, '');
-    if (cleaned.length < 11) {
-      toast.error('Número inválido. Use: código do país + DDD + número (ex: 553100000000)');
-      return;
-    }
-    onSave(cleaned);
-  };
-
-  return (
-    <div className="section-card border-primary/30 animate-slide-up">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
-          <Settings className="w-3.5 h-3.5 text-primary" /> Configurações — WhatsApp
-        </h3>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
-      <p className="text-xs font-body text-muted-foreground mb-4 leading-relaxed">
-        Informe seu número de WhatsApp para sincronizar seus gastos e recebimentos em tempo real.<br />
-        <span className="text-primary/80">Formato: código do país + DDD + número, sem traços ou espaços.</span><br />
-        <span className="text-muted-foreground/60">Exemplo: <code className="bg-secondary px-1 rounded">553100000000</code></span>
-      </p>
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input type="tel" value={input} onChange={e => setInput(e.target.value)} placeholder="553100000000"
-            onKeyDown={e => e.key === 'Enter' && handleSave()}
-            className="w-full pl-10 pr-4 py-2.5 bg-secondary/50 border border-border rounded-xl text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50" />
-        </div>
-        <button onClick={handleSave}
-          className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-display text-xs tracking-wider hover:opacity-90 transition-all flex items-center gap-1.5">
-          <Check className="w-3.5 h-3.5" /> Salvar
-        </button>
-      </div>
-      {current && (
-        <p className="mt-3 text-[10px] text-muted-foreground font-body flex items-center gap-1.5">
-          <Wifi className="w-3 h-3 text-green-400" /> Conectado:
-          <code className="bg-secondary px-1.5 py-0.5 rounded text-foreground">{current}</code>
-        </p>
-      )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
    MAIN — FinancePanel
 ═══════════════════════════════════════════════════════ */
 export function FinancePanel() {
   const { user } = useAuth();
-  const [whatsappPhone, setWhatsappPhone] = useState(() => localStorage.getItem(WA_STORAGE_KEY) || '');
-  const [showSettings, setShowSettings] = useState(false);
+  const [whatsappPhone, setWhatsappPhone] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const channelRef = useRef<ReturnType<typeof financeClient.channel> | null>(null);
 
   const [form, setForm] = useState({
     title: '', amount: '', type: 'expense' as TransactionType,
@@ -554,13 +499,13 @@ export function FinancePanel() {
     if (!user) return;
     supabase
       .from('user_whatsapp_config' as any)
-      .select('whatsapp_phone')
+      .select('whatsapp_phone_normalized, whatsapp_phone')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.whatsapp_phone) {
-          localStorage.setItem(WA_STORAGE_KEY, data.whatsapp_phone);
-          setWhatsappPhone(data.whatsapp_phone);
+        const wp = data?.whatsapp_phone_normalized || data?.whatsapp_phone || '';
+        if (wp) {
+          setWhatsappPhone(wp);
         }
       });
   }, [user]);
@@ -610,24 +555,9 @@ export function FinancePanel() {
     return () => { financeClient.removeChannel(ch); channelRef.current = null; };
   }, [whatsappPhone, fetchAll]);
 
-  /* ── Salvar número no banco (app Supabase) + localStorage ── */
-  const handleSavePhone = async (phone: string) => {
-    localStorage.setItem(WA_STORAGE_KEY, phone);
-    setWhatsappPhone(phone);
-    setShowSettings(false);
-
-    if (user) {
-      await supabase.from('user_whatsapp_config' as any).upsert(
-        { user_id: user.id, whatsapp_phone: phone, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id' }
-      );
-    }
-    toast.success('Número salvo! Buscando seus dados...');
-  };
-
   /* ── ADD ── */
   const addTransaction = useCallback(async () => {
-    if (!whatsappPhone) { toast.error('Configure seu WhatsApp primeiro.'); setShowSettings(true); return; }
+    if (!whatsappPhone) { toast.error('Seu WhatsApp não está vinculado na conta.'); return; }
     if (!financeClient) { toast.error('Banco financeiro não configurado. Verifique as variáveis de ambiente.'); return; }
     const amount = parseFloat(form.amount);
     if (!form.title || isNaN(amount) || amount <= 0) { toast.error('Preencha descrição e valor.'); return; }
@@ -743,31 +673,19 @@ export function FinancePanel() {
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           )}
-          <button onClick={() => setShowSettings(v => !v)}
-            className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground hover:text-foreground'}`}
-            title="Configurações WhatsApp">
-            <Settings className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
 
-      {/* Settings panel */}
-      {showSettings && <SettingsPanel current={whatsappPhone} onSave={handleSavePhone} onClose={() => setShowSettings(false)} />}
-
       {/* No phone prompt */}
-      {!whatsappPhone && !showSettings && (
+      {!whatsappPhone && (
         <div className="section-card border-yellow-500/20 bg-yellow-500/5">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-body font-semibold text-foreground">WhatsApp não configurado</p>
+              <p className="text-sm font-body font-semibold text-foreground">WhatsApp não vinculado na conta</p>
               <p className="text-xs font-body text-muted-foreground mt-1">
-                Clique na engrenagem ⚙ acima e informe seu número para sincronizar seus dados financeiros em tempo real.
+                Para usar o financeiro, cadastre seu número no fluxo de criação da conta (código do país + DDD + número).
               </p>
-              <button onClick={() => setShowSettings(true)}
-                className="mt-3 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-display text-xs tracking-wider hover:opacity-90 transition-all flex items-center gap-1.5">
-                <Settings className="w-3.5 h-3.5" /> Configurar agora
-              </button>
             </div>
           </div>
         </div>

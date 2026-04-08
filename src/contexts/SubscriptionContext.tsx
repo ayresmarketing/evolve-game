@@ -17,7 +17,7 @@ interface SubscriptionContextType extends SubscriptionState {
   openCustomerPortal: () => Promise<void>;
 }
 
-const OWNER_EMAIL = 'ayresmarketingoficial@gmail.com';
+const OWNER_EMAILS = new Set(['ayresmarketingoficial@gmail.com', 'testando.ayres@gmail.com']);
 
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
 
@@ -31,7 +31,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const checkSubscription = useCallback(async () => {
     // Owner account always bypasses Stripe
-    if (user?.email === OWNER_EMAIL) {
+    if (user?.email && OWNER_EMAILS.has(user.email)) {
       setState({ subscribed: true, trial: false, subscriptionEnd: null, trialEnd: null, status: 'owner', loading: false });
       return;
     }

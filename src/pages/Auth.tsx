@@ -33,6 +33,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,7 +66,11 @@ export default function Auth() {
           else toast.error(error.message);
         }
       } else {
-        const { error } = await signUp(email, password, displayName);
+        if (!whatsapp || whatsapp.replace(/\D/g, '').length < 11) {
+          toast.error('Informe seu WhatsApp com código do país + DDD + número.');
+          return;
+        }
+        const { error } = await signUp(email, password, displayName, whatsapp);
         if (error) { toast.error(error.message); }
         else { toast.success('Conta criada! Verifique seu email para confirmar o cadastro.'); setMode('login'); }
       }
@@ -76,7 +81,7 @@ export default function Auth() {
 
   const switchMode = () => {
     setMode(m => m === 'login' ? 'signup' : 'login');
-    setEmail(''); setPassword(''); setDisplayName('');
+    setEmail(''); setPassword(''); setDisplayName(''); setWhatsapp('');
   };
 
   return (
@@ -155,6 +160,23 @@ export default function Auth() {
                     onChange={e => setDisplayName(e.target.value)}
                     placeholder="Como quer ser chamado?"
                     className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
+                  />
+                </div>
+              </div>
+            )}
+
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+                  WhatsApp (com código do país)
+                </label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    value={whatsapp}
+                    onChange={e => setWhatsapp(e.target.value)}
+                    placeholder="553100000000"
+                    className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
                   />
                 </div>
               </div>

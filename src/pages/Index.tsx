@@ -762,7 +762,7 @@ function AgendaPage() {
 function Dashboard() {
   const { stats } = useGame();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lifequest_theme') === 'dark');
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lifequest_theme') !== 'light');
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);

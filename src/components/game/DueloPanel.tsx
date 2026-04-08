@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Swords, Plus, Users, Trophy, Clock, Check, X, Trash2, AlertTriangle, Crown, Medal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Swords, Plus, Users, Trophy, Clock, Check, X, Trash2, AlertTriangle, Crown, Medal, ChevronDown, ChevronUp, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ─── Types ───
 interface DueloTask {
@@ -40,6 +42,15 @@ interface Duelo {
   createdAt: string;
 }
 
+interface IncomingInvite {
+  id: string;
+  duelo_name: string;
+  inviter_email: string;
+  invitee_email: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+}
+
 const STORAGE_KEY = 'lifequest_duelos';
 const CURRENT_USER = { id: 'me', name: 'Você', email: 'jogador@lifequest.com' };
 
@@ -51,8 +62,11 @@ function loadDuelos(): Duelo[] {
 
 // ─── Main Component ───
 export function DueloPanel() {
+  const { user } = useAuth();
   const [duelos, setDuelos] = useState<Duelo[]>(loadDuelos);
   const [showCreate, setShowCreate] = useState(false);
+  const [showInvites, setShowInvites] = useState(false);
+  const [incomingInvites, setIncomingInvites] = useState<IncomingInvite[]>([]);
   const [selectedDuelo, setSelectedDuelo] = useState<string | null>(null);
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(duelos)); }, [duelos]);
@@ -65,6 +79,34 @@ export function DueloPanel() {
     setShowCreate(false);
     toast.success('Duelo criado com sucesso! ⚔️');
   }, []);
+
+  const loadInvites = useCallback(async () => {
+    if (!user?.email) return;
+    const { data, error } = await supabase
+      .from('duelo_invites' as any)
+      .select('*')
+      .eq('invitee_email', user.email)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (!error) setIncomingInvites((data as IncomingInvite[]) || []);
+  }, [user?.email]);
+
+  useEffect(() => {
+    loadInvites();
+  }, [loadInvites]);
+
+  const answerInvite = useCallback(async (id: string, status: 'accepted' | 'declined') => {
+    const { error } = await supabase
+      .from('duelo_invites' as any)
+      .update({ status })
+      .eq('id', id);
+    if (error) {
+      toast.error('Erro ao responder convite');
+      return;
+    }
+    toast.success(status === 'accepted' ? 'Convite aceito!' : 'Convite recusado');
+    loadInvites();
+  }, [loadInvites]);
 
   const deleteDuelo = useCallback((id: string) => {
     setDuelos(prev => prev.filter(d => d.id !== id));
@@ -94,17 +136,45 @@ export function DueloPanel() {
       </div>
 
       {/* Create button */}
-      <button onClick={() => setShowCreate(!showCreate)} className="w-full section-card flex items-center gap-3 hover:border-primary/40 transition-all group">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-          <Plus className="w-5 h-5 text-primary" />
-        </div>
-        <div className="text-left">
-          <p className="text-sm font-body font-semibold text-foreground">Criar novo duelo</p>
-          <p className="text-[11px] text-muted-foreground font-body">Desafie alguém e prove sua disciplina</p>
-        </div>
-      </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button onClick={() => setShowCreate(!showCreate)} className="w-full section-card flex items-center gap-3 hover:border-primary/40 transition-all group">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <Plus className="w-5 h-5 text-primary" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-body font-semibold text-foreground">Criar novo duelo</p>
+            <p className="text-[11px] text-muted-foreground font-body">Desafie alguém e prove sua disciplina</p>
+          </div>
+        </button>
+        <button onClick={() => setShowInvites(v => !v)} className="w-full section-card flex items-center gap-3 hover:border-primary/40 transition-all group">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <Inbox className="w-5 h-5 text-primary" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-body font-semibold text-foreground">Ver meus convites</p>
+            <p className="text-[11px] text-muted-foreground font-body">{incomingInvites.length} pendente(s)</p>
+          </div>
+        </button>
+      </div>
 
       {showCreate && <CreateDueloForm onSubmit={addDuelo} onCancel={() => setShowCreate(false)} />}
+      {showInvites && (
+        <div className="section-card space-y-3">
+          <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase">📨 Meus convites</h3>
+          {incomingInvites.length === 0 ? (
+            <p className="text-sm text-muted-foreground font-body">Nenhum convite pendente.</p>
+          ) : incomingInvites.map(inv => (
+            <div key={inv.id} className="rounded-xl border border-border bg-secondary/30 p-3">
+              <p className="text-sm font-body font-semibold text-foreground">{inv.duelo_name}</p>
+              <p className="text-xs text-muted-foreground font-body">De: {inv.inviter_email}</p>
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => answerInvite(inv.id, 'accepted')} className="px-3 py-1.5 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-body">Aceitar</button>
+                <button onClick={() => answerInvite(inv.id, 'declined')} className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-body">Recusar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Active duelos */}
       {activeDuelos.length > 0 && (
