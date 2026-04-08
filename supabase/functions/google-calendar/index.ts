@@ -40,6 +40,7 @@ serve(async (req) => {
     const prefs = (profile?.preferences as any) || {};
     const googleToken = prefs.google_access_token;
     const integrationMode = prefs.google_calendar_mode; // 'partial' | 'total'
+    const selectedCalendarId = prefs.google_calendar_id || "primary";
 
     if (action === "save-token") {
       // Save Google OAuth token to profile preferences
@@ -48,6 +49,7 @@ serve(async (req) => {
         google_access_token: body.access_token,
         google_refresh_token: body.refresh_token,
         google_calendar_mode: body.mode || "partial",
+        google_calendar_id: body.calendar_id || "primary",
       };
       await supabaseClient
         .from("profiles")
@@ -64,6 +66,7 @@ serve(async (req) => {
       delete newPrefs.google_access_token;
       delete newPrefs.google_refresh_token;
       delete newPrefs.google_calendar_mode;
+      delete newPrefs.google_calendar_id;
       await supabaseClient
         .from("profiles")
         .update({ preferences: newPrefs })
@@ -107,7 +110,7 @@ serve(async (req) => {
       }
 
       const gcalRes = await fetch(
-        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events`,
         {
           method: "POST",
           headers: {
@@ -140,11 +143,65 @@ serve(async (req) => {
       });
 
       const gcalRes = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events?${params}`,
         {
           headers: { Authorization: `Bearer ${googleToken}` },
         }
       );
+    if (action === "update-event") {
+      const { eventId, summary, description, startDateTime, endDateTime, startDate, endDate } = body;
+      if (!eventId) throw new Error("eventId required");
+
+      const eventBody: any = {};
+      if (summary !== undefined) eventBody.summary = summary;
+      if (description !== undefined) eventBody.description = description;
+      if (startDateTime && endDateTime) {
+        eventBody.start = { dateTime: startDateTime, timeZone: "America/Sao_Paulo" };
+        eventBody.end = { dateTime: endDateTime, timeZone: "America/Sao_Paulo" };
+      } else if (startDate) {
+        eventBody.start = { date: startDate };
+        eventBody.end = { date: endDate || startDate };
+      }
+
+      const gcalRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events/${encodeURIComponent(eventId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${googleToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(eventBody),
+        }
+      );
+      if (!gcalRes.ok) {
+        const errText = await gcalRes.text();
+        throw new Error(`Google Calendar API error: ${gcalRes.status} - ${errText}`);
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete-event") {
+      const { eventId } = body;
+      if (!eventId) throw new Error("eventId required");
+      const gcalRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(selectedCalendarId)}/events/${encodeURIComponent(eventId)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${googleToken}` },
+        }
+      );
+      if (!gcalRes.ok && gcalRes.status !== 410 && gcalRes.status !== 404) {
+        const errText = await gcalRes.text();
+        throw new Error(`Google Calendar API error: ${gcalRes.status} - ${errText}`);
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
 
       if (!gcalRes.ok) {
         const errText = await gcalRes.text();

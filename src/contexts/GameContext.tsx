@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { googleCreateEvent, googleDeleteEvent } from '@/lib/googleSync';
 import { Meta, Mission, PlayerStats, Quote, Justificativa, Category, LifeGoal, WeeklyMission, Afazer, DEFAULT_QUOTES, ALTRUISTIC_MISSIONS, getLevelFromXP, getStreakMultiplier, Etapa } from '@/types/game';
 import { toast } from 'sonner';
 
@@ -383,6 +384,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         sort_order: missions.indexOf(m),
       } as any);
 
+      // Google Calendar sync (partial/total)
+      if (m.scheduledDay) {
+        googleCreateEvent({
+          summary: `🎯 ${m.title}`,
+          description: `Meta: ${meta.title}`,
+          startDate: m.scheduledDay,
+          endDate: m.scheduledDay,
+          sourceType: 'meta',
+          sourceId: m.id,
+        });
+      }
+
       // Save etapas
       for (const e of m.etapas) {
         await supabase.from('etapas').insert({
@@ -468,6 +481,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (!userId) return;
     await supabase.from('etapas').delete().eq('mission_id', missionId);
     await supabase.from('missions').delete().eq('id', missionId);
+    googleDeleteEvent(missionId);
     setState(prev => {
       const meta = prev.metas.find(m => m.id === metaId);
       if (!meta) return prev;
@@ -681,6 +695,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       estimated_minutes: data.estimatedMinutes || null,
     } as any);
 
+    // Google Calendar sync (partial/total)
+    googleCreateEvent({
+      summary: `✅ ${data.title}`,
+      description: data.description || '',
+      startDate: data.startDate,
+      endDate: data.endDate || data.startDate,
+      sourceType: 'afazer',
+      sourceId: id,
+    });
+
     setState(prev => {
       let newState = { ...prev, afazeres: [...prev.afazeres, afazer] };
 
@@ -810,6 +834,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const deleteAfazer = useCallback(async (id: string) => {
     if (!userId) return;
     await supabase.from('afazeres').delete().eq('id', id);
+    googleDeleteEvent(id);
     setState(prev => ({ ...prev, afazeres: prev.afazeres.filter(a => a.id !== id) }));
   }, [userId]) as (id: string) => void;
 

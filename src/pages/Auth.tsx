@@ -28,14 +28,32 @@ const FEATURES = [
 ];
 
 export default function Auth() {
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn, signUp, sendPhoneCode, verifyPhoneCode } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [pendingPhoneE164, setPendingPhoneE164] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const toDigits = (v: string) => v.replace(/\D/g, '');
+  // DDD + 8 digitos
+  const formatNational = (digits: string) => {
+    const d = digits.slice(0, 10);
+    const ddd = d.slice(0, 2);
+    const p1 = d.slice(2, 6);
+    const p2 = d.slice(6, 10);
+    if (!ddd) return '';
+    if (!p1) return `(${ddd}`;
+    if (!p2) return `(${ddd}) ${p1}`;
+    return `(${ddd}) ${p1}-${p2}`;
+  };
+  const phoneDigits = toDigits(whatsapp).slice(0, 10);
+  const phoneE164 = phoneDigits.length === 10 ? `55${phoneDigits}` : '';
 
   if (loading) {
     return (
@@ -66,13 +84,17 @@ export default function Auth() {
           else toast.error(error.message);
         }
       } else {
-        if (!whatsapp || whatsapp.replace(/\D/g, '').length < 11) {
-          toast.error('Informe seu WhatsApp com código do país + DDD + número.');
+        if (phoneDigits.length !== 10) {
+          toast.error('Informe DDD + número (8 dígitos).');
           return;
         }
-        const { error } = await signUp(email, password, displayName, whatsapp);
-        if (error) { toast.error(error.message); }
-        else { toast.success('Conta criada! Verifique seu email para confirmar o cadastro.'); setMode('login'); }
+        const { error } = await signUp(email, password, displayName, phoneE164);
+        if (error) { toast.error(error.message); return; }
+        const sent = await sendPhoneCode(phoneE164);
+        if (sent.error) { toast.error(sent.error.message || 'Erro ao enviar código SMS'); return; }
+        setPendingPhoneE164(phoneE164);
+        setAwaitingCode(true);
+        toast.success('Conta criada! Digite o código enviado por SMS.');
       }
     } finally {
       setSubmitting(false);
@@ -82,6 +104,7 @@ export default function Auth() {
   const switchMode = () => {
     setMode(m => m === 'login' ? 'signup' : 'login');
     setEmail(''); setPassword(''); setDisplayName(''); setWhatsapp('');
+    setAwaitingCode(false); setOtpCode(''); setPendingPhoneE164('');
   };
 
   return (
@@ -150,6 +173,35 @@ export default function Auth() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4 flex-1">
+            {awaitingCode ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
+                    Código SMS
+                  </label>
+                  <input
+                    value={otpCode}
+                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const { error } = await verifyPhoneCode(pendingPhoneE164, otpCode);
+                    if (error) { toast.error(error.message || 'Código inválido'); return; }
+                    toast.success('Telefone validado! Você já pode entrar.');
+                    setAwaitingCode(false);
+                    setMode('login');
+                  }}
+                  className="w-full mt-2 py-4 rounded-xl bg-[#0280FF] text-white font-display text-sm tracking-[0.2em] uppercase font-bold"
+                >
+                  Validar código
+                </button>
+              </div>
+            ) : (
+              <>
             {mode === 'signup' && (
               <div>
                 <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
@@ -171,14 +223,15 @@ export default function Auth() {
             {mode === 'signup' && (
               <div>
                 <label className="block text-[10px] font-display tracking-[0.22em] text-white/40 uppercase mb-2">
-                  WhatsApp (com código do país)
+                  WhatsApp
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center gap-2">
+                  <div className="px-3 py-3.5 rounded-xl bg-white/10 border border-white/10 text-white text-sm font-body">🇧🇷 +55</div>
                   <input
                     type="tel"
-                    value={whatsapp}
+                    value={formatNational(phoneDigits)}
                     onChange={e => setWhatsapp(e.target.value)}
-                    placeholder="553100000000"
+                    placeholder="(31) 1234-5678"
                     className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/25 font-body focus:outline-none focus:border-[#0280FF]/55 focus:bg-[#0280FF]/6 transition-all"
                   />
                 </div>
@@ -241,6 +294,8 @@ export default function Auth() {
                 </>
               )}
             </button>
+            </>
+            )}
           </form>
 
           {/* Footer */}
@@ -266,7 +321,7 @@ export default function Auth() {
       <div className="hidden lg:flex lg:w-7/12 relative overflow-hidden flex-col">
 
         {/* Background layers */}
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,#050d1f_0%,#071630_40%,#040c1e_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#180833_0%,#26104d_40%,#1a0d3a_100%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,rgba(2,128,255,0.22),transparent_55%),radial-gradient(ellipse_at_80%_75%,rgba(124,58,237,0.18),transparent_55%)]" />
         {/* Mesh grid */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.028)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.028)_1px,transparent_1px)] bg-[size:52px_52px]" />

@@ -4,12 +4,14 @@ import { useSchedule } from '@/contexts/ScheduleContext';
 import { CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { googleListEvents } from '@/lib/googleSync';
 
 export function CalendarView() {
   const { metas, afazeres } = useGame();
   const { fixedBlocks, sleepSchedules } = useSchedule();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [googleEvents, setGoogleEvents] = useState<any[]>([]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -45,8 +47,27 @@ export function CalendarView() {
       type: 'afazer' as const, title: a.title, time: a.startTime, category: a.category,
       completed: a.completed, estimatedMinutes: a.estimatedMinutes,
     }));
-    return [...missions, ...tasks].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    const remote = googleEvents
+      .filter(ev => {
+        const start = ev.start?.date || ev.start?.dateTime?.split('T')[0];
+        return start === dateStr;
+      })
+      .map(ev => ({
+        type: 'google' as const,
+        title: ev.summary || '(Sem título)',
+        time: ev.start?.dateTime ? ev.start.dateTime.split('T')[1]?.slice(0, 5) : '',
+        category: 'pessoal',
+        completed: false,
+        estimatedMinutes: undefined,
+      }));
+    return [...missions, ...tasks, ...remote].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   };
+
+  useEffect(() => {
+    const start = new Date(year, month, 1).toISOString();
+    const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+    googleListEvents(start, end).then(setGoogleEvents).catch(() => setGoogleEvents([]));
+  }, [year, month]);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const selectedEvents = getEventsForDate(selectedDate);
