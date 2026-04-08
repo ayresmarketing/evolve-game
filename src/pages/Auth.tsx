@@ -106,7 +106,17 @@ export default function Auth() {
     setSubmitting(true);
     try {
       if (mode === 'login') {
-        const { error } = await signIn(email, password);
+        let { error } = await signIn(email, password);
+        // Se erro de email nao confirmado, tenta confirmar via edge function e loga de novo
+        if (error && /not confirmed|não confirmado|não verificado|not verified/i.test(error.message)) {
+          const { error: confirmErr } = await supabase.functions.invoke('create-confirmed-user', {
+            body: { action: 'confirm', email },
+          });
+          if (!confirmErr) {
+            const retry = await signIn(email, password);
+            error = retry.error;
+          }
+        }
         if (error) {
           if (error.message.includes('Invalid login')) toast.error('Email ou senha incorretos.');
           else toast.error(error.message);
