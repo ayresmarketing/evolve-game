@@ -100,6 +100,9 @@ export default function Auth() {
         {/* Subtle left-panel atmosphere */}
         <div className="absolute inset-0 bg-[linear-gradient(160deg,#060c1c_0%,#030610_60%,#04080f_100%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(2,128,255,0.08),transparent_60%)]" />
+        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_20%_20%,rgba(255,255,255,.25)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute -top-20 -left-20 w-60 h-60 rounded-full bg-[#7c3aed]/20 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-20 right-0 w-72 h-72 rounded-full bg-[#0280FF]/20 blur-3xl animate-pulse" />
         {/* Right edge separator */}
         <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent hidden lg:block" />
 

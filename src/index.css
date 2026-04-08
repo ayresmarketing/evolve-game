@@ -6,24 +6,24 @@
 
 @layer base {
   :root {
-    --background: 240 18% 5%;
-    --foreground: 45 20% 96%;
+    --background: 42 33% 97%;
+    --foreground: 240 18% 12%;
 
-    --card: 240 16% 8%;
-    --card-foreground: 45 20% 96%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 18% 12%;
 
-    --popover: 240 16% 9%;
-    --popover-foreground: 45 20% 96%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 18% 12%;
 
     /* Primary: Yellow/Gold — matches landing page CTA */
     --primary: 45 95% 52%;
     --primary-foreground: 240 18% 6%;
 
-    --secondary: 240 14% 13%;
-    --secondary-foreground: 45 10% 78%;
+    --secondary: 42 24% 93%;
+    --secondary-foreground: 240 12% 28%;
 
-    --muted: 240 12% 16%;
-    --muted-foreground: 240 8% 56%;
+    --muted: 42 20% 90%;
+    --muted-foreground: 240 8% 45%;
 
     --accent: 45 95% 52%;
     --accent-foreground: 240 18% 6%;
@@ -31,8 +31,8 @@
     --destructive: 0 68% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 14% 18%;
-    --input: 240 14% 18%;
+    --border: 42 14% 80%;
+    --input: 42 14% 80%;
     --ring: 45 95% 52%;
 
     --radius: 1rem;
@@ -56,13 +56,13 @@
 
     --gradient-gold: linear-gradient(135deg, hsl(45 95% 52%), hsl(35 100% 44%));
     --gradient-xp: linear-gradient(90deg, hsl(45 95% 52%), hsl(35 100% 44%));
-    --gradient-card: linear-gradient(145deg, hsl(240 16% 10%), hsl(240 18% 6%));
-    --gradient-hero: linear-gradient(135deg, hsl(240 20% 6%), hsl(240 25% 4%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(240 18% 7%), hsl(240 22% 4%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(42 30% 95%));
+    --gradient-hero: linear-gradient(135deg, hsl(42 50% 97%), hsl(42 25% 93%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(42 35% 96%), hsl(42 22% 92%));
     --gradient-accent: linear-gradient(135deg, hsl(45 95% 52%), hsl(35 100% 44%));
 
     --shadow-gold: 0 0 24px hsl(45 95% 52% / 0.35);
-    --shadow-card: 0 18px 45px hsl(240 30% 2% / 0.85), 0 0 0 1px hsl(240 20% 40% / 0.12);
+    --shadow-card: 0 14px 30px hsl(240 25% 20% / 0.12), 0 0 0 1px hsl(42 16% 75% / 0.45);
     --shadow-glow: 0 0 30px hsl(45 95% 52% / 0.4);
     --shadow-glow-cyan: 0 0 26px hsl(45 95% 52% / 0.5);
 
@@ -70,13 +70,13 @@
     --font-body: 'Rajdhani', sans-serif;
     --font-clean: 'Inter', sans-serif;
 
-    --sidebar-background: 240 18% 5%;
-    --sidebar-foreground: 45 10% 78%;
+    --sidebar-background: 42 32% 95%;
+    --sidebar-foreground: 240 10% 32%;
     --sidebar-primary: 45 95% 52%;
     --sidebar-primary-foreground: 240 18% 6%;
-    --sidebar-accent: 240 14% 13%;
-    --sidebar-accent-foreground: 45 15% 88%;
-    --sidebar-border: 240 14% 18%;
+    --sidebar-accent: 42 24% 90%;
+    --sidebar-accent-foreground: 240 10% 24%;
+    --sidebar-border: 42 14% 80%;
     --sidebar-ring: 45 95% 52%;
   }
 

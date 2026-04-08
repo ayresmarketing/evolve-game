@@ -7,14 +7,28 @@
 --    - whatsapp_phone_raw: exatamente como usuário digitou
 --    - whatsapp_phone_normalized: só números (formato usado pelo app)
 CREATE TABLE IF NOT EXISTS public.user_whatsapp_config (
-  id                         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id                    uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
-  whatsapp_phone             text, -- compat legado
-  whatsapp_phone_raw         text,
-  whatsapp_phone_normalized  text NOT NULL,
-  created_at                 timestamptz DEFAULT now(),
-  updated_at                 timestamptz DEFAULT now()
+  id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                 uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  whatsapp_phone          text, -- compat legado
+  created_at              timestamptz DEFAULT now(),
+  updated_at              timestamptz DEFAULT now()
 );
+
+-- Migração segura para quem já tinha tabela antiga
+ALTER TABLE public.user_whatsapp_config
+  ADD COLUMN IF NOT EXISTS whatsapp_phone_raw text;
+
+ALTER TABLE public.user_whatsapp_config
+  ADD COLUMN IF NOT EXISTS whatsapp_phone_normalized text;
+
+-- Backfill da coluna normalizada a partir do legado/raw
+UPDATE public.user_whatsapp_config
+SET whatsapp_phone_normalized =
+  regexp_replace(COALESCE(whatsapp_phone_normalized, whatsapp_phone_raw, whatsapp_phone, ''), '\D', '', 'g')
+WHERE whatsapp_phone_normalized IS NULL OR whatsapp_phone_normalized = '';
+
+ALTER TABLE public.user_whatsapp_config
+  ALTER COLUMN whatsapp_phone_normalized SET NOT NULL;
 
 ALTER TABLE public.user_whatsapp_config ENABLE ROW LEVEL SECURITY;
 
@@ -61,8 +75,19 @@ CREATE POLICY "duelo_invites_update" ON public.duelo_invites
   USING (lower(invitee_email) = lower((auth.jwt() ->> 'email')))
   WITH CHECK (lower(invitee_email) = lower((auth.jwt() ->> 'email')));
 
--- 3) Realtime para convite chegar no app sem refresh
-ALTER PUBLICATION supabase_realtime ADD TABLE public.duelo_invites;
+-- 3) Realtime para convite chegar no app sem refresh (idempotente)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'duelo_invites'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.duelo_invites;
+  END IF;
+END $$;
 
 -- ================================================================
 -- FIM

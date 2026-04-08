@@ -12,14 +12,25 @@ interface GoogleCalendarStatus {
   loading: boolean;
 }
 
+interface GCalCalendar {
+  id: string;
+  summary: string;
+  primary?: boolean;
+}
+
 // Google OAuth config - users need to set up their own Google Cloud project
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '990869380684-iu5iuvukn6sl69vhsc0e8qcbv0n3s8r6.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
 
 export function GoogleCalendarDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [status, setStatus] = useState<GoogleCalendarStatus>({ connected: false, mode: null, loading: true });
   const [selectedMode, setSelectedMode] = useState<IntegrationMode>(null);
   const [connecting, setConnecting] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [calendars, setCalendars] = useState<GCalCalendar[]>([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string>('primary');
 
   useEffect(() => {
     if (open) checkStatus();
@@ -72,15 +83,20 @@ export function GoogleCalendarDialog({ open, onOpenChange }: { open: boolean; on
       if (event.data?.type === 'google-oauth-callback') {
         const { access_token } = event.data;
         if (access_token) {
-          await supabase.functions.invoke('google-calendar', {
-            body: {
-              action: 'save-token',
-              access_token,
-              mode: selectedMode,
-            },
+          setAccessToken(access_token);
+          const calRes = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+            headers: { Authorization: `Bearer ${access_token}` },
           });
-          toast.success('Google Agenda conectado com sucesso!');
-          await checkStatus();
+          const calJson = await calRes.json();
+          const list = (calJson?.items || []).map((c: any) => ({
+            id: c.id,
+            summary: c.summary,
+            primary: !!c.primary,
+          })) as GCalCalendar[];
+          setCalendars(list);
+          const primary = list.find(c => c.primary)?.id || list[0]?.id || 'primary';
+          setSelectedCalendarId(primary);
+          toast.success('Conta conectada! Escolha qual agenda integrar.');
         }
         setConnecting(false);
         window.removeEventListener('message', handleMessage);
@@ -103,12 +119,22 @@ export function GoogleCalendarDialog({ open, onOpenChange }: { open: boolean; on
           if (token) {
             popup.close();
             clearInterval(checkInterval);
-            supabase.functions.invoke('google-calendar', {
-              body: { action: 'save-token', access_token: token, mode: selectedMode },
-            }).then(() => {
-              toast.success('Google Agenda conectado com sucesso!');
-              checkStatus();
-            });
+            setAccessToken(token);
+            fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then(r => r.json())
+              .then(calJson => {
+                const list = (calJson?.items || []).map((c: any) => ({
+                  id: c.id,
+                  summary: c.summary,
+                  primary: !!c.primary,
+                })) as GCalCalendar[];
+                setCalendars(list);
+                const primary = list.find(c => c.primary)?.id || list[0]?.id || 'primary';
+                setSelectedCalendarId(primary);
+                toast.success('Conta conectada! Escolha qual agenda integrar.');
+              });
             setConnecting(false);
             window.removeEventListener('message', handleMessage);
           }
@@ -130,7 +156,25 @@ export function GoogleCalendarDialog({ open, onOpenChange }: { open: boolean; on
     });
     setStatus({ connected: false, mode: null, loading: false });
     setSelectedMode(null);
+    setAccessToken(null);
+    setCalendars([]);
     toast.success('Google Agenda desconectado.');
+  };
+
+  const finalizeIntegration = async () => {
+    if (!accessToken || !selectedMode) return;
+    await supabase.functions.invoke('google-calendar', {
+      body: {
+        action: 'save-token',
+        access_token: accessToken,
+        mode: selectedMode,
+        calendar_id: selectedCalendarId,
+      },
+    });
+    setAccessToken(null);
+    setCalendars([]);
+    toast.success('Google Agenda integrada com sucesso!');
+    checkStatus();
   };
 
   return (
@@ -167,6 +211,29 @@ export function GoogleCalendarDialog({ open, onOpenChange }: { open: boolean; on
             >
               <Link2Off className="w-4 h-4" />
               Desconectar
+            </button>
+          </div>
+        ) : accessToken ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-body font-semibold text-foreground mb-2">Escolha qual agenda integrar</p>
+              <select
+                value={selectedCalendarId}
+                onChange={e => setSelectedCalendarId(e.target.value)}
+                className="w-full bg-secondary/40 border border-border rounded-xl px-3 py-2 text-sm text-foreground"
+              >
+                {calendars.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.summary}{c.primary ? ' (principal)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={finalizeIntegration}
+              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-display tracking-[0.18em] uppercase font-bold"
+            >
+              Confirmar integração
             </button>
           </div>
         ) : (

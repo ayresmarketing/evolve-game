@@ -46,6 +46,7 @@ interface IncomingInvite {
   id: string;
   duelo_name: string;
   inviter_email: string;
+  inviter_id: string;
   invitee_email: string;
   status: 'pending' | 'accepted' | 'declined';
   created_at: string;
@@ -74,11 +75,21 @@ export function DueloPanel() {
   const activeDuelos = duelos.filter(d => new Date(d.endDate) >= new Date());
   const pastDuelos = duelos.filter(d => new Date(d.endDate) < new Date());
 
-  const addDuelo = useCallback((duelo: Duelo) => {
+  const addDuelo = useCallback(async (duelo: Duelo, inviteEmails: string[]) => {
     setDuelos(prev => [...prev, duelo]);
     setShowCreate(false);
+    if (user?.id && user?.email && inviteEmails.length) {
+      const payload = inviteEmails.map(email => ({
+        duelo_name: duelo.name,
+        inviter_id: user.id,
+        inviter_email: user.email!,
+        invitee_email: email,
+        status: 'pending',
+      }));
+      await supabase.from('duelo_invites' as any).insert(payload as any);
+    }
     toast.success('Duelo criado com sucesso! ⚔️');
-  }, []);
+  }, [user?.id, user?.email]);
 
   const loadInvites = useCallback(async () => {
     if (!user?.email) return;
@@ -95,18 +106,35 @@ export function DueloPanel() {
     loadInvites();
   }, [loadInvites]);
 
-  const answerInvite = useCallback(async (id: string, status: 'accepted' | 'declined') => {
+  const answerInvite = useCallback(async (invite: IncomingInvite, status: 'accepted' | 'declined') => {
     const { error } = await supabase
       .from('duelo_invites' as any)
       .update({ status })
-      .eq('id', id);
+      .eq('id', invite.id);
     if (error) {
       toast.error('Erro ao responder convite');
       return;
     }
+    if (status === 'accepted') {
+      const dueloFromInvite: Duelo = {
+        id: generateId(),
+        name: invite.duelo_name,
+        createdBy: invite.inviter_id || 'external',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0]; })(),
+        config: { allowNewParticipants: true, allowParticipantTasks: true, hasReward: false, reward: '' },
+        participants: [
+          { id: invite.inviter_id || 'inviter', name: invite.inviter_email.split('@')[0], email: invite.inviter_email, accepted: true, joinedAt: new Date().toISOString() },
+          { id: CURRENT_USER.id, name: CURRENT_USER.name, email: user?.email || CURRENT_USER.email, accepted: true, joinedAt: new Date().toISOString() },
+        ],
+        tasks: [],
+        createdAt: new Date().toISOString(),
+      };
+      setDuelos(prev => [...prev, dueloFromInvite]);
+    }
     toast.success(status === 'accepted' ? 'Convite aceito!' : 'Convite recusado');
     loadInvites();
-  }, [loadInvites]);
+  }, [loadInvites, user?.email]);
 
   const deleteDuelo = useCallback((id: string) => {
     setDuelos(prev => prev.filter(d => d.id !== id));
@@ -168,8 +196,8 @@ export function DueloPanel() {
               <p className="text-sm font-body font-semibold text-foreground">{inv.duelo_name}</p>
               <p className="text-xs text-muted-foreground font-body">De: {inv.inviter_email}</p>
               <div className="flex gap-2 mt-2">
-                <button onClick={() => answerInvite(inv.id, 'accepted')} className="px-3 py-1.5 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-body">Aceitar</button>
-                <button onClick={() => answerInvite(inv.id, 'declined')} className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-body">Recusar</button>
+                <button onClick={() => answerInvite(inv, 'accepted')} className="px-3 py-1.5 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-body">Aceitar</button>
+                <button onClick={() => answerInvite(inv, 'declined')} className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-body">Recusar</button>
               </div>
             </div>
           ))}
@@ -242,7 +270,7 @@ function DueloCard({ duelo, onClick }: { duelo: Duelo; onClick: () => void }) {
 }
 
 // ─── Create Duelo Form ───
-function CreateDueloForm({ onSubmit, onCancel }: { onSubmit: (d: Duelo) => void; onCancel: () => void }) {
+function CreateDueloForm({ onSubmit, onCancel }: { onSubmit: (d: Duelo, inviteEmails: string[]) => void; onCancel: () => void }) {
   const [name, setName] = useState('');
   const [emails, setEmails] = useState('');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -266,7 +294,7 @@ function CreateDueloForm({ onSubmit, onCancel }: { onSubmit: (d: Duelo) => void;
       id: generateId(), name: name.trim(), createdBy: CURRENT_USER.id,
       startDate, endDate, participants, tasks: [], createdAt: new Date().toISOString(),
       config: { allowNewParticipants: allowNew, allowParticipantTasks: allowTasks, hasReward, reward: reward.trim() },
-    });
+    }, participantEmails);
   };
 
   const inputCls = "w-full bg-secondary/50 border border-border rounded-xl px-3 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30";
