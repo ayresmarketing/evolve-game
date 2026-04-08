@@ -529,6 +529,7 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
         )}
       </div>
     </div>
+  </div>
   );
 }
 
@@ -751,7 +752,6 @@ function ManualPlanningStep({
         className="w-full py-2.5 rounded-xl border border-dashed border-primary/30 text-xs text-primary hover:border-primary/60 hover:bg-primary/5 font-body font-semibold transition-all">
         + Adicionar nova missão
       </button>
-    </div>  {/* fecha inner card */}
-    </div>  {/* fecha modal overlay */}
+    </div>
   );
 }
