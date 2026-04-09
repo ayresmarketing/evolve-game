@@ -3,9 +3,11 @@ import { useGame } from '@/contexts/GameContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
-import { ChevronLeft, ChevronRight, Clock, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Trash2, RefreshCw } from 'lucide-react';
 import { googleListEvents } from '@/lib/googleSync';
 import { toast } from 'sonner';
+import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
+import { supabase } from '@/integrations/supabase/client';
 
 const PERIODS = [
   { label: 'Hoje', days: 0 },
@@ -17,10 +19,13 @@ const PERIODS = [
 export function CalendarView() {
   const { metas, afazeres, deleteMission, deleteAfazer } = useGame();
   const { fixedBlocks, sleepSchedules } = useSchedule();
+  const { syncManual, getSyncMode } = useGoogleCalendarSync();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [googleEvents, setGoogleEvents] = useState<any[]>([]);
-  const [periodDays, setPeriodDays] = useState<number>(0); // 0 = só hoje (calendário), >0 = lista de N dias
+  const [periodDays, setPeriodDays] = useState<number>(0);
+  const [syncMode, setSyncMode] = useState<'partial' | 'full' | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -96,7 +101,22 @@ export function CalendarView() {
     return [...missions, ...tasks, ...remote].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   };
 
-  // Period list: all events in range
+  // Carrega o modo de sync
+  useEffect(() => {
+    getSyncMode().then(setSyncMode);
+  }, []);
+
+  // Handler para sync manual
+  const handleSync = async () => {
+    setIsSyncing(true);
+    await syncManual();
+    setIsSyncing(false);
+    // Recarrega eventos do Google
+    const start = new Date(year, month, 1).toISOString();
+    const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+    const events = await googleListEvents(start, end);
+    setGoogleEvents(events);
+  };
   const periodEvents = useMemo(() => {
     if (periodDays === 0) return null;
     const today = new Date();
@@ -178,8 +198,8 @@ export function CalendarView() {
 
   return (
     <div className="space-y-5">
-      {/* Period filter */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Period filter com botão de sync */}
+      <div className="flex gap-2 flex-wrap items-center">
         {PERIODS.map(p => (
           <button
             key={p.label}
@@ -193,6 +213,18 @@ export function CalendarView() {
             {p.label}
           </button>
         ))}
+        
+        {/* Botão de sync manual - só aparece no modo full */}
+        {syncMode === 'full' && (
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="ml-auto px-3 py-1.5 rounded-lg text-xs font-display tracking-wider transition-all border border-primary/30 text-primary hover:bg-primary/10 flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Sync...' : 'Sync Google'}
+          </button>
+        )}
       </div>
 
       {periodDays === 0 ? (
