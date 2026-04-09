@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 
 /* ── Floating particle ── */
 function Particle({ style }: { style: React.CSSProperties }) {
@@ -33,15 +32,33 @@ const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
   } as React.CSSProperties,
 }));
 
-/* ─── criar conta via edge function (já confirma o e-mail) ─── */
-async function createConfirmedUser(email: string, password: string, displayName: string, whatsappNormalized: string) {
-  const { data, error } = await supabase.functions.invoke('create-confirmed-user', {
-    body: { email, password, displayName, whatsappNormalized },
-  });
-  if (error) return { error };
-  if (data?.error) return { error: { message: data.error } };
-  return { error: null };
+/* ── Floating particle ── */
+function Particle({ style }: { style: React.CSSProperties }) {
+  return (
+    <div
+      className="absolute rounded-full pointer-events-none"
+      style={style}
+    />
+  );
 }
+
+const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
+  key: i,
+  style: {
+    width: `${4 + (i % 5) * 3}px`,
+    height: `${4 + (i % 5) * 3}px`,
+    left: `${(i * 37 + 11) % 100}%`,
+    top: `${(i * 53 + 7) % 100}%`,
+    background: i % 3 === 0
+      ? 'rgba(251,191,36,0.25)'
+      : i % 3 === 1
+      ? 'rgba(234,179,8,0.15)'
+      : 'rgba(255,255,255,0.06)',
+    animation: `float-${(i % 3) + 1} ${5 + (i % 4)}s ease-in-out infinite`,
+    animationDelay: `${(i * 0.4) % 3}s`,
+    filter: 'blur(1px)',
+  } as React.CSSProperties,
+}));
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -126,10 +143,13 @@ export default function Auth() {
           toast.error('Informe DDD + número (8 dígitos).');
           return;
         }
-        // Cria usuário já confirmado via edge function (sem e-mail de confirmação)
-        const { error } = await createConfirmedUser(email, password, displayName, phoneE164);
-        if (error) { toast.error((error as any).message || 'Erro ao criar conta.'); return; }
-        // Faz login imediatamente após criar a conta
+        // Cria usuário via signUp normal (email_confirm desativado no painel Supabase)
+        const { error } = await signUp(email, password, displayName, phoneE164);
+        if (error) { 
+          toast.error(error.message); 
+          return; 
+        }
+        // Tenta login imediatamente
         const { error: loginErr } = await signIn(email, password);
         if (loginErr) {
           toast.success('Conta criada! Faça login para continuar.');
