@@ -3,6 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { APP_SUPABASE_URL, APP_SUPABASE_ANON_KEY } from '@/config/supabase';
 
+// DEBUG: Log para verificar qual URL está sendo usada
+console.log('Supabase URL:', APP_SUPABASE_URL);
+console.log('Supabase Key (first 20 chars):', APP_SUPABASE_ANON_KEY.substring(0, 20));
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
