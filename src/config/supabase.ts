@@ -1,6 +1,6 @@
 // Hardcoded credentials - App Supabase
 export const APP_SUPABASE_URL = 'https://amjrbybrlphsvvfqusqh.supabase.co';
-export const APP_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtamJ5YnJscGhzdnZmcXVzcWgiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3NTM1MjYwMiwiZXhwIjoyMDkwOTI4NjAyfQ.JGfM0CTcw_IgyWBZXwoCsw_V0DfgQwg';
+export const APP_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtamJ5YnJscGhzdnZmcXVzcWgiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3NTQ3NDQ1MCwiZXhwIjoyMDkxMDUwNDUwfQ.Q2AhhvPQskgSqLnuMBX0qNXncPYSedDBirfo_Sap0gQ';
 
 // Hardcoded credentials - Finance Bot Supabase
 export const FINANCE_SUPABASE_URL = 'https://qlipgighvdzxsllzghgl.supabase.co';
