@@ -32,34 +32,6 @@ const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
   } as React.CSSProperties,
 }));
 
-/* ── Floating particle ── */
-function Particle({ style }: { style: React.CSSProperties }) {
-  return (
-    <div
-      className="absolute rounded-full pointer-events-none"
-      style={style}
-    />
-  );
-}
-
-const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
-  key: i,
-  style: {
-    width: `${4 + (i % 5) * 3}px`,
-    height: `${4 + (i % 5) * 3}px`,
-    left: `${(i * 37 + 11) % 100}%`,
-    top: `${(i * 53 + 7) % 100}%`,
-    background: i % 3 === 0
-      ? 'rgba(251,191,36,0.25)'
-      : i % 3 === 1
-      ? 'rgba(234,179,8,0.15)'
-      : 'rgba(255,255,255,0.06)',
-    animation: `float-${(i % 3) + 1} ${5 + (i % 4)}s ease-in-out infinite`,
-    animationDelay: `${(i * 0.4) % 3}s`,
-    filter: 'blur(1px)',
-  } as React.CSSProperties,
-}));
-
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
