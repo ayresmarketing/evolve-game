@@ -7,22 +7,33 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log("Function invoked", req.method);
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const body = await req.json();
+    console.log("Request body:", JSON.stringify(body));
+    
     const { action, email, password, displayName, whatsappNormalized } = body;
 
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    
+    console.log("SUPABASE_URL exists:", !!supabaseUrl);
+    console.log("SUPABASE_SERVICE_ROLE_KEY exists:", !!serviceKey);
+
+    if (!supabaseUrl || !serviceKey) {
+      throw new Error("Missing Supabase credentials");
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
     // ── confirm-only: confirma email de usuário existente ──────────────
     if (action === "confirm") {
+      console.log("Action: confirm, email:", email);
       if (!email) throw new Error("email required");
 
       const { data: list, error: listErr } = await adminClient.auth.admin.listUsers();
@@ -30,18 +41,20 @@ serve(async (req) => {
 
       const existing = list?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
       if (!existing) {
+        console.log("User not found for email:", email);
         return new Response(JSON.stringify({ error: "Usuário não encontrado." }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 404,
         });
       }
 
-      // Confirma o e-mail via updateUserById
+      console.log("Found user:", existing.id, "confirming email...");
       const { error: updateErr } = await adminClient.auth.admin.updateUserById(existing.id, {
         email_confirm: true,
       });
       if (updateErr) throw updateErr;
 
+      console.log("Email confirmed for user:", existing.id);
       return new Response(JSON.stringify({ success: true, userId: existing.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -55,11 +68,13 @@ serve(async (req) => {
       });
     }
 
+    console.log("Action: create, email:", email);
+
     const { data: list } = await adminClient.auth.admin.listUsers();
     const existing = list?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
     if (existing) {
-      // Já existe — confirma e deixa o front fazer login
+      console.log("User already exists:", existing.id);
       await adminClient.auth.admin.updateUserById(existing.id, { email_confirm: true });
       return new Response(JSON.stringify({ error: "Este e-mail já está cadastrado." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -67,6 +82,7 @@ serve(async (req) => {
       });
     }
 
+    console.log("Creating new user...");
     const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -78,18 +94,28 @@ serve(async (req) => {
       },
     });
 
-    if (createErr) throw createErr;
+    if (createErr) {
+      console.log("Create user error:", createErr.message);
+      throw createErr;
+    }
 
     const userId = created.user?.id;
+    console.log("User created:", userId);
 
     if (userId && whatsappNormalized) {
-      await adminClient.from("user_whatsapp_config").upsert({
+      console.log("Saving WhatsApp config...");
+      const { error: upsertErr } = await adminClient.from("user_whatsapp_config").upsert({
         user_id: userId,
         whatsapp_phone: whatsappNormalized,
         whatsapp_phone_raw: whatsappNormalized,
         whatsapp_phone_normalized: whatsappNormalized,
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
+      
+      if (upsertErr) {
+        console.log("Upsert error:", upsertErr.message);
+        // Não falha o cadastro se o WhatsApp não salvar
+      }
     }
 
     return new Response(JSON.stringify({ success: true, userId }), {
@@ -98,6 +124,7 @@ serve(async (req) => {
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    console.log("ERROR:", msg);
     return new Response(JSON.stringify({ error: msg }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
