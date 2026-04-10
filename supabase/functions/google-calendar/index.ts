@@ -6,14 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Hardcoded credentials - App Supabase
+const SUPABASE_URL = 'https://amjrbybrlphsvvfqusqh.supabase.co';
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? '';
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false } }
   );
 
@@ -101,7 +105,7 @@ serve(async (req) => {
 
       if (startDateTime) {
         // Timed event
-        const endDT = endDateTime || startDateTime; // fallback: same time
+        const endDT = endDateTime || startDateTime;
         eventBody.start = { dateTime: startDateTime, timeZone: "America/Sao_Paulo" };
         eventBody.end   = { dateTime: endDT,         timeZone: "America/Sao_Paulo" };
       } else if (startDate) {
