@@ -26,7 +26,7 @@ import {
   CheckCircle2, Clock, CalendarPlus, Sliders, CreditCard, Settings
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as ChartTooltip, ResponsiveContainer, ReferenceLine, Legend
 } from 'recharts';
 import { toast } from 'sonner';
@@ -459,15 +459,15 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
             <>
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={taskData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                  <LineChart data={taskData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                     <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
                     <ChartTooltip contentStyle={tooltipStyle} labelStyle={{ color: 'hsl(var(--foreground))' }} />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                    <Bar dataKey="Concluídas" fill="hsl(45 95% 52%)" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                    <Bar dataKey="Perdidas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.75} />
-                  </BarChart>
+                    <Line type="monotone" dataKey="Concluídas" stroke="hsl(45 95% 52%)" strokeWidth={2} dot={{ fill: 'hsl(45 95% 52%)', r: 3 }} activeDot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="Perdidas" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ fill: 'hsl(var(--destructive))', r: 3 }} activeDot={{ r: 5 }} strokeOpacity={0.75} />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
               <div className="flex gap-4 mt-3">
@@ -676,7 +676,7 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
             <>
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={hydData} margin={{ top: 5, right: 5, bottom: 5, left: -16 }}>
+                  <LineChart data={hydData} margin={{ top: 5, right: 5, bottom: 5, left: -16 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                     <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `${Math.round(v / 1000 * 10) / 10}L`} />
@@ -689,8 +689,8 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
                       }}
                     />
                     <ReferenceLine y={hydData[0]?.meta || 2000} stroke="#EAB308" strokeDasharray="6 3" strokeWidth={1.5} label={{ value: 'Meta', position: 'right', fontSize: 9, fill: '#EAB308' }} />
-                    <Bar dataKey="Ingestão (ml)" fill="#EAB308" radius={[4, 4, 0, 0]} maxBarSize={30} fillOpacity={0.85} />
-                  </BarChart>
+                    <Line type="monotone" dataKey="Ingestão (ml)" stroke="#EAB308" strokeWidth={2} dot={{ fill: '#EAB308', r: 3 }} activeDot={{ r: 5 }} strokeOpacity={0.85} />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
               <p className="text-[10px] text-muted-foreground font-body text-center mt-2">
@@ -747,7 +747,7 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
               {/* Mini chart */}
               <div className="mt-2 h-36">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
+                  <LineChart
                     data={catProgress.map(c => ({ name: c.label.split(' ')[0], Progresso: c.avg }))}
                     margin={{ top: 5, right: 5, bottom: 5, left: -20 }}
                   >
@@ -755,8 +755,8 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `${v}%`} />
                     <ChartTooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`, 'Progresso']} />
-                    <Bar dataKey="Progresso" fill="#EAB308" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  </BarChart>
+                    <Line type="monotone" dataKey="Progresso" stroke="#EAB308" strokeWidth={2} dot={{ fill: '#EAB308', r: 3 }} activeDot={{ r: 5 }} />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>

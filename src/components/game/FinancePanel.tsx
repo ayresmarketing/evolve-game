@@ -6,7 +6,7 @@ import {
   RefreshCw, Wifi, WifiOff, AlertCircle,
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -291,15 +291,15 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
         <>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: -18 }}>
+              <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: -18 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 14% 18%)" />
                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'hsl(240 8% 56%)' }} />
                 <YAxis tick={{ fontSize: 9, fill: 'hsl(240 8% 56%)' }} tickFormatter={v => `R$${v}`} allowDecimals={false} />
                 <ChartTooltip contentStyle={tooltipStyle} labelStyle={{ color: '#f5f0e0', marginBottom: 4 }}
                   formatter={(v: number) => [formatCurrency(v)]} />
-                <Bar dataKey="Receitas" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.85} />
-              </BarChart>
+                <Line type="monotone" dataKey="Receitas" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 3 }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey="Despesas" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 3 }} activeDot={{ r: 5 }} strokeOpacity={0.85} />
+              </LineChart>
             </ResponsiveContainer>
           </div>
           <div className="flex gap-5 mt-2">
