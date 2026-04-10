@@ -124,16 +124,26 @@ function dateLabel(date: string) {
 }
 
 function getDateRange(days: number, startDate?: string, endDate?: string): string[] {
-  if (startDate && endDate && startDate <= endDate) {
+  // Se tiver data de início e fim, usa elas
+  if (startDate && endDate) {
     const dates: string[] = [];
     const cur = new Date(startDate + 'T12:00');
     const end = new Date(endDate + 'T12:00');
+    // Garante que a data de início não seja depois da data de fim
+    if (cur > end) return dates;
     while (cur <= end) {
       dates.push(cur.toISOString().split('T')[0]);
       cur.setDate(cur.getDate() + 1);
     }
     return dates;
   }
+  // Se days for 1, retorna apenas hoje
+  if (days === 1) {
+    return [new Date().toISOString().split('T')[0]];
+  }
+  // Se days for 0 ou negativo, retorna array vazio
+  if (days <= 0) return [];
+  // Retorna os últimos 'days' dias
   return Array.from({ length: days }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (days - 1 - i));
