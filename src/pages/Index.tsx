@@ -835,8 +835,17 @@ function AgendaPage() {
 ═══════════════════════════════════════════════ */
 function Dashboard() {
   const { stats } = useGame();
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
+    // Recupera a página salva no localStorage ou usa 'dashboard' como padrão
+    const savedPage = localStorage.getItem('lifequest_current_page') as Page;
+    return savedPage || 'dashboard';
+  });
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lifequest_theme') !== 'light');
+
+  // Salva a página atual no localStorage sempre que mudar
+  useEffect(() => {
+    localStorage.setItem('lifequest_current_page', currentPage);
+  }, [currentPage]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
