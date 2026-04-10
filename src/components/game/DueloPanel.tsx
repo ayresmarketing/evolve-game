@@ -531,9 +531,7 @@ function DueloDashboard({ duelo, onBack, onUpdate, onDelete }: {
                   <p className="text-sm font-body font-semibold text-foreground">{p.name}</p>
                   <p className="text-[10px] text-muted-foreground font-body">{p.email}</p>
                 </div>
-                <button onClick={() => acceptInvite(p.id)} className="text-[10px] px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body font-semibold hover:bg-primary/20 transition-colors">
-                  Simular Aceite
-                </button>
+                <span className="text-[10px] text-muted-foreground font-body">Aguardando...</span>
               </div>
             ))}
           </div>
