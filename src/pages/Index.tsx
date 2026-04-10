@@ -773,6 +773,7 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
 function AgendaPage() {
   const [gcalOpen, setGcalOpen] = useState(false);
   const [gcalStatus, setGcalStatus] = useState<{ connected: boolean; mode: string | null }>({ connected: false, mode: null });
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     checkGcalStatus();
@@ -792,40 +793,67 @@ function AgendaPage() {
     }
   };
 
+  const handleIntegrationSuccess = () => {
+    setShowSuccessModal(true);
+    checkGcalStatus();
+    setTimeout(() => setShowSuccessModal(false), 3000);
+  };
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 relative">
       <h1 className="font-display text-lg tracking-wider text-foreground">Agenda</h1>
       
-      {/* Google Calendar Status Card */}
-      <div className={`section-card flex items-center gap-3 ${gcalStatus.connected ? 'border-green-500/30 bg-green-500/5' : ''}`}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${gcalStatus.connected ? 'bg-green-500/10' : 'bg-primary/10'}`}>
-          <Calendar className={`w-5 h-5 ${gcalStatus.connected ? 'text-green-400' : 'text-primary'}`} />
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-green-500/30 rounded-2xl p-6 max-w-sm mx-4 text-center animate-slide-up">
+            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-8 h-8 text-green-400" />
+            </div>
+            <h3 className="font-display text-lg text-foreground mb-2">Agenda Integrada!</h3>
+            <p className="text-sm text-muted-foreground font-body">
+              Sua conta Google Agenda foi conectada com sucesso.
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-body font-semibold text-foreground">
-            {gcalStatus.connected ? 'Google Agenda Conectado' : 'Google Agenda'}
-          </p>
-          <p className="text-[11px] text-muted-foreground font-body">
-            {gcalStatus.connected 
-              ? `Modo: ${gcalStatus.mode === 'full' ? 'Integração Total' : 'Integração Parcial'}`
-              : 'Sincronize seus eventos com o Google'}
-          </p>
+      )}
+      
+      {/* Google Calendar Status - só aparece se NÃO estiver conectado */}
+      {!gcalStatus.connected ? (
+        <div className="section-card flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Calendar className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-body font-semibold text-foreground">Google Agenda</p>
+            <p className="text-[11px] text-muted-foreground font-body">Sincronize seus eventos com o Google</p>
+          </div>
+          <button
+            onClick={() => setGcalOpen(true)}
+            className="text-[10px] px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body font-semibold hover:bg-primary/20 transition-colors"
+          >
+            Integrar
+          </button>
         </div>
-        <button
-          onClick={() => setGcalOpen(true)}
-          className={`text-[10px] px-3 py-1.5 rounded-lg font-body font-semibold transition-colors ${
-            gcalStatus.connected 
-              ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20' 
-              : 'bg-primary/10 text-primary hover:bg-primary/20'
-          }`}
-        >
-          {gcalStatus.connected ? 'Configurar' : 'Integrar'}
-        </button>
-      </div>
+      ) : (
+        /* Quando conectado, mostra apenas um link pequeno para reintegrar */
+        <div className="flex justify-end">
+          <button
+            onClick={() => setGcalOpen(true)}
+            className="text-[10px] text-muted-foreground hover:text-foreground font-body underline transition-colors"
+          >
+            Reintegrar agenda
+          </button>
+        </div>
+      )}
       
       <CalendarView />
       <SchedulePanel />
-      <GoogleCalendarDialog open={gcalOpen} onOpenChange={setGcalOpen} />
+      <GoogleCalendarDialog 
+        open={gcalOpen} 
+        onOpenChange={setGcalOpen} 
+        onSuccess={handleIntegrationSuccess}
+      />
     </div>
   );
 }

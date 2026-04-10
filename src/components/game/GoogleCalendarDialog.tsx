@@ -24,7 +24,7 @@ const GOOGLE_CLIENT_ID =
   '990869380684-iu5iuvukn6sl69vhsc0e8qcbv0n3s8r6.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
 
-export function GoogleCalendarDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function GoogleCalendarDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (v: boolean) => void; onSuccess?: () => void }) {
   const [status, setStatus] = useState<GoogleCalendarStatus>({ connected: false, mode: null, loading: true });
   const [selectedMode, setSelectedMode] = useState<IntegrationMode>(null);
   const [connecting, setConnecting] = useState(false);
@@ -174,6 +174,8 @@ export function GoogleCalendarDialog({ open, onOpenChange }: { open: boolean; on
     setAccessToken(null);
     setCalendars([]);
     toast.success('Google Agenda integrada com sucesso!');
+    onOpenChange(false);
+    onSuccess?.();
     checkStatus();
   };
 

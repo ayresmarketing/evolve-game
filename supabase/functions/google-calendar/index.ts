@@ -22,36 +22,52 @@ serve(async (req) => {
   );
 
   try {
-    console.log("Request received:", req.method);
-    
-    const authHeader = req.headers.get("Authorization");
-    console.log("Auth header present:", !!authHeader);
-    
-    if (!authHeader) {
-      console.log("No authorization header");
-      throw new Error("No authorization header");
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    console.log("Token (first 20 chars):", token.substring(0, 20));
-    
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    
-    if (userError) {
-      console.log("User error:", userError.message);
-      throw userError;
-    }
-    
-    const userId = userData.user?.id;
-    console.log("User ID:", userId);
-    
-    if (!userId) {
-      console.log("No user ID found");
-      throw new Error("User not authenticated");
-    }
-
     const body = await req.json();
     const { action } = body;
+
+    // ── status: não requer autenticação (para check inicial) ─────────
+    if (action === "status") {
+      // Tenta pegar user do header, mas não falha se não tiver
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) {
+        return new Response(JSON.stringify({ connected: false, mode: null }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+      
+      if (userError || !userData.user) {
+        return new Response(JSON.stringify({ connected: false, mode: null }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: profile } = await supabaseClient
+        .from("profiles")
+        .select("preferences")
+        .eq("user_id", userData.user.id)
+        .single();
+
+      const prefs = (profile?.preferences as any) || {};
+      const connected = !!prefs.google_access_token;
+      
+      return new Response(JSON.stringify({
+        connected,
+        mode: prefs.google_calendar_mode || null,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── Para outras ações, requer autenticação ────────────────────────
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No authorization header");
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError) throw userError;
+    const userId = userData.user?.id;
+    if (!userId) throw new Error("User not authenticated");
 
     // Get user's Google token from profiles preferences
     const { data: profile } = await supabaseClient
@@ -105,14 +121,6 @@ serve(async (req) => {
       });
     }
 
-    // ── status ───────────────────────────────────────────────────────
-    if (action === "status") {
-      return new Response(JSON.stringify({
-        connected: true,
-        mode: prefs.google_calendar_mode || "partial",
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
     // ── create-event ─────────────────────────────────────────────────
     if (action === "create-event") {
       const { summary, description, startDateTime, endDateTime, startDate, endDate } = body;
@@ -123,12 +131,10 @@ serve(async (req) => {
       };
 
       if (startDateTime) {
-        // Timed event
         const endDT = endDateTime || startDateTime;
         eventBody.start = { dateTime: startDateTime, timeZone: "America/Sao_Paulo" };
         eventBody.end   = { dateTime: endDT,         timeZone: "America/Sao_Paulo" };
       } else if (startDate) {
-        // All-day event
         eventBody.start = { date: startDate };
         eventBody.end   = { date: endDate || startDate };
       }
@@ -198,7 +204,6 @@ serve(async (req) => {
           headers: { Authorization: `Bearer ${googleToken}` },
         }
       );
-      // 404 / 410 = already deleted, treat as success
       if (!gcalRes.ok && gcalRes.status !== 404 && gcalRes.status !== 410) {
         const errText = await gcalRes.text();
         throw new Error(`Google Calendar API error: ${gcalRes.status} - ${errText}`);
