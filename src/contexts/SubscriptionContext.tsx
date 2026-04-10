@@ -17,7 +17,7 @@ interface SubscriptionContextType extends SubscriptionState {
   openCustomerPortal: () => Promise<void>;
 }
 
-const OWNER_EMAILS = new Set(['ayresmarketingoficial@gmail.com', 'testando.ayres@gmail.com']);
+const OWNER_EMAILS = new Set(['ayresmarketingoficial@gmail.com', 'testando.ayres@gmail.com', 'samuel@ayresmarketing.com']);
 
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
 
