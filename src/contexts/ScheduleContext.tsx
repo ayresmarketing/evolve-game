@@ -22,7 +22,7 @@ interface ScheduleContextType extends ScheduleState {
   addFixedBlock: (block: Omit<FixedTimeBlock, 'id'>) => void;
   updateFixedBlock: (id: string, block: Partial<FixedTimeBlock>) => void;
   deleteFixedBlock: (id: string) => void;
-  getDaySchedule: (day: DayOfWeek, scheduledMinutes?: number) => DayScheduleResult;
+  getDaySchedule: (day: DayOfWeek, scheduledMinutes?: number, afazeresInSleepTime?: number) => DayScheduleResult;
 }
 
 const ScheduleContext = createContext<ScheduleContextType | null>(null);
@@ -72,13 +72,16 @@ export function ScheduleProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, fixedBlocks: prev.fixedBlocks.filter(b => b.id !== id) }));
   }, []);
 
-  const getDaySchedule = useCallback((day: DayOfWeek, scheduledMinutes: number = 0): DayScheduleResult => {
+  const getDaySchedule = useCallback((day: DayOfWeek, scheduledMinutes: number = 0, afazeresInSleepTime: number = 0): DayScheduleResult => {
     const sleepSchedule = state.sleepSchedules.find(s => s.days.includes(day));
     const sleepHoursRaw = sleepSchedule ? calculateSleepHours(sleepSchedule.bedtime, sleepSchedule.wakeTime) : 8;
-    const sleepMinutes = Math.round(sleepHoursRaw * 60);
+    let sleepMinutes = Math.round(sleepHoursRaw * 60);
 
     const dayBlocks = state.fixedBlocks.filter(b => b.days.includes(day));
     const fixedBusyMinutes = Math.round(dayBlocks.reduce((total, b) => total + calculateBlockHours(b.startTime, b.endTime), 0) * 60);
+    
+    // Afazeres no horário de sono reduzem o tempo de sono
+    sleepMinutes = Math.max(0, sleepMinutes - afazeresInSleepTime);
     
     // Include scheduled task minutes in busy time
     const totalBusyMinutes = fixedBusyMinutes + scheduledMinutes;
