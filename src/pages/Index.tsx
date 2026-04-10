@@ -181,6 +181,31 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
   const { metas, afazeres } = useGame();
   const { getDaySchedule } = useSchedule();
 
+  /* ── Google OAuth callback handler ── */
+  useEffect(() => {
+    // Check for OAuth callback in URL hash
+    const hash = window.location.hash;
+    if (hash.includes('access_token')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get('access_token');
+      const state = params.get('state');
+      
+      if (accessToken) {
+        // Send message to parent window (for popup flow)
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'google-oauth-callback',
+            access_token: accessToken,
+            state: state
+          }, '*');
+        }
+        
+        // Clear hash from URL
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      }
+    }
+  }, []);
+
   /* ── Date range state ── */
   const [globalRange, setGlobalRange] = useState(7);
   const [useCustom, setUseCustom] = useState(false);
