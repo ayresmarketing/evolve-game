@@ -77,8 +77,10 @@ export function useGoogleCalendarSync() {
           .eq('google_event_id', googleEventId)
           .single();
 
-        if (!existing) {
-          // Evento novo do Google → cria afazer no app
+        // Só cria afazer no app se o evento do Google NÃO foi criado pelo app
+        // (evita duplicação - eventos criados pelo app já têm afazer correspondente)
+        if (!existing && sourceType !== 'afazer' && sourceType !== 'meta') {
+          // Evento novo do Google (não criado pelo app) → cria afazer no app
           const startDate = event.start?.date || event.start?.dateTime?.split('T')[0];
           const startTime = event.start?.dateTime?.split('T')[1]?.slice(0, 5);
           const endTime = event.end?.dateTime?.split('T')[1]?.slice(0, 5);

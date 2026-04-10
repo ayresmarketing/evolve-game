@@ -185,7 +185,7 @@ export default function Auth() {
             <Zap className="w-7 h-7 text-black" />
           </div>
           <div className="text-center">
-            <p className="font-display text-[15px] tracking-[0.28em] text-white font-bold">LIFEQUEST</p>
+            <p className="font-display text-[15px] tracking-[0.28em] text-white font-bold">SUA VIDA É UM JOGO</p>
             <p className="text-[9px] text-white/35 tracking-[0.22em] font-body uppercase mt-0.5">Plataforma de evolução pessoal</p>
           </div>
         </div>
@@ -323,7 +323,7 @@ export default function Auth() {
 
           {/* Footer note */}
           <p className="text-[9px] text-white/20 font-body text-center mt-6">
-            © 2026 LifeQuest — Plataforma de evolução pessoal gamificada
+            © 2026 Sua Vida é um Jogo — Plataforma de evolução pessoal gamificada
           </p>
         </div>
       </div>

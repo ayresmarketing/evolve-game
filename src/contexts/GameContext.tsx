@@ -3,14 +3,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { googleCreateEvent, googleDeleteEvent, googleUpdateEvent } from '@/lib/googleSync';
 
-/** Monta startDateTime/endDateTime a partir de date + time (HH:MM), adicionando 1h no end se não houver endTime */
-function makeGoogleDateTimes(date: string, startTime?: string, endTime?: string) {
+/** Monta startDateTime/endDateTime a partir de date + time (HH:MM), usando estimatedMinutes para calcular o fim */
+function makeGoogleDateTimes(date: string, startTime?: string, endTime?: string, estimatedMinutes?: number) {
   if (!startTime) return { startDate: date, endDate: date };
   const start = `${date}T${startTime}:00`;
   let end: string;
   if (endTime) {
     end = `${date}T${endTime}:00`;
+  } else if (estimatedMinutes) {
+    // Usa estimatedMinutes para calcular o horário de término
+    const [h, m] = startTime.split(':').map(Number);
+    const totalMinutes = h * 60 + m + estimatedMinutes;
+    const endH = Math.floor(totalMinutes / 60) % 24;
+    const endM = totalMinutes % 60;
+    end = `${date}T${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
   } else {
+    // Fallback: +1 hora
     const [h, m] = startTime.split(':').map(Number);
     const endH = String((h + 1) % 24).padStart(2, '0');
     end = `${date}T${endH}:${String(m).padStart(2, '0')}:00`;
@@ -400,11 +408,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         sort_order: missions.indexOf(m),
       } as any);
 
-      // Google Calendar sync: usa datetime se tiver horário, senão dia inteiro
+      // Google Calendar sync: usa datetime se tiver horário, usando estimatedMinutes para duração
       if (m.scheduledDay) {
-        const googleTimes = makeGoogleDateTimes(m.scheduledDay, m.scheduledTime);
+        const googleTimes = makeGoogleDateTimes(m.scheduledDay, m.scheduledTime, undefined, m.estimatedMinutes);
         googleCreateEvent({
-          summary: `🎯 ${m.title}`,
+          summary: m.title,
           description: `Meta: ${meta.title}`,
           ...googleTimes,
           sourceType: 'meta',
@@ -735,10 +743,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       estimated_minutes: data.estimatedMinutes || null,
     } as any);
 
-    // Google Calendar sync: usa datetime se tiver horário
-    const googleTimes = makeGoogleDateTimes(data.startDate, data.startTime, data.endTime);
+    // Google Calendar sync: usa datetime se tiver horário, usando estimatedMinutes para duração
+    const googleTimes = makeGoogleDateTimes(data.startDate, data.startTime, data.endTime, data.estimatedMinutes);
     googleCreateEvent({
-      summary: `✅ ${data.title}`,
+      summary: data.title,
       description: data.description || '',
       ...googleTimes,
       sourceType: 'afazer',

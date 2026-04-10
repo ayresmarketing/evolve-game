@@ -836,11 +836,11 @@ function AgendaPage() {
           </button>
         </div>
       ) : (
-        /* Quando conectado, mostra apenas um link pequeno para reintegrar */
+        /* Quando conectado, mostra botão pequeno para reintegrar */
         <div className="flex justify-end">
           <button
             onClick={() => setGcalOpen(true)}
-            className="text-[10px] text-muted-foreground hover:text-foreground font-body underline transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary text-xs font-body text-muted-foreground hover:text-foreground transition-colors border border-border"
           >
             Reintegrar agenda
           </button>
@@ -1009,7 +1009,7 @@ function Dashboard() {
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <div className="hidden sm:flex flex-col">
-                <span className="font-display text-[9px] md:text-[10px] tracking-[0.28em] text-primary uppercase">LIFEQUEST</span>
+                <span className="font-display text-[9px] md:text-[10px] tracking-[0.28em] text-primary uppercase">SUA VIDA É UM JOGO</span>
                 <span className="text-[10px] md:text-[11px] font-body text-muted-foreground">{pageTitle[currentPage]}</span>
               </div>
             </div>
