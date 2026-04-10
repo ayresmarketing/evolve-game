@@ -32,7 +32,8 @@ interface Transaction {
   amount: number;
   type: TransactionType;
   category: ExpenseCategory;
-  date: string;
+  date: string;          // data digitada pelo usuário (data_do_gasto/data_receb)
+  createdAt: string;     // data de criação no banco (created_at) — usado para filtros
   isRecurrent: boolean;
   _sourceTable: 'Gastos' | 'Recebimentos';
   _sourceId: number;
@@ -183,6 +184,7 @@ function gastoToTransaction(row: GastoRow): Transaction {
     type: 'expense',
     category: mapCategory(row.categoria_gasto),
     date: dateStr,
+    createdAt: row.created_at?.split('T')[0] || dateStr,
     isRecurrent: false,
     _sourceTable: 'Gastos',
     _sourceId: row.id,
@@ -199,6 +201,7 @@ function recebimentoToTransaction(row: RecebimentoRow): Transaction {
     type: 'income',
     category: 'outros',
     date: dateStr,
+    createdAt: row.created_at?.split('T')[0] || dateStr,
     isRecurrent: row.tipo === 'fixo',
     _sourceTable: 'Recebimentos',
     _sourceId: row.id,
@@ -233,7 +236,8 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
 
   const chartData = useMemo(() =>
     dateRange.map(date => {
-      const dayTx = transactions.filter(t => t.date === date);
+      // Filtra por createdAt (data de criação no banco) em vez de date (data digitada pelo usuário)
+      const dayTx = transactions.filter(t => t.createdAt === date);
       return {
         label: dateLabel(date),
         Receitas: dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
