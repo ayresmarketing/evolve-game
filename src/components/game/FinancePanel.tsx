@@ -144,7 +144,8 @@ function getDateRange(days: number, startDate?: string, endDate?: string): strin
   }
   // Se days for 0 ou negativo, retorna array vazio
   if (days <= 0) return [];
-  // Retorna os últimos 'days' dias
+  // Retorna os últimos 'days' dias INCLUINDO hoje
+  // Ex: days=7 → retorna [hoje-6, hoje-5, ..., hoje]
   return Array.from({ length: days }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (days - 1 - i));
@@ -236,8 +237,8 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
 
   const chartData = useMemo(() =>
     dateRange.map(date => {
-      // Filtra por createdAt (data de criação no banco) em vez de date (data digitada pelo usuário)
-      const dayTx = transactions.filter(t => t.createdAt === date);
+      // Filtra por date (data_do_gasto/data_receb) - data digitada pelo usuário
+      const dayTx = transactions.filter(t => t.date === date);
       return {
         label: dateLabel(date),
         Receitas: dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
