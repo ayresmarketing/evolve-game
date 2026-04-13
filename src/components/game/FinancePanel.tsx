@@ -39,6 +39,11 @@ interface Transaction {
   _sourceId: number;
 }
 
+type FilterMode = 
+  | { type: 'today' }
+  | { type: 'range'; days: number }
+  | { type: 'custom'; start: string; end: string };
+
 interface GastoRow {
   id: number;
   created_at: string;
