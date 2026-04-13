@@ -230,27 +230,22 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
   const [showCustom, setShowCustom] = useState(false);
 
   const dateRange = useMemo(() => {
-    if (useToday) return [todayStr];
-    if (useCustom && customStart && customEnd) return getDateRange(0, customStart, customEnd);
+    if (useToday) {
+      console.log('Modo HOJE ativado, retornando:', [todayStr]);
+      return [todayStr];
+    }
+    if (useCustom && customStart && customEnd) {
+      console.log('Modo CUSTOM ativado, range:', customStart, 'a', customEnd);
+      return getDateRange(0, customStart, customEnd);
+    }
+    console.log('Modo RANGE ativado, dias:', range);
     return getDateRange(range);
   }, [range, useCustom, useToday, customStart, customEnd, todayStr]);
 
   const chartData = useMemo(() =>
     dateRange.map(date => {
-      // DEBUG: Log para verificar o que está acontecendo
-      console.log('Filtrando para data:', date);
-      console.log('Total de transações:', transactions.length);
-      console.log('Transações disponíveis:', transactions.map(t => ({ title: t.title, date: t.date, type: t.type })));
-      
       // Filtra por date (data_do_gasto/data_receb) - data digitada pelo usuário
-      const dayTx = transactions.filter(t => {
-        const match = t.date === date;
-        if (match) console.log('Match encontrado:', t.title, t.date, t.amount);
-        return match;
-      });
-      
-      console.log('Transações do dia:', dayTx.length);
-      
+      const dayTx = transactions.filter(t => t.date === date);
       return {
         label: dateLabel(date),
         Receitas: dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
