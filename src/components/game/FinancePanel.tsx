@@ -364,6 +364,10 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
               </LineChart>
             </ResponsiveContainer>
           </div>
+          {/* DEBUG: Mostrar chartData */}
+          <div className="text-[8px] text-muted-foreground font-mono mt-2 overflow-x-auto">
+            DEBUG: {JSON.stringify(chartData.map(d => ({label: d.label, Rec: d.Receitas, Desp: d.Despesas})))}
+          </div>
           <div className="flex gap-5 mt-2">
             <span className="flex items-center gap-1.5 text-[10px] font-body text-green-400">
               <span className="w-3 h-2 rounded bg-green-500 inline-block" /> Receitas
