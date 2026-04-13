@@ -221,129 +221,21 @@ const tooltipStyle = {
    COMPONENT — Daily Cash Flow Chart
 ═══════════════════════════════════════════════════════ */
 
-type FilterMode = 
-  | { type: 'today' }
-  | { type: 'range'; days: number }
-  | { type: 'custom'; start: string; end: string };
-
-function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [filterMode, setFilterMode] = useState<FilterMode>({ type: 'range', days: 7 });
-  const [showCustom, setShowCustom] = useState(false);
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
-
-  const dateRange = useMemo(() => {
-    console.log('Calculando dateRange, filterMode:', filterMode);
-    switch (filterMode.type) {
-      case 'today':
-        console.log('Retornando HOJE:', [todayStr]);
-        return [todayStr];
-      case 'custom':
-        console.log('Retornando CUSTOM:', filterMode.start, 'a', filterMode.end);
-        return getDateRange(0, filterMode.start, filterMode.end);
-      case 'range':
-        console.log('Retornando RANGE:', filterMode.days, 'dias');
-        return getDateRange(filterMode.days);
-    }
-  }, [filterMode, todayStr]);
-
-  const chartData = useMemo(() => {
-    console.log('Calculando chartData, dateRange:', dateRange);
-    console.log('Total de transações disponíveis:', transactions.length);
-    console.log('Transações:', transactions.map(t => ({ title: t.title, date: t.date, amount: t.amount })));
-    
-    const data = dateRange.map(date => {
-      const dayTx = transactions.filter(t => {
-        const match = t.date === date;
-        if (match) console.log('MATCH:', t.title, 'na data', date);
-        return match;
-      });
-      console.log('Data:', date, 'Transações encontradas:', dayTx.length);
+function DailyCashFlowChart({ transactions, dateRange }: { transactions: Transaction[]; dateRange: string[] }) {
+  const chartData = useMemo(() =>
+    dateRange.map(date => {
+      const dayTx = transactions.filter(t => t.date === date);
       return {
         label: dateLabel(date),
         Receitas: dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
         Despesas: dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
       };
-    });
-    
-    console.log('chartData final:', data);
-    return data;
-  }, [dateRange, transactions]);
+    }), [dateRange, transactions]);
 
   const isEmpty = chartData.every(d => d.Receitas === 0 && d.Despesas === 0);
 
-  const selectToday = () => {
-    console.log('BOTÃO HOJE CLICADO!');
-    setFilterMode({ type: 'today' });
-  };
-  const selectRange = (days: number) => setFilterMode({ type: 'range', days });
-  const selectCustom = () => {
-    if (customStart && customEnd) {
-      setFilterMode({ type: 'custom', start: customStart, end: customEnd });
-    }
-  };
-  const clearCustom = () => {
-    setFilterMode({ type: 'range', days: 7 });
-    setCustomStart('');
-    setCustomEnd('');
-    setShowCustom(false);
-  };
-
   return (
-    <div className="section-card">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
-          <BarChart3 className="w-3.5 h-3.5 text-primary" /> Receitas e Despesas por Dia
-        </h3>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Hoje */}
-          <button onClick={selectToday}
-            className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
-              filterMode.type === 'today'
-                ? 'border-primary/60 bg-primary/15 text-primary'
-                : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
-            }`}>Hoje</button>
-          {/* 7 / 14 / 30 */}
-          {[7, 14, 30].map(d => (
-            <button key={d} onClick={() => selectRange(d)}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
-                filterMode.type === 'range' && filterMode.days === d
-                  ? 'border-primary/60 bg-primary/15 text-primary'
-                  : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
-              }`}>{d}d</button>
-          ))}
-          {/* Período custom */}
-          <button onClick={() => setShowCustom(v => !v)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
-              filterMode.type === 'custom' ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'
-            }`}><Sliders className="w-2.5 h-2.5" /> Período</button>
-        </div>
-      </div>
-
-      {showCustom && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-          <input type="date" value={customStart}
-            onChange={e => setCustomStart(e.target.value)}
-            className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
-          <span className="text-[10px] text-muted-foreground">até</span>
-          <input type="date" value={customEnd} min={customStart}
-            onChange={e => setCustomEnd(e.target.value)}
-            className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
-          <button onClick={selectCustom}
-            disabled={!customStart || !customEnd}
-            className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-body font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50"
-          >
-            Aplicar
-          </button>
-          {filterMode.type === 'custom' && (
-            <button onClick={clearCustom}
-              className="text-[10px] text-destructive font-body hover:underline">Limpar</button>
-          )}
-        </div>
-      )}
-
+    <>
       {isEmpty ? (
         <div className="flex flex-col items-center py-10 text-center">
           <BarChart3 className="w-8 h-8 text-muted-foreground mb-3" />
@@ -364,10 +256,6 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {/* DEBUG: Mostrar chartData */}
-          <div className="text-[8px] text-muted-foreground font-mono mt-2 overflow-x-auto">
-            DEBUG: {JSON.stringify(chartData.map(d => ({label: d.label, Rec: d.Receitas, Desp: d.Despesas})))}
-          </div>
           <div className="flex gap-5 mt-2">
             <span className="flex items-center gap-1.5 text-[10px] font-body text-green-400">
               <span className="w-3 h-2 rounded bg-green-500 inline-block" /> Receitas
@@ -378,7 +266,7 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -764,13 +652,52 @@ export function FinancePanel() {
 
   /* ── Derived ── */
   const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const monthTransactions = useMemo(() =>
-    transactions.filter(t => t.date.startsWith(currentMonth)), [transactions, currentMonth]);
-
-  const totalIncome   = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  
+  // Estado do filtro de período (movido do DailyCashFlowChart para cá)
+  const [filterMode, setFilterMode] = useState<FilterMode>({ type: 'range', days: 7 });
+  const [showCustom, setShowCustom] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  
+  // Calcula o dateRange baseado no filtro
+  const dateRange = useMemo(() => {
+    switch (filterMode.type) {
+      case 'today':
+        return [todayStr];
+      case 'custom':
+        return getDateRange(0, filterMode.start, filterMode.end);
+      case 'range':
+        return getDateRange(filterMode.days);
+    }
+  }, [filterMode, todayStr]);
+  
+  // Transações filtradas pelo período selecionado
+  const filteredTransactions = useMemo(() => {
+    if (!dateRange.length) return transactions;
+    return transactions.filter(t => dateRange.includes(t.date));
+  }, [transactions, dateRange]);
+  
+  // KPIs baseados nas transações filtradas (não apenas do mês)
+  const totalIncome   = filteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = filteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const balance       = totalIncome - totalExpenses;
+  
+  // Handlers do filtro
+  const selectToday = () => setFilterMode({ type: 'today' });
+  const selectRange = (days: number) => setFilterMode({ type: 'range', days });
+  const selectCustom = () => {
+    if (customStart && customEnd) {
+      setFilterMode({ type: 'custom', start: customStart, end: customEnd });
+    }
+  };
+  const clearCustom = () => {
+    setFilterMode({ type: 'range', days: 7 });
+    setCustomStart('');
+    setCustomEnd('');
+    setShowCustom(false);
+  };
 
   /* ── Render ── */
   return (
@@ -843,8 +770,62 @@ export function FinancePanel() {
       {/* Charts — sempre visíveis */}
       {!loading && (
         <>
-          <DailyCashFlowChart transactions={transactions} />
-          <CategoryDashboard transactions={monthTransactions} />
+          {/* Filtro de período */}
+          <div className="section-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
+                <BarChart3 className="w-3.5 h-3.5 text-primary" /> Fluxo de Caixa
+              </h3>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Hoje */}
+                <button onClick={selectToday}
+                  className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
+                    filterMode.type === 'today'
+                      ? 'border-primary/60 bg-primary/15 text-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                  }`}>Hoje</button>
+                {/* 7 / 14 / 30 */}
+                {[7, 14, 30].map(d => (
+                  <button key={d} onClick={() => selectRange(d)}
+                    className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
+                      filterMode.type === 'range' && filterMode.days === d
+                        ? 'border-primary/60 bg-primary/15 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                    }`}>{d}d</button>
+                ))}
+                {/* Período custom */}
+                <button onClick={() => setShowCustom(v => !v)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
+                    filterMode.type === 'custom' ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'
+                  }`}><Sliders className="w-2.5 h-2.5" /> Período</button>
+              </div>
+            </div>
+            
+            {/* Inputs de período custom */}
+            {showCustom && (
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                <input type="date" value={customStart}
+                  onChange={e => setCustomStart(e.target.value)}
+                  className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
+                <span className="text-[10px] text-muted-foreground">até</span>
+                <input type="date" value={customEnd} min={customStart}
+                  onChange={e => setCustomEnd(e.target.value)}
+                  className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
+                <button onClick={selectCustom}
+                  disabled={!customStart || !customEnd}
+                  className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-body font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50">Aplicar</button>
+                {filterMode.type === 'custom' && (
+                  <button onClick={clearCustom}
+                    className="text-[10px] text-destructive font-body hover:underline">Limpar</button>
+                )}
+              </div>
+            )}
+            
+            <DailyCashFlowChart transactions={filteredTransactions} dateRange={dateRange} />
+          </div>
+          
+          <CategoryDashboard transactions={filteredTransactions} />
         </>
       )}
 
