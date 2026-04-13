@@ -144,11 +144,11 @@ function getDateRange(days: number, startDate?: string, endDate?: string): strin
   }
   // Se days for 0 ou negativo, retorna array vazio
   if (days <= 0) return [];
-  // Retorna os últimos 'days' dias INCLUINDO hoje
-  // Ex: days=7 → retorna [hoje-6, hoje-5, ..., hoje]
+  // Retorna os últimos 'days' dias EXCLUINDO hoje (começando de ontem)
+  // Ex: days=7 → retorna [hoje-7, hoje-6, ..., hoje-1]
   return Array.from({ length: days }, (_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - (days - 1 - i));
+    d.setDate(d.getDate() - (days - i));
     return d.toISOString().split('T')[0];
   });
 }
