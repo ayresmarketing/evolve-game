@@ -263,7 +263,10 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
 
   const isEmpty = chartData.every(d => d.Receitas === 0 && d.Despesas === 0);
 
-  const selectToday = () => setFilterMode({ type: 'today' });
+  const selectToday = () => {
+    console.log('BOTÃO HOJE CLICADO!');
+    setFilterMode({ type: 'today' });
+  };
   const selectRange = (days: number) => setFilterMode({ type: 'range', days });
   const selectCustom = () => {
     if (customStart && customEnd) {
