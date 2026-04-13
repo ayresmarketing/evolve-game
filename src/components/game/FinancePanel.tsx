@@ -237,8 +237,20 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
 
   const chartData = useMemo(() =>
     dateRange.map(date => {
+      // DEBUG: Log para verificar o que está acontecendo
+      console.log('Filtrando para data:', date);
+      console.log('Total de transações:', transactions.length);
+      console.log('Transações disponíveis:', transactions.map(t => ({ title: t.title, date: t.date, type: t.type })));
+      
       // Filtra por date (data_do_gasto/data_receb) - data digitada pelo usuário
-      const dayTx = transactions.filter(t => t.date === date);
+      const dayTx = transactions.filter(t => {
+        const match = t.date === date;
+        if (match) console.log('Match encontrado:', t.title, t.date, t.amount);
+        return match;
+      });
+      
+      console.log('Transações do dia:', dayTx.length);
+      
       return {
         label: dateLabel(date),
         Receitas: dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
