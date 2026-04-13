@@ -220,31 +220,32 @@ const tooltipStyle = {
 /* ═══════════════════════════════════════════════════════
    COMPONENT — Daily Cash Flow Chart
 ═══════════════════════════════════════════════════════ */
+
+type FilterMode = 
+  | { type: 'today' }
+  | { type: 'range'; days: number }
+  | { type: 'custom'; start: string; end: string };
+
 function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
   const todayStr = new Date().toISOString().split('T')[0];
-  const [range, setRange] = useState(7);
-  const [useCustom, setUseCustom] = useState(false);
-  const [useToday, setUseToday] = useState(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>({ type: 'range', days: 7 });
+  const [showCustom, setShowCustom] = useState(false);
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
-  const [showCustom, setShowCustom] = useState(false);
 
   const dateRange = useMemo(() => {
-    if (useToday) {
-      console.log('Modo HOJE ativado, retornando:', [todayStr]);
-      return [todayStr];
+    switch (filterMode.type) {
+      case 'today':
+        return [todayStr];
+      case 'custom':
+        return getDateRange(0, filterMode.start, filterMode.end);
+      case 'range':
+        return getDateRange(filterMode.days);
     }
-    if (useCustom && customStart && customEnd) {
-      console.log('Modo CUSTOM ativado, range:', customStart, 'a', customEnd);
-      return getDateRange(0, customStart, customEnd);
-    }
-    console.log('Modo RANGE ativado, dias:', range);
-    return getDateRange(range);
-  }, [range, useCustom, useToday, customStart, customEnd, todayStr]);
+  }, [filterMode, todayStr]);
 
   const chartData = useMemo(() =>
     dateRange.map(date => {
-      // Filtra por date (data_do_gasto/data_receb) - data digitada pelo usuário
       const dayTx = transactions.filter(t => t.date === date);
       return {
         label: dateLabel(date),
@@ -255,8 +256,19 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
 
   const isEmpty = chartData.every(d => d.Receitas === 0 && d.Despesas === 0);
 
-  const selectRange = (d: number) => { setRange(d); setUseCustom(false); setUseToday(false); setShowCustom(false); };
-  const selectToday = () => { setUseToday(true); setUseCustom(false); setShowCustom(false); };
+  const selectToday = () => setFilterMode({ type: 'today' });
+  const selectRange = (days: number) => setFilterMode({ type: 'range', days });
+  const selectCustom = () => {
+    if (customStart && customEnd) {
+      setFilterMode({ type: 'custom', start: customStart, end: customEnd });
+    }
+  };
+  const clearCustom = () => {
+    setFilterMode({ type: 'range', days: 7 });
+    setCustomStart('');
+    setCustomEnd('');
+    setShowCustom(false);
+  };
 
   return (
     <div className="section-card">
@@ -268,13 +280,15 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
           {/* Hoje */}
           <button onClick={selectToday}
             className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
-              useToday ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
+              filterMode.type === 'today'
+                ? 'border-primary/60 bg-primary/15 text-primary'
+                : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
             }`}>Hoje</button>
           {/* 7 / 14 / 30 */}
           {[7, 14, 30].map(d => (
             <button key={d} onClick={() => selectRange(d)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
-                !useCustom && !useToday && range === d
+                filterMode.type === 'range' && filterMode.days === d
                   ? 'border-primary/60 bg-primary/15 text-primary'
                   : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
               }`}>{d}d</button>
@@ -282,7 +296,7 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
           {/* Período custom */}
           <button onClick={() => setShowCustom(v => !v)}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider transition-all border ${
-              useCustom ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'
+              filterMode.type === 'custom' ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'
             }`}><Sliders className="w-2.5 h-2.5" /> Período</button>
         </div>
       </div>
@@ -291,14 +305,20 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
           <input type="date" value={customStart}
-            onChange={e => { setCustomStart(e.target.value); if (customEnd) { setUseCustom(true); setUseToday(false); } }}
+            onChange={e => setCustomStart(e.target.value)}
             className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
           <span className="text-[10px] text-muted-foreground">até</span>
           <input type="date" value={customEnd} min={customStart}
-            onChange={e => { setCustomEnd(e.target.value); if (customStart) { setUseCustom(true); setUseToday(false); } }}
+            onChange={e => setCustomEnd(e.target.value)}
             className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
-          {useCustom && (
-            <button onClick={() => { setUseCustom(false); setCustomStart(''); setCustomEnd(''); setShowCustom(false); }}
+          <button onClick={selectCustom}
+            disabled={!customStart || !customEnd}
+            className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-body font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50"
+          >
+            Aplicar
+          </button>
+          {filterMode.type === 'custom' && (
+            <button onClick={clearCustom}
               className="text-[10px] text-destructive font-body hover:underline">Limpar</button>
           )}
         </div>
