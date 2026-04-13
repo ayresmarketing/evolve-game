@@ -250,15 +250,25 @@ function DailyCashFlowChart({ transactions }: { transactions: Transaction[] }) {
 
   const chartData = useMemo(() => {
     console.log('Calculando chartData, dateRange:', dateRange);
-    return dateRange.map(date => {
-      const dayTx = transactions.filter(t => t.date === date);
-      console.log('Data:', date, 'Transações:', dayTx.length);
+    console.log('Total de transações disponíveis:', transactions.length);
+    console.log('Transações:', transactions.map(t => ({ title: t.title, date: t.date, amount: t.amount })));
+    
+    const data = dateRange.map(date => {
+      const dayTx = transactions.filter(t => {
+        const match = t.date === date;
+        if (match) console.log('MATCH:', t.title, 'na data', date);
+        return match;
+      });
+      console.log('Data:', date, 'Transações encontradas:', dayTx.length);
       return {
         label: dateLabel(date),
         Receitas: dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
         Despesas: dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
       };
     });
+    
+    console.log('chartData final:', data);
+    return data;
   }, [dateRange, transactions]);
 
   const isEmpty = chartData.every(d => d.Receitas === 0 && d.Despesas === 0);
