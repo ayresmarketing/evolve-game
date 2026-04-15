@@ -94,10 +94,8 @@ export function CalendarView({ onDateSelect }: Props) {
         metaTitle: undefined,
       }));
 
-    // Títulos locais para deduplicar eventos do Google
-    const localTitles = new Set(
-      [...missions, ...tasks].map(e => e.title.toLowerCase().trim())
-    );
+    // IDs do Google já vinculados a afazeres locais — evita duplicatas sem bloquear títulos iguais
+    const knownGoogleIds = new Set(afazeres.map(a => a.googleEventId).filter(Boolean));
 
     const remote = googleEvents
       .filter(ev => {
@@ -106,9 +104,8 @@ export function CalendarView({ onDateSelect }: Props) {
         // Ignora eventos criados pelo próprio app (via extendedProperties)
         const src = ev.extendedProperties?.private?.sourceType;
         if (src === 'afazer' || src === 'meta') return false;
-        // Ignora eventos cujo título já existe como afazer/missão local
-        const title = (ev.summary || '').toLowerCase().trim();
-        if (localTitles.has(title)) return false;
+        // Ignora eventos cujo ID já está vinculado a um afazer local
+        if (knownGoogleIds.has(ev.id)) return false;
         return true;
       })
       .map(ev => ({

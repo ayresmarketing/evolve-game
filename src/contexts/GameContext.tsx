@@ -273,6 +273,7 @@ async function loadFromDB(userId: string): Promise<{ metas: Meta[]; stats: Playe
     timerStartedAt: a.timer_started_at || undefined,
     timerCompletedAt: a.timer_completed_at || undefined,
     actualMinutes: a.actual_minutes || undefined,
+    googleEventId: (a as any).google_event_id || undefined,
   }));
 
   // Load life goals

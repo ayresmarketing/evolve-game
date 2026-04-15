@@ -84,6 +84,7 @@ export interface Afazer {
   timerCompletedAt?: string;
   actualMinutes?: number;
   estimatedMinutes?: number;
+  googleEventId?: string;
 }
 
 export interface PlayerStats {
