@@ -20,6 +20,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { getLevelFromXP, CATEGORY_CONFIG, DayOfWeek } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import { supabase } from '@/integrations/supabase/client';
+import { googleGetStatus } from '@/lib/googleSync';
 import {
   Zap, Target, ListChecks, Calendar, Activity, ChevronRight, Flame,
   CalendarDays, Droplets, Moon, Sun, BarChart3, TrendingUp,
@@ -806,13 +807,8 @@ function AgendaPage({ pendingToken, pendingMode, onTokenConsumed }: {
 
   const checkGcalStatus = async () => {
     try {
-      const { data } = await supabase.functions.invoke('google-calendar', {
-        body: { action: 'status' },
-      });
-      setGcalStatus({
-        connected: data?.connected ?? false,
-        mode: data?.mode ?? null,
-      });
+      const result = await googleGetStatus();
+      setGcalStatus({ connected: result.connected, mode: result.mode });
     } catch {
       setGcalStatus({ connected: false, mode: null });
     }

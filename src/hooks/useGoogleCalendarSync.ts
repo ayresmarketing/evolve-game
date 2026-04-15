@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { googleListEvents } from '@/lib/googleSync';
+import { googleListEvents, googleGetStatus } from '@/lib/googleSync';
 import { toast } from 'sonner';
 
 interface GoogleEvent {
@@ -27,10 +27,8 @@ export function useGoogleCalendarSync() {
 
   const getSyncMode = useCallback(async (): Promise<'partial' | 'full' | null> => {
     try {
-      const { data } = await supabase.functions.invoke('google-calendar', {
-        body: { action: 'status' },
-      });
-      return data?.mode || null;
+      const result = await googleGetStatus();
+      return (result.mode as 'partial' | 'full' | null) || null;
     } catch {
       return null;
     }

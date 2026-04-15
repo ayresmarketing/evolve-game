@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
+import { googleSaveToken, googleDisconnect, googleGetStatus } from '@/lib/googleSync';
 import { Calendar, Link2, Link2Off, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -76,11 +76,9 @@ export function GoogleCalendarDialog({ open, onOpenChange, onSuccess, initialTok
 
   const checkStatus = async () => {
     try {
-      const { data } = await supabase.functions.invoke('google-calendar', {
-        body: { action: 'status' },
-      });
-      setStatus({ connected: data?.connected ?? false, mode: data?.mode ?? null, loading: false });
-      if (data?.mode) setSelectedMode(data.mode);
+      const result = await googleGetStatus();
+      setStatus({ connected: result.connected, mode: result.mode as IntegrationMode, loading: false });
+      if (result.mode) setSelectedMode(result.mode as IntegrationMode);
     } catch {
       setStatus({ connected: false, mode: null, loading: false });
     }
@@ -114,7 +112,7 @@ export function GoogleCalendarDialog({ open, onOpenChange, onSuccess, initialTok
   };
 
   const handleDisconnect = async () => {
-    await supabase.functions.invoke('google-calendar', { body: { action: 'disconnect' } });
+    await googleDisconnect();
     setStatus({ connected: false, mode: null, loading: false });
     setSelectedMode(null);
     setAccessToken(null);
@@ -124,14 +122,7 @@ export function GoogleCalendarDialog({ open, onOpenChange, onSuccess, initialTok
 
   const finalizeIntegration = async () => {
     if (!accessToken || !selectedMode) return;
-    await supabase.functions.invoke('google-calendar', {
-      body: {
-        action: 'save-token',
-        access_token: accessToken,
-        mode: selectedMode,
-        calendar_id: selectedCalendarId,
-      },
-    });
+    await googleSaveToken(accessToken, selectedMode, selectedCalendarId);
     setAccessToken(null);
     setCalendars([]);
     toast.success('Google Agenda integrada com sucesso!');
