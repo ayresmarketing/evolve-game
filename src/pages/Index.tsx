@@ -784,7 +784,11 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
 /* ═══════════════════════════════════════════════
    COMPONENT — Agenda page with Google Calendar
 ═══════════════════════════════════════════════ */
-function AgendaPage() {
+function AgendaPage({ pendingToken, pendingMode, onTokenConsumed }: {
+  pendingToken?: string | null;
+  pendingMode?: 'partial' | 'total' | null;
+  onTokenConsumed?: () => void;
+}) {
   const [gcalOpen, setGcalOpen] = useState(false);
   const [gcalStatus, setGcalStatus] = useState<{ connected: boolean; mode: string | null }>({ connected: false, mode: null });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -792,6 +796,13 @@ function AgendaPage() {
   useEffect(() => {
     checkGcalStatus();
   }, []);
+
+  // Abre o dialog automaticamente quando vem token do redirect OAuth
+  useEffect(() => {
+    if (pendingToken) {
+      setGcalOpen(true);
+    }
+  }, [pendingToken]);
 
   const checkGcalStatus = async () => {
     try {
@@ -863,10 +874,12 @@ function AgendaPage() {
       
       <CalendarView />
       <SchedulePanel />
-      <GoogleCalendarDialog 
-        open={gcalOpen} 
-        onOpenChange={setGcalOpen} 
+      <GoogleCalendarDialog
+        open={gcalOpen}
+        onOpenChange={(v) => { setGcalOpen(v); if (!v) onTokenConsumed?.(); }}
         onSuccess={handleIntegrationSuccess}
+        initialToken={pendingToken}
+        initialMode={pendingMode}
       />
     </div>
   );
@@ -883,6 +896,26 @@ function Dashboard() {
     return savedPage || 'dashboard';
   });
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lifequest_theme') !== 'light');
+  const [pendingGcalToken, setPendingGcalToken] = useState<string | null>(null);
+  const [pendingGcalMode, setPendingGcalMode] = useState<'partial' | 'total' | null>(null);
+
+  // Detecta retorno do OAuth do Google (token fica no hash da URL)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('access_token=')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const token = params.get('access_token');
+      const mode = sessionStorage.getItem('gcal_pending_mode') as 'partial' | 'total' | null;
+      if (token) {
+        // Limpa o hash da URL para não ficar exposto
+        window.history.replaceState(null, '', window.location.pathname);
+        sessionStorage.removeItem('gcal_pending_mode');
+        setPendingGcalToken(token);
+        setPendingGcalMode(mode || 'partial');
+        setCurrentPage('agenda');
+      }
+    }
+  }, []);
 
   // Salva a página atual no localStorage sempre que mudar
   useEffect(() => {
@@ -952,7 +985,7 @@ function Dashboard() {
         );
 
       case 'agenda':
-        return <AgendaPage />;
+        return <AgendaPage pendingToken={pendingGcalToken} pendingMode={pendingGcalMode} onTokenConsumed={() => { setPendingGcalToken(null); setPendingGcalMode(null); }} />;
 
       case 'missao':
         return (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, Link2, Link2Off, CheckCircle2, Loader2, ExternalLink } from 'lucide-react';
+import { Calendar, Link2, Link2Off, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 type IntegrationMode = 'partial' | 'total' | null;
@@ -18,15 +18,25 @@ interface GCalCalendar {
   primary?: boolean;
 }
 
-// Google OAuth config - users need to set up their own Google Cloud project
 const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '990869380684-iu5iuvukn6sl69vhsc0e8qcbv0n3s8r6.apps.googleusercontent.com';
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
+const GOOGLE_SCOPES =
+  'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
 
-export function GoogleCalendarDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (v: boolean) => void; onSuccess?: () => void }) {
+interface Props {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSuccess?: () => void;
+  /** Token vindo do redirect OAuth — pula direto para seleção de agenda */
+  initialToken?: string | null;
+  /** Modo escolhido antes do redirect */
+  initialMode?: IntegrationMode;
+}
+
+export function GoogleCalendarDialog({ open, onOpenChange, onSuccess, initialToken, initialMode }: Props) {
   const [status, setStatus] = useState<GoogleCalendarStatus>({ connected: false, mode: null, loading: true });
-  const [selectedMode, setSelectedMode] = useState<IntegrationMode>(null);
+  const [selectedMode, setSelectedMode] = useState<IntegrationMode>(initialMode || null);
   const [connecting, setConnecting] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [calendars, setCalendars] = useState<GCalCalendar[]>([]);
@@ -36,16 +46,40 @@ export function GoogleCalendarDialog({ open, onOpenChange, onSuccess }: { open: 
     if (open) checkStatus();
   }, [open]);
 
+  // Quando vier token do redirect OAuth, vai direto pra seleção de agenda
+  useEffect(() => {
+    if (!initialToken) return;
+    setAccessToken(initialToken);
+    if (initialMode) setSelectedMode(initialMode);
+    fetchCalendars(initialToken);
+  }, [initialToken, initialMode]);
+
+  const fetchCalendars = async (token: string) => {
+    try {
+      const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      const list: GCalCalendar[] = (json?.items || []).map((c: any) => ({
+        id: c.id,
+        summary: c.summary,
+        primary: !!c.primary,
+      }));
+      setCalendars(list);
+      const primary = list.find(c => c.primary)?.id || list[0]?.id || 'primary';
+      setSelectedCalendarId(primary);
+      toast.success('Conta conectada! Escolha qual agenda integrar.');
+    } catch {
+      toast.error('Não foi possível carregar suas agendas.');
+    }
+  };
+
   const checkStatus = async () => {
     try {
       const { data } = await supabase.functions.invoke('google-calendar', {
         body: { action: 'status' },
       });
-      setStatus({
-        connected: data?.connected ?? false,
-        mode: data?.mode ?? null,
-        loading: false,
-      });
+      setStatus({ connected: data?.connected ?? false, mode: data?.mode ?? null, loading: false });
       if (data?.mode) setSelectedMode(data.mode);
     } catch {
       setStatus({ connected: false, mode: null, loading: false });
@@ -57,103 +91,30 @@ export function GoogleCalendarDialog({ open, onOpenChange, onSuccess }: { open: 
       toast.error('Selecione um modo de integração.');
       return;
     }
-
     if (!GOOGLE_CLIENT_ID) {
-      toast.error('Configure a variável VITE_GOOGLE_CLIENT_ID para ativar a integração com o Google Agenda.');
+      toast.error('Configure a variável VITE_GOOGLE_CLIENT_ID.');
       return;
     }
 
-    setConnecting(true);
+    // Salva o modo escolhido para quando o Google redirecionar de volta
+    sessionStorage.setItem('gcal_pending_mode', selectedMode);
 
-    // Open Google OAuth popup
     const redirectUri = `${window.location.origin}/`;
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${GOOGLE_CLIENT_ID}` +
+    const authUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth` +
+      `?client_id=${GOOGLE_CLIENT_ID}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&response_type=token` +
       `&scope=${encodeURIComponent(GOOGLE_SCOPES)}` +
-      `&state=gcal_${selectedMode}` +
       `&prompt=consent` +
       `&access_type=online`;
 
-    const popup = window.open(authUrl, 'google-auth', 'width=500,height=600');
-    
-    // Listen for the OAuth callback
-    const handleMessage = async (event: MessageEvent) => {
-      if (event.data?.type === 'google-oauth-callback') {
-        const { access_token } = event.data;
-        if (access_token) {
-          setAccessToken(access_token);
-          const calRes = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
-            headers: { Authorization: `Bearer ${access_token}` },
-          });
-          const calJson = await calRes.json();
-          const list = (calJson?.items || []).map((c: any) => ({
-            id: c.id,
-            summary: c.summary,
-            primary: !!c.primary,
-          })) as GCalCalendar[];
-          setCalendars(list);
-          const primary = list.find(c => c.primary)?.id || list[0]?.id || 'primary';
-          setSelectedCalendarId(primary);
-          toast.success('Conta conectada! Escolha qual agenda integrar.');
-        }
-        setConnecting(false);
-        window.removeEventListener('message', handleMessage);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    // Fallback: check hash on redirect
-    const checkInterval = setInterval(() => {
-      try {
-        if (popup?.closed) {
-          clearInterval(checkInterval);
-          setConnecting(false);
-          window.removeEventListener('message', handleMessage);
-        }
-        if (popup?.location?.hash) {
-          const hash = popup.location.hash;
-          const params = new URLSearchParams(hash.substring(1));
-          const token = params.get('access_token');
-          if (token) {
-            popup.close();
-            clearInterval(checkInterval);
-            setAccessToken(token);
-            fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-              .then(r => r.json())
-              .then(calJson => {
-                const list = (calJson?.items || []).map((c: any) => ({
-                  id: c.id,
-                  summary: c.summary,
-                  primary: !!c.primary,
-                })) as GCalCalendar[];
-                setCalendars(list);
-                const primary = list.find(c => c.primary)?.id || list[0]?.id || 'primary';
-                setSelectedCalendarId(primary);
-                toast.success('Conta conectada! Escolha qual agenda integrar.');
-              });
-            setConnecting(false);
-            window.removeEventListener('message', handleMessage);
-          }
-        }
-      } catch {
-        // Cross-origin - ignore
-      }
-    }, 1000);
-
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      if (connecting) setConnecting(false);
-    }, 120000);
+    // Redireciona a página inteira (evita problemas de COOP com popup)
+    window.location.assign(authUrl);
   };
 
   const handleDisconnect = async () => {
-    await supabase.functions.invoke('google-calendar', {
-      body: { action: 'disconnect' },
-    });
+    await supabase.functions.invoke('google-calendar', { body: { action: 'disconnect' } });
     setStatus({ connected: false, mode: null, loading: false });
     setSelectedMode(null);
     setAccessToken(null);
@@ -240,52 +201,34 @@ export function GoogleCalendarDialog({ open, onOpenChange, onSuccess }: { open: 
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Mode selection */}
             <div className="space-y-3">
-              <button
-                onClick={() => setSelectedMode('partial')}
-                className={`w-full p-4 rounded-xl border text-left transition-all ${
-                  selectedMode === 'partial'
-                    ? 'border-primary/50 bg-primary/5'
-                    : 'border-border hover:border-primary/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    selectedMode === 'partial' ? 'border-primary' : 'border-muted-foreground'
-                  }`}>
-                    {selectedMode === 'partial' && <div className="w-2 h-2 rounded-full bg-primary" />}
+              {(['partial', 'total'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setSelectedMode(mode)}
+                  className={`w-full p-4 rounded-xl border text-left transition-all ${
+                    selectedMode === mode
+                      ? 'border-primary/50 bg-primary/5'
+                      : 'border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      selectedMode === mode ? 'border-primary' : 'border-muted-foreground'
+                    }`}>
+                      {selectedMode === mode && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    </div>
+                    <p className="text-sm font-body font-semibold text-foreground">
+                      {mode === 'partial' ? 'Integração Parcial' : 'Integração Total'}
+                    </p>
                   </div>
-                  <p className="text-sm font-body font-semibold text-foreground">Integração Parcial</p>
-                </div>
-                <p className="text-xs text-muted-foreground font-body ml-6">
-                  Seus eventos criados aqui serão automaticamente adicionados ao seu Google Agenda, 
-                  permitindo que você os visualize junto com suas demais atividades pessoais.
-                </p>
-              </button>
-
-              <button
-                onClick={() => setSelectedMode('total')}
-                className={`w-full p-4 rounded-xl border text-left transition-all ${
-                  selectedMode === 'total'
-                    ? 'border-primary/50 bg-primary/5'
-                    : 'border-border hover:border-primary/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    selectedMode === 'total' ? 'border-primary' : 'border-muted-foreground'
-                  }`}>
-                    {selectedMode === 'total' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                  </div>
-                  <p className="text-sm font-body font-semibold text-foreground">Integração Total</p>
-                </div>
-                <p className="text-xs text-muted-foreground font-body ml-6">
-                  O jogo e seu Google Agenda ficarão completamente sincronizados. 
-                  Todos os seus compromissos existentes aparecerão aqui, e tudo que você criar 
-                  aqui aparecerá lá — gerencie toda a sua vida em um só lugar.
-                </p>
-              </button>
+                  <p className="text-xs text-muted-foreground font-body ml-6">
+                    {mode === 'partial'
+                      ? 'Seus eventos criados aqui serão automaticamente adicionados ao seu Google Agenda.'
+                      : 'O jogo e seu Google Agenda ficarão completamente sincronizados — o que estiver em um aparece no outro.'}
+                  </p>
+                </button>
+              ))}
             </div>
 
             <button
