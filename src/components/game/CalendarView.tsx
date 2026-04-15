@@ -7,7 +7,6 @@ import { ChevronLeft, ChevronRight, Clock, Trash2, RefreshCw } from 'lucide-reac
 import { googleListEvents } from '@/lib/googleSync';
 import { toast } from 'sonner';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
-import { supabase } from '@/integrations/supabase/client';
 
 const PERIODS = [
   { label: 'Hoje', days: 0 },
@@ -16,7 +15,11 @@ const PERIODS = [
   { label: '30 dias', days: 30 },
 ];
 
-export function CalendarView() {
+interface Props {
+  onDateSelect?: (date: string) => void;
+}
+
+export function CalendarView({ onDateSelect }: Props) {
   const { metas, afazeres, deleteMission, deleteAfazer } = useGame();
   const { fixedBlocks, sleepSchedules } = useSchedule();
   const { syncManual, getSyncMode } = useGoogleCalendarSync();
@@ -41,26 +44,34 @@ export function CalendarView() {
     return arr;
   }, [firstDayOfWeek, daysInMonth]);
 
-  const getDateStr = (day: number) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const getDateStr = (day: number) =>
+    `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const handleDateSelect = (dateStr: string) => {
+    setSelectedDate(dateStr);
+    onDateSelect?.(dateStr);
+  };
+
   // Get all events for a date
   const getEventsForDate = (dateStr: string) => {
-    const missions = metas.flatMap(m => m.missions
-      .filter(mi => mi.scheduledDay === dateStr)
-      .map(mi => ({
-        type: 'mission' as const,
-        id: mi.id,
-        metaId: m.id,
-        title: mi.title,
-        time: mi.scheduledTime,
-        category: m.category,
-        completed: mi.completedToday,
-        estimatedMinutes: mi.estimatedMinutes,
-        metaTitle: m.title,
-      }))
+    const missions = metas.flatMap(m =>
+      m.missions
+        .filter(mi => mi.scheduledDay === dateStr)
+        .map(mi => ({
+          type: 'mission' as const,
+          id: mi.id,
+          metaId: m.id,
+          title: mi.title,
+          time: mi.scheduledTime,
+          category: m.category,
+          completed: mi.completedToday,
+          estimatedMinutes: mi.estimatedMinutes,
+          metaTitle: m.title,
+        }))
     );
+
     const tasks = afazeres
       .filter(a => {
         if (a.startDate === dateStr) return true;
@@ -82,10 +93,23 @@ export function CalendarView() {
         estimatedMinutes: a.estimatedMinutes,
         metaTitle: undefined,
       }));
+
+    // Títulos locais para deduplicar eventos do Google
+    const localTitles = new Set(
+      [...missions, ...tasks].map(e => e.title.toLowerCase().trim())
+    );
+
     const remote = googleEvents
       .filter(ev => {
         const start = ev.start?.date || ev.start?.dateTime?.split('T')[0];
-        return start === dateStr;
+        if (start !== dateStr) return false;
+        // Ignora eventos criados pelo próprio app (via extendedProperties)
+        const src = ev.extendedProperties?.private?.sourceType;
+        if (src === 'afazer' || src === 'meta') return false;
+        // Ignora eventos cujo título já existe como afazer/missão local
+        const title = (ev.summary || '').toLowerCase().trim();
+        if (localTitles.has(title)) return false;
+        return true;
       })
       .map(ev => ({
         type: 'google' as const,
@@ -98,39 +122,41 @@ export function CalendarView() {
         estimatedMinutes: undefined as number | undefined,
         metaTitle: undefined,
       }));
-    return [...missions, ...tasks, ...remote].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    return [...missions, ...tasks, ...remote].sort((a, b) =>
+      (a.time || '').localeCompare(b.time || '')
+    );
   };
 
-  // Carrega o modo de sync
   useEffect(() => {
     getSyncMode().then(setSyncMode);
   }, []);
 
-  // Handler para sync manual
   const handleSync = async () => {
     setIsSyncing(true);
     await syncManual();
     setIsSyncing(false);
-    // Recarrega eventos do Google
     const start = new Date(year, month, 1).toISOString();
     const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
     const events = await googleListEvents(start, end);
     setGoogleEvents(events);
   };
+
+  // Período: começa de ontem e vai para trás — nunca inclui hoje
   const periodEvents = useMemo(() => {
     if (periodDays === 0) return null;
     const result: { date: string; events: ReturnType<typeof getEventsForDate> }[] = [];
-    // Começa de ontem e vai para trás
     for (let i = 1; i <= periodDays; i++) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const ds = d.toISOString().split('T')[0];
+      // Nunca inclui hoje por segurança
+      if (ds === todayStr) continue;
       const evs = getEventsForDate(ds);
       if (evs.length > 0) result.push({ date: ds, events: evs });
     }
-    // Ordena do mais recente para o mais antigo
     return result.sort((a, b) => b.date.localeCompare(a.date));
-  }, [periodDays, metas, afazeres, googleEvents]);
+  }, [periodDays, metas, afazeres, googleEvents, todayStr]);
 
   useEffect(() => {
     const start = new Date(year, month, 1).toISOString();
@@ -199,7 +225,7 @@ export function CalendarView() {
 
   return (
     <div className="space-y-5">
-      {/* Period filter com botão de sync */}
+      {/* Period filter + botão sync */}
       <div className="flex gap-2 flex-wrap items-center">
         {PERIODS.map(p => (
           <button
@@ -214,8 +240,7 @@ export function CalendarView() {
             {p.label}
           </button>
         ))}
-        
-        {/* Botão de sync manual - só aparece no modo full */}
+
         {syncMode === 'full' && (
           <button
             onClick={handleSync}
@@ -229,7 +254,7 @@ export function CalendarView() {
       </div>
 
       {periodDays === 0 ? (
-        /* ── Calendário ── */
+        /* ── Calendário (Hoje) ── */
         <>
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center justify-between mb-5">
@@ -259,7 +284,7 @@ export function CalendarView() {
                 const pending = hasPending(day);
 
                 return (
-                  <button key={i} onClick={() => setSelectedDate(dateStr)}
+                  <button key={i} onClick={() => handleDateSelect(dateStr)}
                     className={`relative h-10 rounded-lg text-sm font-body font-semibold transition-all ${
                       isSelected ? 'bg-primary text-primary-foreground shadow-glow-cyan' :
                       isToday ? 'bg-primary/20 text-primary' :
@@ -292,10 +317,10 @@ export function CalendarView() {
           </div>
         </>
       ) : (
-        /* ── Lista de período ── */
+        /* ── Lista de período (passado) ── */
         <div className="glass-card rounded-2xl p-5 space-y-5">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase">
-            📋 Últimos {periodDays} dias
+            📋 Últimos {periodDays} dias (ontem para trás)
           </h3>
           {!periodEvents || periodEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground font-body text-center py-4">Nenhum evento no período</p>
@@ -303,7 +328,7 @@ export function CalendarView() {
             periodEvents.map(({ date, events }) => (
               <div key={date}>
                 <p className="text-[10px] font-display tracking-wider text-muted-foreground uppercase mb-2">
-                  {date === todayStr ? '🟡 Hoje' : new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
                 </p>
                 <div className="space-y-2">
                   {events.map((event, i) => <EventCard key={i} event={event} />)}

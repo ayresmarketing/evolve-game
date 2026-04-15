@@ -793,6 +793,7 @@ function AgendaPage({ pendingToken, pendingMode, onTokenConsumed }: {
   const [gcalOpen, setGcalOpen] = useState(false);
   const [gcalStatus, setGcalStatus] = useState<{ connected: boolean; mode: string | null }>({ connected: false, mode: null });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     checkGcalStatus();
@@ -868,8 +869,8 @@ function AgendaPage({ pendingToken, pendingMode, onTokenConsumed }: {
         </div>
       )}
       
-      <CalendarView />
-      <SchedulePanel />
+      <CalendarView onDateSelect={setCalendarSelectedDate} />
+      <SchedulePanel selectedDate={calendarSelectedDate} />
       <GoogleCalendarDialog
         open={gcalOpen}
         onOpenChange={(v) => { setGcalOpen(v); if (!v) onTokenConsumed?.(); }}

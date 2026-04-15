@@ -10,9 +10,14 @@ function toMinutes(time: string): number {
   return h * 60 + m;
 }
 
-export function SchedulePanel() {
+interface SchedulePanelProps {
+  /** Data específica selecionada no calendário — usada no gráfico de distribuição */
+  selectedDate?: string;
+}
+
+export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
   const { sleepSchedules, fixedBlocks, addSleepSchedule, deleteSleepSchedule, addFixedBlock, deleteFixedBlock, getDaySchedule } = useSchedule();
-  const { afazeres } = useGame();
+  const { afazeres, metas } = useGame();
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('seg');
   const [showAddSleep, setShowAddSleep] = useState(false);
   const [showAddBlock, setShowAddBlock] = useState(false);
@@ -28,43 +33,57 @@ export function SchedulePanel() {
   const [blockEnd, setBlockEnd] = useState('17:00');
   const [blockDays, setBlockDays] = useState<DayOfWeek[]>(['seg', 'ter', 'qua', 'qui', 'sex']);
 
-  // Calcula minutos de afazeres recorrentes no dia selecionado
-  const dayAfazeres = afazeres.filter(a =>
-    !a.completed && a.isRecurrent && a.recurrentDays?.includes(selectedDay)
+  // Usa a data selecionada no calendário; se não tiver, usa hoje
+  const chartDate = selectedDate || new Date().toISOString().split('T')[0];
+  const dayOfWeekMap = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'] as const;
+  const chartDayOfWeek: DayOfWeek = dayOfWeekMap[new Date(chartDate + 'T12:00').getDay()];
+
+  // Todos os afazeres da data específica (não recorrentes no dia + recorrentes que incluem esse dia)
+  const dateAfazeres = afazeres.filter(a => {
+    if (a.completed) return false;
+    if (a.startDate === chartDate) return true;
+    if (a.isRecurrent && a.recurrentDays?.includes(chartDayOfWeek)) return true;
+    return false;
+  });
+
+  // Missões agendadas para a data específica
+  const dateMissions = metas.flatMap(m =>
+    m.missions.filter(mi => mi.scheduledDay === chartDate && !mi.completedToday)
   );
 
-  const afazerMinutes = dayAfazeres.reduce((total, a) => {
-    if (a.startTime && a.endTime) {
-      return total + Math.max(0, toMinutes(a.endTime) - toMinutes(a.startTime));
-    }
-    return total + (a.estimatedMinutes || 0);
-  }, 0);
+  // Total de minutos ocupados por tarefas na data
+  const taskMinutes =
+    dateAfazeres.reduce((total, a) => {
+      if (a.startTime && a.endTime) {
+        return total + Math.max(0, toMinutes(a.endTime) - toMinutes(a.startTime));
+      }
+      return total + (a.estimatedMinutes || 0);
+    }, 0) +
+    dateMissions.reduce((total, m) => total + (m.estimatedMinutes || 0), 0);
 
-  // Calcula quantos minutos de afazeres caem dentro do horário de sono
-  const sleepForDay = sleepSchedules.find(s => s.days.includes(selectedDay));
-  let afazeresInSleepTime = 0;
-  if (sleepForDay) {
-    const sleepStart = toMinutes(sleepForDay.bedtime);
-    const sleepEnd = toMinutes(sleepForDay.wakeTime);
-    const sleepSpansMidnight = sleepStart > sleepEnd;
+  // Overlap de tarefas com horário de sono
+  const sleepForChartDay = sleepSchedules.find(s => s.days.includes(chartDayOfWeek));
+  let taskInSleepTime = 0;
+  if (sleepForChartDay) {
+    const sleepStart = toMinutes(sleepForChartDay.bedtime);
+    const sleepEnd = toMinutes(sleepForChartDay.wakeTime);
+    const spansMidnight = sleepStart > sleepEnd;
 
-    dayAfazeres.forEach(a => {
+    [...dateAfazeres, ...dateMissions.map(m => ({ startTime: m.scheduledTime, endTime: undefined, estimatedMinutes: m.estimatedMinutes }))].forEach((a: any) => {
       if (!a.startTime) return;
       const aStart = toMinutes(a.startTime);
       const aEnd = a.endTime ? toMinutes(a.endTime) : aStart + (a.estimatedMinutes || 0);
-
-      const overlaps = (s: number, e: number) => Math.max(0, Math.min(aEnd, e) - Math.max(aStart, s));
-
-      if (sleepSpansMidnight) {
-        // sono: sleepStart→1440 e 0→sleepEnd
-        afazeresInSleepTime += overlaps(sleepStart, 1440) + overlaps(0, sleepEnd);
-      } else {
-        afazeresInSleepTime += overlaps(sleepStart, sleepEnd);
-      }
+      const overlap = (s: number, e: number) => Math.max(0, Math.min(aEnd, e) - Math.max(aStart, s));
+      taskInSleepTime += spansMidnight
+        ? overlap(sleepStart, 1440) + overlap(0, sleepEnd)
+        : overlap(sleepStart, sleepEnd);
     });
   }
 
-  const daySchedule = getDaySchedule(selectedDay, afazerMinutes, afazeresInSleepTime);
+  const daySchedule = getDaySchedule(chartDayOfWeek, taskMinutes, taskInSleepTime);
+
+  // Para a seção de configuração de horários ainda usa o selectedDay
+  const sleepForDay = sleepSchedules.find(s => s.days.includes(selectedDay));
   const sleepHours = sleepForDay ? calculateSleepHours(sleepForDay.bedtime, sleepForDay.wakeTime) : 0;
 
   // Sleep alerts
@@ -123,7 +142,9 @@ export function SchedulePanel() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Chart - altura igualada */}
         <div className="bg-card rounded-xl p-4 border border-border shadow-game-card h-[280px] flex flex-col">
-          <h3 className="font-display text-xs tracking-wider text-muted-foreground mb-3">DISTRIBUIÇÃO DO DIA</h3>
+          <h3 className="font-display text-xs tracking-wider text-muted-foreground mb-3">
+            DISTRIBUIÇÃO — {new Date(chartDate + 'T12:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).toUpperCase()}
+          </h3>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
