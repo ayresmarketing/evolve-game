@@ -880,17 +880,17 @@ export function FinancePanel() {
       <div className="section-card">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase">
-            Transações de {now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            Transações do período
           </h3>
-          <span className="text-[10px] text-muted-foreground font-body">{monthTransactions.length} registros</span>
+          <span className="text-[10px] text-muted-foreground font-body">{filteredTransactions.length} registros</span>
         </div>
-        {monthTransactions.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <p className="text-sm text-muted-foreground font-body text-center py-6">
-            {whatsappPhone ? 'Nenhuma transação neste mês' : 'Configure seu WhatsApp para ver os dados'}
+            {whatsappPhone ? 'Nenhuma transação no período' : 'Configure seu WhatsApp para ver os dados'}
           </p>
         ) : (
           <div className="space-y-2">
-            {[...monthTransactions].sort((a, b) => b.date.localeCompare(a.date)).map(t => (
+            {[...filteredTransactions].sort((a, b) => b.date.localeCompare(a.date)).map(t => (
               <TransactionRow key={t.id} t={t} onDelete={deleteTransaction} onUpdate={updateTransaction} />
             ))}
           </div>
