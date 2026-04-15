@@ -670,8 +670,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('missions').update({ scheduled_time: time, scheduled_day: day || null }).eq('id', missionId);
     // Sincroniza horário no Google Calendar
     if (day) {
+      const mission = state.metas.find(m => m.id === metaId)?.missions.find(m => m.id === missionId);
       const { data: mRow } = await supabase.from('missions').select('google_event_id, title').eq('id', missionId).single() as any;
-      const googleTimes = makeGoogleDateTimes(day, time);
+      const googleTimes = makeGoogleDateTimes(day, time, undefined, mission?.estimatedMinutes);
       if (mRow?.google_event_id) {
         googleUpdateEvent({ eventId: mRow.google_event_id, ...googleTimes });
       } else {

@@ -17,6 +17,20 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Secrets and credentials (NEVER commit these)
+.env.secrets
+.secrets
+*.secrets
+.config/secrets*
+secrets/
+credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+gcp-oauth*.json
+service-account*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
