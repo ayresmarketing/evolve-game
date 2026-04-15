@@ -252,7 +252,7 @@ export function SchedulePanel({ selectedDate, googleExtraMinutes = 0 }: Schedule
                   <div>
                     <p className="text-sm font-body font-semibold text-foreground">{s.bedtime} → {s.wakeTime}</p>
                     <p className="text-[10px] text-muted-foreground font-body">
-                      {s.days.map(d => DAYS_OF_WEEK.find(dw => dw.value === d)?.label?.substring(0, 3)).join(', ')} · {calculateSleepHours(s.bedtime, s.wakeTime).toFixed(1)}h de sono
+                      {s.days.map(d => DAYS_OF_WEEK.find(dw => dw.value === d)?.label?.substring(0, 3)).join(', ')} · {formatMinutesToHM(Math.round(calculateSleepHours(s.bedtime, s.wakeTime) * 60))} de sono
                     </p>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export function SchedulePanel({ selectedDate, googleExtraMinutes = 0 }: Schedule
                   <div>
                     <p className="text-sm font-body font-semibold text-foreground">{b.title}</p>
                     <p className="text-[10px] text-muted-foreground font-body">
-                      {b.startTime} → {b.endTime} · {b.days.map(d => DAYS_OF_WEEK.find(dw => dw.value === d)?.label?.substring(0, 3)).join(', ')} · {calculateBlockHours(b.startTime, b.endTime).toFixed(1)}h
+                      {b.startTime} → {b.endTime} · {b.days.map(d => DAYS_OF_WEEK.find(dw => dw.value === d)?.label?.substring(0, 3)).join(', ')} · {formatMinutesToHM(Math.round(calculateBlockHours(b.startTime, b.endTime) * 60))}
                     </p>
                   </div>
                 </div>

@@ -66,6 +66,7 @@ export function CalendarView({ onDateSelect, onGoogleMinutesChange }: Props) {
           metaId: m.id,
           title: mi.title,
           time: mi.scheduledTime,
+          endTime: undefined as string | undefined,
           category: m.category,
           completed: mi.completedToday,
           estimatedMinutes: mi.estimatedMinutes,
@@ -89,6 +90,7 @@ export function CalendarView({ onDateSelect, onGoogleMinutesChange }: Props) {
         metaId: undefined,
         title: a.title,
         time: a.startTime,
+        endTime: a.endTime,
         category: a.category,
         completed: a.completed,
         estimatedMinutes: a.estimatedMinutes,
@@ -109,17 +111,25 @@ export function CalendarView({ onDateSelect, onGoogleMinutesChange }: Props) {
         if (knownGoogleIds.has(ev.id)) return false;
         return true;
       })
-      .map(ev => ({
-        type: 'google' as const,
-        id: ev.id,
-        metaId: undefined,
-        title: ev.summary || '(Sem título)',
-        time: ev.start?.dateTime ? ev.start.dateTime.split('T')[1]?.slice(0, 5) : '',
-        category: 'pessoal',
-        completed: false,
-        estimatedMinutes: undefined as number | undefined,
-        metaTitle: undefined,
-      }));
+      .map(ev => {
+        const startTime = ev.start?.dateTime ? ev.start.dateTime.split('T')[1]?.slice(0, 5) : '';
+        const endTime = ev.end?.dateTime ? ev.end.dateTime.split('T')[1]?.slice(0, 5) : undefined;
+        const durationMinutes = (ev.start?.dateTime && ev.end?.dateTime)
+          ? Math.max(0, Math.round((new Date(ev.end.dateTime).getTime() - new Date(ev.start.dateTime).getTime()) / 60000))
+          : undefined;
+        return {
+          type: 'google' as const,
+          id: ev.id,
+          metaId: undefined,
+          title: ev.summary || '(Sem título)',
+          time: startTime,
+          endTime,
+          category: 'pessoal',
+          completed: false,
+          estimatedMinutes: durationMinutes,
+          metaTitle: undefined,
+        };
+      });
 
     return [...missions, ...tasks, ...remote].sort((a, b) =>
       (a.time || '').localeCompare(b.time || '')
@@ -217,8 +227,12 @@ export function CalendarView({ onDateSelect, onGoogleMinutesChange }: Props) {
             {event.title}
           </p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            {event.time && <span className="text-[10px] text-muted-foreground font-body">🕐 {event.time}</span>}
-            {event.estimatedMinutes && (
+            {event.time && (
+              <span className="text-[10px] text-muted-foreground font-body">
+                🕐 {event.time}{event.endTime ? ` → ${event.endTime}` : ''}
+              </span>
+            )}
+            {event.estimatedMinutes && !event.endTime && (
               <span className="text-[10px] text-muted-foreground font-body flex items-center gap-1">
                 <Clock className="w-3 h-3" /> ~{formatMinutesToHM(event.estimatedMinutes)}
               </span>
