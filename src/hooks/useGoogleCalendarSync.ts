@@ -59,17 +59,40 @@ export function useGoogleCalendarSync() {
         const googleEventId = event.id;
         const sourceType = event.extendedProperties?.private?.sourceType;
 
-        // Ignora eventos que foram criados pelo próprio app
+        // Ignora eventos criados pelo próprio app (extendedProperties)
         if (sourceType === 'afazer' || sourceType === 'meta') continue;
 
-        // Verifica se já foi importado antes
-        const { data: existing } = await supabase
+        // Verifica se já existe pelo google_event_id
+        const { data: existingById } = await supabase
           .from('afazeres')
           .select('id')
           .eq('google_event_id', googleEventId)
           .single();
 
-        if (existing) continue;
+        if (existingById) continue;
+
+        // Fallback: verifica se já existe afazer com mesmo título e data
+        // (cobre o caso onde o google_event_id ainda não foi salvo por race condition)
+        const eventDate = event.start?.date || event.start?.dateTime?.split('T')[0];
+        const eventTitle = (event.summary || '').trim();
+
+        if (eventTitle && eventDate) {
+          const { data: existingByTitle } = await supabase
+            .from('afazeres')
+            .select('id')
+            .eq('title', eventTitle)
+            .eq('start_date', eventDate)
+            .eq('user_id', user.id)
+            .single();
+
+          if (existingByTitle) {
+            // Aproveita para salvar o google_event_id se ainda não tiver
+            await supabase.from('afazeres')
+              .update({ google_event_id: googleEventId } as any)
+              .eq('id', existingByTitle.id);
+            continue;
+          }
+        }
 
         const startDate = event.start?.date || event.start?.dateTime?.split('T')[0];
         if (!startDate) continue;

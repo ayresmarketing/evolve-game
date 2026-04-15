@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import { useSchedule } from '@/contexts/ScheduleContext';
+import { useGame } from '@/contexts/GameContext';
 import { DayOfWeek, DAYS_OF_WEEK, calculateSleepHours, calculateBlockHours } from '@/types/game';
 import { Moon, Sun, Plus, Trash2, Clock, AlertTriangle, X, BedDouble } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
 export function SchedulePanel() {
   const { sleepSchedules, fixedBlocks, addSleepSchedule, deleteSleepSchedule, addFixedBlock, deleteFixedBlock, getDaySchedule } = useSchedule();
+  const { afazeres } = useGame();
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('seg');
   const [showAddSleep, setShowAddSleep] = useState(false);
   const [showAddBlock, setShowAddBlock] = useState(false);
@@ -21,8 +28,43 @@ export function SchedulePanel() {
   const [blockEnd, setBlockEnd] = useState('17:00');
   const [blockDays, setBlockDays] = useState<DayOfWeek[]>(['seg', 'ter', 'qua', 'qui', 'sex']);
 
-  const daySchedule = getDaySchedule(selectedDay);
+  // Calcula minutos de afazeres recorrentes no dia selecionado
+  const dayAfazeres = afazeres.filter(a =>
+    !a.completed && a.isRecurrent && a.recurrentDays?.includes(selectedDay)
+  );
+
+  const afazerMinutes = dayAfazeres.reduce((total, a) => {
+    if (a.startTime && a.endTime) {
+      return total + Math.max(0, toMinutes(a.endTime) - toMinutes(a.startTime));
+    }
+    return total + (a.estimatedMinutes || 0);
+  }, 0);
+
+  // Calcula quantos minutos de afazeres caem dentro do horário de sono
   const sleepForDay = sleepSchedules.find(s => s.days.includes(selectedDay));
+  let afazeresInSleepTime = 0;
+  if (sleepForDay) {
+    const sleepStart = toMinutes(sleepForDay.bedtime);
+    const sleepEnd = toMinutes(sleepForDay.wakeTime);
+    const sleepSpansMidnight = sleepStart > sleepEnd;
+
+    dayAfazeres.forEach(a => {
+      if (!a.startTime) return;
+      const aStart = toMinutes(a.startTime);
+      const aEnd = a.endTime ? toMinutes(a.endTime) : aStart + (a.estimatedMinutes || 0);
+
+      const overlaps = (s: number, e: number) => Math.max(0, Math.min(aEnd, e) - Math.max(aStart, s));
+
+      if (sleepSpansMidnight) {
+        // sono: sleepStart→1440 e 0→sleepEnd
+        afazeresInSleepTime += overlaps(sleepStart, 1440) + overlaps(0, sleepEnd);
+      } else {
+        afazeresInSleepTime += overlaps(sleepStart, sleepEnd);
+      }
+    });
+  }
+
+  const daySchedule = getDaySchedule(selectedDay, afazerMinutes, afazeresInSleepTime);
   const sleepHours = sleepForDay ? calculateSleepHours(sleepForDay.bedtime, sleepForDay.wakeTime) : 0;
 
   // Sleep alerts

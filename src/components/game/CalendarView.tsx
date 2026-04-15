@@ -119,16 +119,17 @@ export function CalendarView() {
   };
   const periodEvents = useMemo(() => {
     if (periodDays === 0) return null;
-    const today = new Date();
     const result: { date: string; events: ReturnType<typeof getEventsForDate> }[] = [];
-    for (let i = 0; i < periodDays; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
+    // Começa de ontem e vai para trás
+    for (let i = 1; i <= periodDays; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
       const ds = d.toISOString().split('T')[0];
       const evs = getEventsForDate(ds);
       if (evs.length > 0) result.push({ date: ds, events: evs });
     }
-    return result;
+    // Ordena do mais recente para o mais antigo
+    return result.sort((a, b) => b.date.localeCompare(a.date));
   }, [periodDays, metas, afazeres, googleEvents]);
 
   useEffect(() => {
@@ -294,7 +295,7 @@ export function CalendarView() {
         /* ── Lista de período ── */
         <div className="glass-card rounded-2xl p-5 space-y-5">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase">
-            📋 Próximos {periodDays} dias
+            📋 Últimos {periodDays} dias
           </h3>
           {!periodEvents || periodEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground font-body text-center py-4">Nenhum evento no período</p>
