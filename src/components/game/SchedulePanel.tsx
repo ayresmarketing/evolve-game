@@ -4,6 +4,7 @@ import { useGame } from '@/contexts/GameContext';
 import { DayOfWeek, DAYS_OF_WEEK, calculateSleepHours, calculateBlockHours } from '@/types/game';
 import { Moon, Sun, Plus, Trash2, Clock, AlertTriangle, X, BedDouble } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { formatMinutesToHM } from '@/lib/formatTime';
 
 function toMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -13,9 +14,11 @@ function toMinutes(time: string): number {
 interface SchedulePanelProps {
   /** Data específica selecionada no calendário — usada no gráfico de distribuição */
   selectedDate?: string;
+  /** Minutos extras de eventos externos do Google Calendar (não vinculados a afazeres locais) */
+  googleExtraMinutes?: number;
 }
 
-export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
+export function SchedulePanel({ selectedDate, googleExtraMinutes = 0 }: SchedulePanelProps) {
   const { sleepSchedules, fixedBlocks, addSleepSchedule, deleteSleepSchedule, addFixedBlock, deleteFixedBlock, getDaySchedule } = useSchedule();
   const { afazeres, metas } = useGame();
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('seg');
@@ -51,7 +54,7 @@ export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
     m.missions.filter(mi => mi.scheduledDay === chartDate && !mi.completedToday)
   );
 
-  // Total de minutos ocupados por tarefas na data
+  // Total de minutos ocupados por tarefas na data (local + eventos externos do Google)
   const taskMinutes =
     dateAfazeres.reduce((total, a) => {
       if (a.startTime && a.endTime) {
@@ -59,7 +62,8 @@ export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
       }
       return total + (a.estimatedMinutes || 0);
     }, 0) +
-    dateMissions.reduce((total, m) => total + (m.estimatedMinutes || 0), 0);
+    dateMissions.reduce((total, m) => total + (m.estimatedMinutes || 0), 0) +
+    googleExtraMinutes;
 
   // Overlap de tarefas com horário de sono
   const sleepForChartDay = sleepSchedules.find(s => s.days.includes(chartDayOfWeek));
@@ -94,7 +98,7 @@ export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
         type: 'danger' as const,
         icon: <AlertTriangle className="w-5 h-5 text-game-red" />,
         title: '⚠️ ALERTA: SONO INSUFICIENTE',
-        message: `Você está dormindo apenas ${sleepHours.toFixed(1)}h. Dormir menos de 7 horas causa: perda de memória, queda na imunidade, aumento de peso, irritabilidade, risco de doenças cardíacas e redução drástica na produtividade. Seu corpo PRECISA de descanso para evoluir.`,
+        message: `Você está dormindo apenas ${formatMinutesToHM(Math.round(sleepHours * 60))}. Dormir menos de 7 horas causa: perda de memória, queda na imunidade, aumento de peso, irritabilidade, risco de doenças cardíacas e redução drástica na produtividade. Seu corpo PRECISA de descanso para evoluir.`,
         color: 'border-game-red/50 bg-game-red/10',
       };
     }
@@ -103,7 +107,7 @@ export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
         type: 'warning' as const,
         icon: <BedDouble className="w-5 h-5 text-game-orange" />,
         title: '💤 SONO EXCESSIVO',
-        message: `Você está dormindo ${sleepHours.toFixed(1)}h. Está se sentindo cansado durante o dia? Se não, considere reduzir 30-60 minutos de sono e usar esse tempo para avançar nos seus objetivos. Cada hora extra acordado com propósito é uma hora de evolução.`,
+        message: `Você está dormindo ${formatMinutesToHM(Math.round(sleepHours * 60))}. Está se sentindo cansado durante o dia? Se não, considere reduzir 30-60 minutos de sono e usar esse tempo para avançar nos seus objetivos. Cada hora extra acordado com propósito é uma hora de evolução.`,
         color: 'border-game-orange/50 bg-game-orange/10',
       };
     }
@@ -153,7 +157,7 @@ export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
                     <Cell key={idx} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => `${value.toFixed(1)}h`} contentStyle={{ background: 'hsl(228, 20%, 12%)', border: '1px solid hsl(228, 15%, 20%)', borderRadius: '8px', fontFamily: 'Rajdhani' }} />
+                <Tooltip formatter={(value: number) => formatMinutesToHM(Math.round(value * 60))} contentStyle={{ background: 'hsl(228, 20%, 12%)', border: '1px solid hsl(228, 15%, 20%)', borderRadius: '8px', fontFamily: 'Rajdhani' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -161,7 +165,7 @@ export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
             {chartData.map(d => (
               <div key={d.name} className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-sm" style={{ background: d.color }} />
-                <span className="text-xs font-body text-muted-foreground">{d.name}: {d.value.toFixed(1)}h</span>
+                <span className="text-xs font-body text-muted-foreground">{d.name}: {formatMinutesToHM(Math.round(d.value * 60))}</span>
               </div>
             ))}
           </div>
@@ -170,9 +174,9 @@ export function SchedulePanel({ selectedDate }: SchedulePanelProps) {
         {/* Stats cards - altura igualada */}
         <div className="grid grid-rows-3 gap-3 h-[280px]">
           {[
-            { label: 'Tempo de Sono', value: `${daySchedule.sleepHours.toFixed(1)}h`, icon: Moon, color: 'text-game-purple' },
-            { label: 'Tempo Ocupado', value: `${daySchedule.busyHours.toFixed(1)}h`, icon: Clock, color: 'text-game-orange' },
-            { label: 'Tempo Livre', value: `${daySchedule.freeHours.toFixed(1)}h`, icon: Sun, color: 'text-game-green' },
+            { label: 'Tempo de Sono', value: formatMinutesToHM(daySchedule.sleepMinutes), icon: Moon, color: 'text-game-purple' },
+            { label: 'Tempo Ocupado', value: formatMinutesToHM(daySchedule.busyMinutes), icon: Clock, color: 'text-game-orange' },
+            { label: 'Tempo Livre', value: formatMinutesToHM(daySchedule.freeMinutes), icon: Sun, color: 'text-game-green' },
           ].map(item => (
             <div key={item.label} className="bg-card rounded-xl p-4 border border-border shadow-game-card flex items-center gap-3">
               <item.icon className={`w-8 h-8 ${item.color}`} />

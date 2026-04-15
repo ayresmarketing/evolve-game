@@ -17,9 +17,10 @@ const PERIODS = [
 
 interface Props {
   onDateSelect?: (date: string) => void;
+  onGoogleMinutesChange?: (minutes: number) => void;
 }
 
-export function CalendarView({ onDateSelect }: Props) {
+export function CalendarView({ onDateSelect, onGoogleMinutesChange }: Props) {
   const { metas, afazeres, deleteMission, deleteAfazer } = useGame();
   const { fixedBlocks, sleepSchedules } = useSchedule();
   const { syncManual, getSyncMode } = useGoogleCalendarSync();
@@ -160,6 +161,29 @@ export function CalendarView({ onDateSelect }: Props) {
     const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
     googleListEvents(start, end).then(setGoogleEvents).catch(() => setGoogleEvents([]));
   }, [year, month]);
+
+  // Emite os minutos dos eventos Google externos para a data selecionada
+  useEffect(() => {
+    if (!onGoogleMinutesChange) return;
+    const knownGoogleIds = new Set(afazeres.map(a => a.googleEventId).filter(Boolean));
+    const googleOnlyEvents = googleEvents.filter(ev => {
+      const start = ev.start?.date || ev.start?.dateTime?.split('T')[0];
+      if (start !== selectedDate) return false;
+      const src = ev.extendedProperties?.private?.sourceType;
+      if (src === 'afazer' || src === 'meta') return false;
+      if (knownGoogleIds.has(ev.id)) return false;
+      return true;
+    });
+    const totalMinutes = googleOnlyEvents.reduce((acc, ev) => {
+      if (ev.start?.dateTime && ev.end?.dateTime) {
+        const startMs = new Date(ev.start.dateTime).getTime();
+        const endMs = new Date(ev.end.dateTime).getTime();
+        return acc + Math.max(0, Math.round((endMs - startMs) / 60000));
+      }
+      return acc;
+    }, 0);
+    onGoogleMinutesChange(totalMinutes);
+  }, [selectedDate, googleEvents, afazeres, onGoogleMinutesChange]);
 
   const selectedEvents = getEventsForDate(selectedDate);
   const hasEvents = (day: number) => getEventsForDate(getDateStr(day)).length > 0;
