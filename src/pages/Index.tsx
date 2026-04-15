@@ -225,13 +225,6 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
   const [customEnd, setCustomEnd] = useState('');
   const [showCustomInputs, setShowCustomInputs] = useState(false);
 
-  /* ── Per-block range overrides (null = use global) ── */
-  const [taskRange, setTaskRange] = useState<number | null>(null);
-  const [timeRange, setTimeRange] = useState<number | null>(null);
-  const [metricsRange, setMetricsRange] = useState<number | null>(null);
-  const [hydRange, setHydRange] = useState<number | null>(null);
-  const [catRange, setCatRange] = useState<number | null>(null);
-
   /* Track today's task completion in localStorage */
   useEffect(() => {
     const allMissions = metas.flatMap(m => m.missions);
@@ -247,59 +240,53 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
     } catch { /* storage may be full */ }
   }, [metas]);
 
-  /* When global range changes, reset per-block overrides */
-  useEffect(() => {
-    setTaskRange(null);
-    setTimeRange(null);
-    setMetricsRange(null);
-    setHydRange(null);
-    setCatRange(null);
+  /* Resolve effective date range — sempre global */
+  const currentDateRange = useMemo((): string[] => {
+    if (useCustom && customStart && customEnd) return getDateRange(0, customStart, customEnd);
+    return getDateRange(globalRange);
   }, [globalRange, useCustom, customStart, customEnd]);
 
-  /* Resolve effective date range for a block */
-  const effectiveDateRange = (override: number | null): string[] => {
-    if (useCustom && customStart && customEnd) return getDateRange(0, customStart, customEnd);
-    return getDateRange(override ?? globalRange);
-  };
-
   /* ── Computed data ── */
-  const taskData = useMemo(() => getTaskHistory(effectiveDateRange(taskRange)), [taskRange, globalRange, useCustom, customStart, customEnd]);
-  const hydData = useMemo(() => getHydrationHistory(effectiveDateRange(hydRange)), [hydRange, globalRange, useCustom, customStart, customEnd]);
+  const taskData = useMemo(() => getTaskHistory(currentDateRange), [currentDateRange]);
+  const hydData = useMemo(() => getHydrationHistory(currentDateRange), [currentDateRange]);
 
   const timeStats = useMemo(() => {
-    const range = effectiveDateRange(timeRange);
-    // Se o range estiver vazio (ex: período custom sem datas), retorna zeros
-    if (range.length === 0) {
-      return { sleep: 0, busy: 0, free: 0, days: 0 };
-    }
-    const dayMap: Record<number, DayOfWeek> = { 0: 'dom', 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex', 6: 'sab' };
+    if (currentDateRange.length === 0) return { sleep: 0, busy: 0, free: 0, days: 0 };
+    const dowMap = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'] as const;
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
     let sleep = 0, busy = 0, free = 0;
-    range.forEach(date => {
-      const dow = dayMap[new Date(date + 'T12:00').getDay()];
-      // Missões agendadas para esse dia
+    currentDateRange.forEach(date => {
+      const dow = dowMap[new Date(date + 'T12:00').getDay()];
       const missionMins = metas.flatMap(m => m.missions)
-        .filter(mi => mi.scheduledDay === date && mi.estimatedMinutes)
+        .filter(mi => mi.scheduledDay === date)
         .reduce((s, mi) => s + (mi.estimatedMinutes || 0), 0);
-      // Afazeres agendados para esse dia
       const afazerMins = afazeres
-        .filter(a => a.startDate === date && a.estimatedMinutes)
-        .reduce((s, a) => s + (a.estimatedMinutes || 0), 0);
+        .filter(a => {
+          if (a.startDate === date) return true;
+          if (a.isRecurrent && a.recurrentDays) {
+            return a.recurrentDays.includes(dowMap[new Date(date + 'T12:00').getDay()]);
+          }
+          return false;
+        })
+        .reduce((s, a) => {
+          if (a.startTime && a.endTime) return s + Math.max(0, toMin(a.endTime) - toMin(a.startTime));
+          return s + (a.estimatedMinutes || 0);
+        }, 0);
       const sched = getDaySchedule(dow, missionMins + afazerMins);
       sleep += sched.sleepMinutes;
       busy += sched.busyMinutes;
       free += sched.freeMinutes;
     });
-    return { sleep, busy, free, days: range.length };
-  }, [timeRange, globalRange, metas, afazeres, getDaySchedule, useCustom, customStart, customEnd]);
+    return { sleep, busy, free, days: currentDateRange.length };
+  }, [currentDateRange, metas, afazeres, getDaySchedule]);
 
   const metricsData = useMemo(() => {
-    const range = effectiveDateRange(metricsRange);
     const stored: any[] = JSON.parse(localStorage.getItem('lifequest_task_history') || '[]');
-    const completed = range.reduce((s, d) => s + (stored.find(h => h.date === d)?.completed || 0), 0);
-    const missed = range.reduce((s, d) => s + (stored.find(h => h.date === d)?.missed || 0), 0);
+    const completed = currentDateRange.reduce((s, d) => s + (stored.find(h => h.date === d)?.completed || 0), 0);
+    const missed = currentDateRange.reduce((s, d) => s + (stored.find(h => h.date === d)?.missed || 0), 0);
     const total = completed + missed;
-    return { completed, missed, total, rate: total > 0 ? Math.round((completed / total) * 100) : 0, days: range.length };
-  }, [metricsRange, globalRange, useCustom, customStart, customEnd]);
+    return { completed, missed, total, rate: total > 0 ? Math.round((completed / total) * 100) : 0, days: currentDateRange.length };
+  }, [currentDateRange]);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const todayMissions = useMemo(() => {
@@ -329,38 +316,13 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
   };
 
   /* ── Block header helper ── */
-  const BlockHdr = ({
-    icon, title, range, setRange, showRange = true,
-  }: {
-    icon: React.ReactNode; title: string;
-    range: number | null; setRange: (v: number | null) => void; showRange?: boolean;
-  }) => {
-    const effectiveRange = range ?? globalRange;
-    return (
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
-          {icon} {title}
-        </h3>
-        {showRange && (
-          <div className="flex items-center gap-1.5">
-            {[7, 14, 30].map(d => (
-              <button
-                key={d}
-                onClick={() => setRange(d === globalRange && range === null ? null : d)}
-                className={`px-2 py-0.5 rounded-md text-[9px] font-display tracking-wider transition-all border ${
-                  effectiveRange === d
-                    ? 'bg-primary/15 text-primary border-primary/30'
-                    : 'text-muted-foreground border-transparent hover:border-border'
-                }`}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const BlockHdr = ({ icon, title }: { icon: React.ReactNode; title: string }) => (
+    <div className="flex items-center mb-4">
+      <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
+        {icon} {title}
+      </h3>
+    </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -461,7 +423,6 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <BlockHdr
             icon={<BarChart3 className="w-3.5 h-3.5 text-primary" />}
             title="Tarefas concluídas vs. perdidas"
-            range={taskRange} setRange={setTaskRange}
           />
 
           {taskData.every(d => d.Concluídas === 0 && d.Perdidas === 0) ? (
@@ -502,7 +463,6 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <BlockHdr
             icon={<Clock className="w-3.5 h-3.5 text-primary" />}
             title="Distribuição de tempo"
-            range={timeRange} setRange={setTimeRange}
           />
 
           <div className="space-y-3">
@@ -552,7 +512,6 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <BlockHdr
             icon={<TrendingUp className="w-3.5 h-3.5 text-primary" />}
             title="Métricas do período"
-            range={metricsRange} setRange={setMetricsRange}
           />
 
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -678,7 +637,6 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <BlockHdr
             icon={<Droplets className="w-3.5 h-3.5 text-primary" />}
             title="Hidratação diária"
-            range={hydRange} setRange={setHydRange}
           />
 
           {hydData.every(d => d['Ingestão (ml)'] === 0) ? (
@@ -720,7 +678,6 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <BlockHdr
             icon={<TrendingUp className="w-3.5 h-3.5 text-primary" />}
             title="Progresso por área"
-            range={catRange} setRange={setCatRange}
           />
 
           {catProgress.every(c => c.count === 0) ? (
