@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Swords, Plus, Users, Trophy, Clock, Check, X, Trash2, AlertTriangle, Crown, Medal, ChevronDown, ChevronUp, Inbox } from 'lucide-react';
+import { SwordClashAnimation } from '@/components/game/SwordClashAnimation';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -156,10 +157,8 @@ export function DueloPanel() {
     <div className="space-y-5">
       {/* Header */}
       <div className="section-card text-center">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-game-fire to-game-orange mx-auto flex items-center justify-center mb-3 shadow-lg">
-          <Swords className="w-7 h-7 text-white" />
-        </div>
-        <h2 className="font-display text-lg text-foreground mb-1">Duelos</h2>
+        <SwordClashAnimation />
+        <h2 className="font-display text-lg text-foreground mb-1 mt-1">Duelos</h2>
         <p className="text-sm text-muted-foreground font-body">Compita com outros e mantenha a consistência</p>
       </div>
 
