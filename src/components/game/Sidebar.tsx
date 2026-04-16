@@ -7,6 +7,7 @@ import {
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLevelFromXP } from '@/types/game';
+import { GlitchWord } from '@/components/game/GlitchWord';
 
 export type Page =
   | 'dashboard' | 'metas' | 'afazeres' | 'agenda'
@@ -81,7 +82,14 @@ export function DesktopSidebar({
         {!collapsed && (
           <div className="flex-1 min-w-0">
             <p className="font-display text-[9px] tracking-[0.28em] gradient-text uppercase font-bold leading-tight">SUA VIDA</p>
-            <p className="font-display text-[8px] tracking-[0.22em] text-muted-foreground uppercase leading-tight">É UM JOGO</p>
+            <p className="font-display text-[8px] tracking-[0.22em] text-muted-foreground uppercase leading-tight">
+              É UM{' '}
+              <GlitchWord
+                word="JOGO"
+                className="gradient-text"
+                buildDelay={400}
+              />
+            </p>
           </div>
         )}
         {onToggleSidebar && (

@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { GlitchWord } from '@/components/game/GlitchWord';
 
 /* ── Grid dot particle ── */
 function Particle({ style }: { style: React.CSSProperties }) {
@@ -202,8 +203,7 @@ export default function Auth() {
             <Zap className="w-8 h-8 text-black" strokeWidth={3} />
           </div>
           <div className="text-center">
-            <p
-              className="font-display text-base tracking-[0.28em] font-bold uppercase"
+            <p className="font-display text-base tracking-[0.28em] font-bold uppercase"
               style={{
                 background: 'linear-gradient(135deg, #00e879, #06d6e8)',
                 WebkitBackgroundClip: 'text',
@@ -211,7 +211,17 @@ export default function Auth() {
                 backgroundClip: 'text',
               }}
             >
-              SUA VIDA É UM JOGO
+              SUA VIDA É UM{' '}
+              <GlitchWord
+                word="JOGO"
+                buildDelay={600}
+                style={{
+                  background: 'linear-gradient(135deg, #00e879, #06d6e8)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              />
             </p>
             <p className="text-[9px] text-white/28 tracking-[0.22em] font-body uppercase mt-1">
               Plataforma de evolução pessoal
