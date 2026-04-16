@@ -1,66 +1,65 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
-/* ── Floating particle ── */
+/* ── Grid dot particle ── */
 function Particle({ style }: { style: React.CSSProperties }) {
-  return (
-    <div
-      className="absolute rounded-full pointer-events-none"
-      style={style}
-    />
-  );
+  return <div className="absolute rounded-full pointer-events-none" style={style} />;
 }
 
-const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
+const PARTICLES = Array.from({ length: 24 }, (_, i) => ({
   key: i,
   style: {
-    width: `${4 + (i % 5) * 3}px`,
-    height: `${4 + (i % 5) * 3}px`,
-    left: `${(i * 37 + 11) % 100}%`,
-    top: `${(i * 53 + 7) % 100}%`,
-    background: i % 3 === 0
-      ? 'rgba(251,191,36,0.25)'
-      : i % 3 === 1
-      ? 'rgba(234,179,8,0.15)'
-      : 'rgba(255,255,255,0.06)',
+    width:  `${3 + (i % 4) * 2}px`,
+    height: `${3 + (i % 4) * 2}px`,
+    left:   `${(i * 41 + 13) % 100}%`,
+    top:    `${(i * 57 +  9) % 100}%`,
+    background: i % 4 === 0
+      ? 'rgba(0,232,121,0.20)'
+      : i % 4 === 1
+      ? 'rgba(6,214,232,0.14)'
+      : i % 4 === 2
+      ? 'rgba(139,92,246,0.12)'
+      : 'rgba(255,255,255,0.05)',
     animation: `float-${(i % 3) + 1} ${5 + (i % 4)}s ease-in-out infinite`,
-    animationDelay: `${(i * 0.4) % 3}s`,
+    animationDelay: `${(i * 0.35) % 3}s`,
     filter: 'blur(1px)',
   } as React.CSSProperties,
 }));
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [mode, setMode]             = useState<'login' | 'signup'>('login');
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
+  const [whatsapp, setWhatsapp]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Floating particle animation keyframes injected once
+  /* Inject particle keyframes once */
   useEffect(() => {
     const id = 'auth-particle-style';
     if (document.getElementById(id)) return;
     const style = document.createElement('style');
     style.id = id;
     style.textContent = `
-      @keyframes float-1 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-18px) scale(1.1)} }
-      @keyframes float-2 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-10px) scale(0.9)} }
-      @keyframes float-3 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-25px) scale(1.05)} }
-      @keyframes glow-pulse { 0%,100%{opacity:.55} 50%{opacity:.85} }
-      @keyframes drift-x { 0%,100%{transform:translateX(0)} 50%{transform:translateX(30px)} }
+      @keyframes float-1 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-20px) scale(1.08)} }
+      @keyframes float-2 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-12px) scale(0.92)} }
+      @keyframes float-3 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-28px) scale(1.04)} }
+      @keyframes auth-glow { 0%,100%{opacity:.45} 50%{opacity:.80} }
+      @keyframes auth-drift { 0%,100%{transform:translateX(0)} 50%{transform:translateX(40px)} }
+      @keyframes auth-scan { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
     `;
     document.head.appendChild(style);
   }, []);
 
-  const toDigits = (v: string) => v.replace(/\D/g, '');
+  const toDigits   = (v: string) => v.replace(/\D/g, '');
   const formatPhone = (digits: string) => {
-    const d = digits.slice(0, 10);
+    const d   = digits.slice(0, 10);
     const ddd = d.slice(0, 2);
     const p1  = d.slice(2, 6);
     const p2  = d.slice(6, 10);
@@ -70,14 +69,20 @@ export default function Auth() {
     return `(${ddd}) ${p1}-${p2}`;
   };
 
-  const phoneDigits    = toDigits(whatsapp).slice(0, 10);
-  const phoneE164      = phoneDigits.length === 10 ? `55${phoneDigits}` : '';
+  const phoneDigits = toDigits(whatsapp).slice(0, 10);
+  const phoneE164   = phoneDigits.length === 10 ? `55${phoneDigits}` : '';
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#030610] flex items-center justify-center">
-        <div className="w-10 h-10 rounded-xl bg-yellow-400 flex items-center justify-center animate-pulse shadow-[0_0_24px_rgba(251,191,36,0.5)]">
-          <Zap className="w-5 h-5 text-black" />
+      <div className="min-h-screen bg-[#040a17] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center animate-glow-pulse"
+            style={{ boxShadow: '0 0 32px rgba(0,232,121,0.5)' }}>
+            <Zap className="w-6 h-6 text-black" strokeWidth={3} />
+          </div>
+          <div className="w-24 h-1 rounded-full bg-white/10 overflow-hidden">
+            <div className="w-full h-full bg-gradient-to-r from-[#00e879] to-[#06d6e8] animate-shimmer" />
+          </div>
         </div>
       </div>
     );
@@ -96,7 +101,6 @@ export default function Auth() {
     try {
       if (mode === 'login') {
         let { error } = await signIn(email, password);
-        // Se erro de email nao confirmado, tenta confirmar via edge function e loga de novo
         if (error && /not confirmed|não confirmado|não verificado|not verified/i.test(error.message)) {
           const { error: confirmErr } = await supabase.functions.invoke('create-confirmed-user', {
             body: { action: 'confirm', email },
@@ -115,20 +119,13 @@ export default function Auth() {
           toast.error('Informe DDD + número (8 dígitos).');
           return;
         }
-        // Cria usuário via signUp normal (email_confirm desativado no painel Supabase)
         const { error } = await signUp(email, password, displayName, phoneE164);
-        if (error) { 
-          toast.error(error.message); 
-          return; 
-        }
-        // Tenta login imediatamente
+        if (error) { toast.error(error.message); return; }
         const { error: loginErr } = await signIn(email, password);
         if (loginErr) {
           toast.success('Conta criada! Faça login para continuar.');
           setMode('login');
-          setPassword('');
-          setDisplayName('');
-          setWhatsapp('');
+          setPassword(''); setDisplayName(''); setWhatsapp('');
         } else {
           toast.success('Conta criada com sucesso!');
         }
@@ -144,31 +141,48 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-[#030610] flex items-center justify-center overflow-hidden relative">
+    <div className="min-h-screen bg-[#040a17] flex items-center justify-center overflow-hidden relative">
 
-      {/* ── Background atmospheric glows ── */}
+      {/* ── Atmospheric glows ── */}
       <div className="absolute inset-0 pointer-events-none">
+        <div
+          className="absolute w-[700px] h-[700px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(0,232,121,0.09) 0%, transparent 70%)',
+            top: '-20%', left: '-20%',
+            animation: 'auth-glow 5s ease-in-out infinite, auth-drift 10s ease-in-out infinite',
+          }}
+        />
         <div
           className="absolute w-[600px] h-[600px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(251,191,36,0.12) 0%, transparent 70%)',
-            top: '-15%', left: '-15%',
-            animation: 'glow-pulse 4s ease-in-out infinite, drift-x 8s ease-in-out infinite',
+            background: 'radial-gradient(circle, rgba(6,214,232,0.07) 0%, transparent 70%)',
+            bottom: '-20%', right: '-15%',
+            animation: 'auth-glow 6s ease-in-out infinite reverse',
           }}
         />
         <div
-          className="absolute w-[500px] h-[500px] rounded-full"
+          className="absolute w-[400px] h-[400px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(234,179,8,0.10) 0%, transparent 70%)',
-            bottom: '-15%', right: '-10%',
-            animation: 'glow-pulse 5s ease-in-out infinite reverse',
+            background: 'radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%)',
+            top: '40%', left: '60%',
+            animation: 'auth-glow 7s ease-in-out infinite 1s',
           }}
         />
+        {/* Subtle grid */}
         <div
-          className="absolute inset-0 opacity-[0.03]"
+          className="absolute inset-0 opacity-[0.025]"
           style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
+            backgroundImage: 'linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px)',
+            backgroundSize: '52px 52px',
+          }}
+        />
+        {/* Scan line */}
+        <div
+          className="absolute left-0 right-0 h-[2px] opacity-[0.04]"
+          style={{
+            background: 'linear-gradient(90deg, transparent, rgba(0,232,121,1), transparent)',
+            animation: 'auth-scan 8s linear infinite',
           }}
         />
       </div>
@@ -181,20 +195,43 @@ export default function Auth() {
 
         {/* Logo */}
         <div className="flex flex-col items-center mb-8 gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-yellow-400 flex items-center justify-center shadow-[0_0_32px_rgba(251,191,36,0.55)] mb-1">
-            <Zap className="w-7 h-7 text-black" />
+          <div
+            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center mb-1 animate-float"
+            style={{ boxShadow: '0 0 40px rgba(0,232,121,0.50), 0 0 80px rgba(0,232,121,0.20)' }}
+          >
+            <Zap className="w-8 h-8 text-black" strokeWidth={3} />
           </div>
           <div className="text-center">
-            <p className="font-display text-[15px] tracking-[0.28em] text-white font-bold">SUA VIDA É UM JOGO</p>
-            <p className="text-[9px] text-white/35 tracking-[0.22em] font-body uppercase mt-0.5">Plataforma de evolução pessoal</p>
+            <p
+              className="font-display text-base tracking-[0.28em] font-bold uppercase"
+              style={{
+                background: 'linear-gradient(135deg, #00e879, #06d6e8)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              SUA VIDA É UM JOGO
+            </p>
+            <p className="text-[9px] text-white/28 tracking-[0.22em] font-body uppercase mt-1">
+              Plataforma de evolução pessoal
+            </p>
           </div>
         </div>
 
         {/* Glass card */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_80px_rgba(0,0,0,0.6)] px-7 py-8">
-
-          {/* Tab switcher — no white bg container */}
-          <div className="flex mb-7 border-b border-white/10">
+        <div
+          className="rounded-2xl px-7 py-8"
+          style={{
+            background: 'rgba(13,21,38,0.75)',
+            border: '1px solid rgba(0,232,121,0.12)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,232,121,0.06)',
+          }}
+        >
+          {/* Tab switcher */}
+          <div className="flex mb-7 border-b border-white/8">
             {(['login', 'signup'] as const).map(m => (
               <button
                 key={m}
@@ -202,9 +239,12 @@ export default function Auth() {
                 onClick={() => switchMode(m)}
                 className={`flex-1 pb-3 text-[11px] font-display tracking-[0.2em] uppercase transition-all ${
                   mode === m
-                    ? 'text-yellow-400 border-b-2 border-yellow-400 -mb-px'
-                    : 'text-white/35 hover:text-white/55'
+                    ? '-mb-px border-b-2 border-[#00e879]'
+                    : 'text-white/30 hover:text-white/50'
                 }`}
+                style={mode === m
+                  ? { color: '#00e879', textShadow: '0 0 12px rgba(0,232,121,0.6)' }
+                  : {}}
               >
                 {m === 'login' ? 'Entrar' : 'Cadastrar'}
               </button>
@@ -216,7 +256,7 @@ export default function Auth() {
             <h1 className="font-display text-[22px] text-white tracking-wide">
               {mode === 'login' ? 'Acesso ao Sistema' : 'Iniciar Jornada'}
             </h1>
-            <p className="text-[11px] text-white/40 font-body mt-1.5 leading-relaxed">
+            <p className="text-[11px] text-white/38 font-body mt-1.5 leading-relaxed">
               {mode === 'login'
                 ? 'Entre e retome sua evolução de onde parou.'
                 : 'Crie sua conta e comece a evoluir hoje.'}
@@ -227,17 +267,23 @@ export default function Auth() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label className="block text-[9px] font-display tracking-[0.24em] text-white/35 uppercase mb-1.5">
+                <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
                   Nome de Exibição
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
                   <input
-                    type="text"
-                    value={displayName}
+                    type="text" value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
                     placeholder="Como quer ser chamado?"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 font-body focus:outline-none focus:border-yellow-400/40 focus:bg-yellow-400/[0.04] transition-all"
+                    className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body
+                      focus:outline-none transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.09)',
+                    }}
+                    onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,232,121,0.36)'}
+                    onBlur={e  => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
                   />
                 </div>
               </div>
@@ -245,60 +291,75 @@ export default function Auth() {
 
             {mode === 'signup' && (
               <div>
-                <label className="block text-[9px] font-display tracking-[0.24em] text-white/35 uppercase mb-1.5">
+                <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
                   WhatsApp
                 </label>
                 <div className="relative">
-                  {/* Flag inside the input field */}
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base leading-none select-none">🇧🇷</span>
                   <input
-                    type="tel"
-                    value={formatPhone(phoneDigits)}
+                    type="tel" value={formatPhone(phoneDigits)}
                     onChange={e => setWhatsapp(e.target.value)}
                     placeholder="(31) 1234-5678"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 font-body focus:outline-none focus:border-yellow-400/40 focus:bg-yellow-400/[0.04] transition-all"
+                    className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body
+                      focus:outline-none transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.09)',
+                    }}
+                    onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,232,121,0.36)'}
+                    onBlur={e  => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
                   />
                 </div>
-                <p className="text-[9px] text-white/25 font-body mt-1 ml-0.5">DDD + 8 dígitos</p>
+                <p className="text-[9px] text-white/22 font-body mt-1 ml-0.5">DDD + 8 dígitos</p>
               </div>
             )}
 
             <div>
-              <label className="block text-[9px] font-display tracking-[0.24em] text-white/35 uppercase mb-1.5">
+              <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
                 Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
                 <input
-                  type="email"
-                  value={email}
+                  type="email" value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
-                  required
-                  className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 font-body focus:outline-none focus:border-yellow-400/40 focus:bg-yellow-400/[0.04] transition-all"
+                  placeholder="seu@email.com" required
+                  className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body
+                    focus:outline-none transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.09)',
+                  }}
+                  onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,232,121,0.36)'}
+                  onBlur={e  => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[9px] font-display tracking-[0.24em] text-white/35 uppercase mb-1.5">
+              <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
                 Senha
               </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  minLength={6}
-                  className="w-full pl-9 pr-11 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 font-body focus:outline-none focus:border-yellow-400/40 focus:bg-yellow-400/[0.04] transition-all"
+                  placeholder="••••••••" required minLength={6}
+                  className="w-full pl-9 pr-11 py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body
+                    focus:outline-none transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.09)',
+                  }}
+                  onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,232,121,0.36)'}
+                  onBlur={e  => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/55 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/28 hover:text-white/55 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
@@ -308,10 +369,20 @@ export default function Auth() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full mt-2 py-3.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black font-display text-sm tracking-[0.18em] uppercase font-bold flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 shadow-[0_0_28px_rgba(251,191,36,0.4)] hover:shadow-[0_0_36px_rgba(251,191,36,0.6)]"
+              className="w-full mt-2 py-3.5 rounded-xl font-display text-sm tracking-[0.18em] uppercase font-bold
+                flex items-center justify-center gap-2.5 transition-all disabled:opacity-50"
+              style={{
+                background: submitting
+                  ? 'rgba(0,232,121,0.5)'
+                  : 'linear-gradient(135deg, #00e879, #06d6e8)',
+                color: '#040a17',
+                boxShadow: submitting
+                  ? 'none'
+                  : '0 0 30px rgba(0,232,121,0.42), 0 4px 16px rgba(0,0,0,0.3)',
+              }}
             >
               {submitting ? (
-                <div className="w-4.5 h-4.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-black/25 border-t-black/70 rounded-full animate-spin" />
               ) : (
                 <>
                   {mode === 'login' ? 'Entrar no Sistema' : 'Criar Conta'}
@@ -321,10 +392,20 @@ export default function Auth() {
             </button>
           </form>
 
-          {/* Footer note */}
-          <p className="text-[9px] text-white/20 font-body text-center mt-6">
-            © 2026 Sua Vida é um Jogo — Plataforma de evolução pessoal gamificada
-          </p>
+          {/* Features hint */}
+          <div className="mt-6 pt-5 border-t border-white/6">
+            <div className="flex items-center justify-center gap-4">
+              {['Metas com IA', 'Gamificação', 'Evolução diária'].map(f => (
+                <div key={f} className="flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5" style={{ color: '#00e879' }} />
+                  <span className="text-[8px] text-white/22 font-body">{f}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[8px] text-white/16 font-body text-center mt-3">
+              © 2026 Sua Vida é um Jogo
+            </p>
+          </div>
         </div>
       </div>
     </div>
