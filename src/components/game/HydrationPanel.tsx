@@ -188,7 +188,7 @@ export function HydrationPanel() {
           <span className="text-xs font-body text-primary">{consistencyDays}/7 dias atingidos</span>
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1">
           {last7Days.map(day => {
             const dayPercent = Math.min(100, Math.round((day.consumed / day.goal) * 100));
             return (

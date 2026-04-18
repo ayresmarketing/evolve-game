@@ -421,7 +421,7 @@ function TransactionRow({
       <span className={`font-display text-sm font-bold shrink-0 ${t.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
         {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
       </span>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+      <div className="flex items-center gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
         <button onClick={() => setEditing(true)}
           className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Editar">
           <Pencil className="w-3.5 h-3.5" />
@@ -756,7 +756,7 @@ export function FinancePanel() {
             </div>
             <div>
               <p className="text-[9px] font-display tracking-[0.18em] text-muted-foreground uppercase">{card.label}</p>
-              <p className={`font-display text-sm font-bold ${card.color}`}>{formatCurrency(card.value)}</p>
+              <p className={`font-display text-xs sm:text-sm font-bold ${card.color}`}>{formatCurrency(card.value)}</p>
             </div>
           </div>
         ))}
@@ -777,7 +777,7 @@ export function FinancePanel() {
         <>
           {/* Filtro de período */}
           <div className="section-card">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
               <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground uppercase flex items-center gap-2">
                 <BarChart3 className="w-3.5 h-3.5 text-primary" /> Fluxo de Caixa
               </h3>

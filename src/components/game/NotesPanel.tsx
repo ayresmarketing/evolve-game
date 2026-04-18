@@ -215,7 +215,7 @@ export function NotesPanel() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                           <button onClick={() => toggleFavorite(note.id)}
                             className={`p-1.5 rounded-lg hover:bg-secondary ${note.favorited ? 'text-game-gold' : 'text-muted-foreground'}`}>
                             <Star className={`w-3.5 h-3.5 ${note.favorited ? 'fill-game-gold' : ''}`} />

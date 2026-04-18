@@ -98,7 +98,7 @@ export function AfazeresPanel() {
     <div className="space-y-5">
       {/* Link prompt dialog */}
       {showLinkPrompt && pendingAfazer && (
-        <div className="glass-card rounded-2xl p-5 animate-slide-up border border-primary/20">
+        <div className="glass-card rounded-2xl p-4 animate-slide-up border border-primary/20">
           <h3 className="font-display text-[11px] tracking-[0.2em] text-primary mb-3 uppercase">🔗 Isso faz parte de alguma meta?</h3>
           <div className="space-y-2 mb-4">
             {metas.filter(m => !m.completed).map(m => (
@@ -136,7 +136,7 @@ export function AfazeresPanel() {
 
       {/* Creation form */}
       {showForm && !showLinkPrompt && (
-        <div className="glass-card rounded-2xl p-6 animate-slide-up">
+        <div className="glass-card rounded-2xl p-4 sm:p-6 animate-slide-up">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-display text-[11px] tracking-[0.2em] text-primary uppercase">Novo Afazer</h3>
             <button onClick={resetForm} className="p-2 rounded-lg hover:bg-secondary"><X className="w-4 h-4 text-muted-foreground" /></button>
