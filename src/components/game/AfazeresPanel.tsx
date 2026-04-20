@@ -21,6 +21,10 @@ export function AfazeresPanel() {
   const [estimatedMinutes, setEstimatedMinutes] = useState('');
   const [showLinkPrompt, setShowLinkPrompt] = useState(false);
   const [pendingAfazer, setPendingAfazer] = useState<any>(null);
+  const [showDescription, setShowDescription] = useState(false);
+  const [dateOption, setDateOption] = useState<'today' | 'tomorrow' | 'custom'>('today');
+  const [hasDailyTime, setHasDailyTime] = useState(false);
+  const [dailyTime, setDailyTime] = useState('');
 
   const inputClass = "w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
 
@@ -40,13 +44,27 @@ export function AfazeresPanel() {
 
   const handleSubmit = () => {
     if (!title.trim()) return;
+
+    // Compute startDate from dateOption
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const resolvedStartDate = dateOption === 'today' ? today : dateOption === 'tomorrow' ? tomorrow : startDate;
+
+    // Daily time option: override startTime + force recurrence on all days
+    const resolvedStartTime = hasDailyTime && dailyTime ? dailyTime : (startTime || undefined);
+    const resolvedIsRecurrent = hasDailyTime ? true : isRecurrent;
+    const resolvedRecurrentDays = hasDailyTime
+      ? (['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'] as DayOfWeek[])
+      : (isRecurrent ? recurrentDays : undefined);
+
     // If start time set but no end time, require estimated minutes
-    if (needsEstimate && !estimatedMinutes) return;
+    const effectiveNeedsEstimate = resolvedStartTime && !endTime;
+    if (effectiveNeedsEstimate && !estimatedMinutes) return;
 
     // Calculate estimated minutes from time range if both provided
     let finalEstimatedMinutes = estimatedMinutes ? parseInt(estimatedMinutes) : undefined;
-    if (hasTimeRange && !finalEstimatedMinutes) {
-      const [sh, sm] = startTime.split(':').map(Number);
+    if (resolvedStartTime && endTime && !finalEstimatedMinutes) {
+      const [sh, sm] = resolvedStartTime.split(':').map(Number);
       const [eh, em] = endTime.split(':').map(Number);
       let diff = (eh * 60 + em) - (sh * 60 + sm);
       if (diff < 0) diff += 24 * 60;
@@ -55,15 +73,15 @@ export function AfazeresPanel() {
 
     const data = {
       title: title.trim(),
-      description: description.trim() || undefined,
+      description: (showDescription && description.trim()) ? description.trim() : undefined,
       category,
-      startDate,
+      startDate: resolvedStartDate,
       endDate: endDate || undefined,
-      startTime: startTime || undefined,
+      startTime: resolvedStartTime,
       endTime: endTime || undefined,
-      isRecurrent,
-      recurrentDays: isRecurrent ? recurrentDays : undefined,
-      recurrentEndDate: isRecurrent && recurrentEndDate ? recurrentEndDate : undefined,
+      isRecurrent: resolvedIsRecurrent,
+      recurrentDays: resolvedRecurrentDays,
+      recurrentEndDate: resolvedIsRecurrent && recurrentEndDate ? recurrentEndDate : undefined,
       linkedMetaId: linkedMetaId || undefined,
       estimatedMinutes: finalEstimatedMinutes,
     };
@@ -81,6 +99,7 @@ export function AfazeresPanel() {
     setEndDate(''); setStartTime(''); setEndTime(''); setIsRecurrent(false);
     setRecurrentDays([]); setRecurrentEndDate(''); setLinkedMetaId('');
     setEstimatedMinutes(''); setShowForm(false); setShowLinkPrompt(false); setPendingAfazer(null);
+    setShowDescription(false); setDateOption('today'); setHasDailyTime(false); setDailyTime('');
   };
 
   const completedAfazeres = afazeres.filter(a => a.completed);
@@ -147,8 +166,32 @@ export function AfazeresPanel() {
               <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Ir ao mercado" className={inputClass} autoFocus />
             </div>
             <div>
-              <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Descrição (opcional)</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes da tarefa..." className={`${inputClass} min-h-[60px] resize-none`} />
+              <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Quando?</label>
+              <div className="flex gap-2 mb-2">
+                {(['today', 'tomorrow', 'custom'] as const).map(opt => (
+                  <button key={opt} type="button" onClick={() => setDateOption(opt)}
+                    className={`flex-1 py-2 px-2 rounded-xl text-xs font-body font-semibold border transition-all ${
+                      dateOption === opt ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'
+                    }`}>
+                    {opt === 'today' ? 'Hoje' : opt === 'tomorrow' ? 'Amanhã' : 'Outra data'}
+                  </button>
+                ))}
+              </div>
+              {dateOption === 'custom' && (
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputClass} />
+              )}
+            </div>
+            <div>
+              <button type="button" onClick={() => setShowDescription(p => !p)}
+                className="flex items-center gap-2 text-xs font-body text-muted-foreground hover:text-foreground transition-colors mb-1">
+                <span className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${showDescription ? 'bg-primary border-primary' : 'border-border'}`}>
+                  {showDescription && <span className="text-primary-foreground text-[10px] font-bold">✓</span>}
+                </span>
+                Adicionar descrição (opcional)
+              </button>
+              {showDescription && (
+                <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes da tarefa..." className={`${inputClass} min-h-[60px] resize-none mt-2`} />
+              )}
             </div>
             <div>
               <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Categoria</label>
@@ -163,15 +206,9 @@ export function AfazeresPanel() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Data início</label>
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Data término</label>
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputClass} />
-              </div>
+            <div>
+              <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Data término (opcional)</label>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputClass} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -203,30 +240,51 @@ export function AfazeresPanel() {
               </div>
             )}
 
-            {/* Recurrence */}
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setIsRecurrent(!isRecurrent)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-body font-semibold border transition-all ${isRecurrent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
-                <Repeat className="w-3.5 h-3.5" /> Tarefa recorrente
+            {/* Daily fixed time */}
+            <div>
+              <button type="button" onClick={() => setHasDailyTime(p => !p)}
+                className="flex items-center gap-2 text-xs font-body text-muted-foreground hover:text-foreground transition-colors mb-1">
+                <span className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${hasDailyTime ? 'bg-primary border-primary' : 'border-border'}`}>
+                  {hasDailyTime && <span className="text-primary-foreground text-[10px] font-bold">✓</span>}
+                </span>
+                Esta tarefa acontece todo dia em um horário fixo
               </button>
+              {hasDailyTime && (
+                <div className="mt-2">
+                  <input type="time" value={dailyTime} onChange={e => setDailyTime(e.target.value)} className={inputClass} />
+                  <p className="text-[10px] text-muted-foreground font-body mt-1">⟳ Será criada como tarefa recorrente todos os dias neste horário.</p>
+                </div>
+              )}
             </div>
-            {isRecurrent && (
-              <div className="space-y-3 pl-2 border-l-2 border-primary/20">
-                <div className="flex gap-1.5 flex-wrap">
-                  {DAYS_OF_WEEK.map(d => (
-                    <button key={d.value} type="button" onClick={() => toggleDay(d.value)}
-                      className={`w-9 h-9 rounded-lg text-xs font-body font-bold border transition-all ${
-                        recurrentDays.includes(d.value) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'
-                      }`}>
-                      {d.short}
-                    </button>
-                  ))}
+
+            {/* Recurrence */}
+            {!hasDailyTime && (
+              <>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setIsRecurrent(!isRecurrent)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-body font-semibold border transition-all ${isRecurrent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                    <Repeat className="w-3.5 h-3.5" /> Tarefa recorrente
+                  </button>
                 </div>
-                <div>
-                  <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Finaliza em</label>
-                  <input type="date" value={recurrentEndDate} onChange={e => setRecurrentEndDate(e.target.value)} className={inputClass} />
-                </div>
-              </div>
+                {isRecurrent && (
+                  <div className="space-y-3 pl-2 border-l-2 border-primary/20">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {DAYS_OF_WEEK.map(d => (
+                        <button key={d.value} type="button" onClick={() => toggleDay(d.value)}
+                          className={`w-9 h-9 rounded-lg text-xs font-body font-bold border transition-all ${
+                            recurrentDays.includes(d.value) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'
+                          }`}>
+                          {d.short}
+                        </button>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Finaliza em</label>
+                      <input type="date" value={recurrentEndDate} onChange={e => setRecurrentEndDate(e.target.value)} className={inputClass} />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Link to meta */}
@@ -242,7 +300,7 @@ export function AfazeresPanel() {
               </div>
             )}
 
-            <button type="button" onClick={handleSubmit} disabled={!title.trim() || (needsEstimate && !estimatedMinutes)}
+            <button type="button" onClick={handleSubmit} disabled={!title.trim()}
               className="w-full bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.2em] py-3 rounded-xl hover:shadow-glow-cyan transition-all duration-300 uppercase font-bold disabled:opacity-40">
               ✅ CRIAR AFAZER
             </button>

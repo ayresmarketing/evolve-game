@@ -21,7 +21,7 @@
     --secondary-foreground: 224 28% 22%;
 
     --muted: 220 20% 90%;
-    --muted-foreground: 220 12% 46%;
+    --muted-foreground: 220 12% 55%;
 
     --accent: 152 100% 38%;
     --accent-foreground: 0 0% 100%;
@@ -94,7 +94,7 @@
     --secondary-foreground: 210 18% 74%;
 
     --muted: 222 35% 13.5%;
-    --muted-foreground: 220 14% 52%;
+    --muted-foreground: 220 14% 68%;
 
     --accent: 152 100% 50%;
     --accent-foreground: 224 50% 5%;
@@ -157,6 +157,9 @@
   }
 
   h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); }
+
+  /* Prevent iOS auto-zoom on input focus */
+  input, textarea, select { font-size: max(16px, 1em); }
 
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }

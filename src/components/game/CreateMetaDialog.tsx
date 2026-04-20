@@ -10,13 +10,8 @@ type PlanningMode = 'ai' | 'manual';
 
 const META_EXAMPLES = [
   'Ler 12 livros no ano',
-  'Perder 8kg em 6 meses',
   'Aprender inglês fluente',
-  'Passar em um concurso público',
   'Economizar R$ 10.000',
-  'Correr uma maratona',
-  'Meditar todos os dias',
-  'Criar uma rotina espiritual',
 ];
 
 interface ManualTask {
@@ -253,24 +248,29 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
 
   return (
     /* Modal overlay */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="glass-card rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slide-up shadow-2xl">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h3 className="font-display text-[11px] tracking-[0.2em] text-primary uppercase">Criar Nova Meta</h3>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass-card rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col animate-slide-up shadow-2xl overflow-hidden">
+      {/* Fixed header */}
+      <div className="shrink-0 px-5 pt-5 pb-0">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h3 className="font-display text-[11px] tracking-[0.2em] text-primary uppercase">Criar Nova Meta</h3>
+          </div>
+          <button onClick={() => { setOpen(false); reset(); }} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
-        <button onClick={() => { setOpen(false); reset(); }} className="p-2 rounded-lg hover:bg-secondary transition-colors">
-          <X className="w-4 h-4 text-muted-foreground" />
-        </button>
+        {/* Progress bar */}
+        <div className="flex gap-1.5 mb-4">
+          {[1, 2, 3, 4, 5].map(s => (
+            <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-300 ${s <= step ? 'bg-primary' : 'bg-muted'}`} />
+          ))}
+        </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="flex gap-1.5 mb-6">
-        {[1, 2, 3, 4, 5].map(s => (
-          <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-300 ${s <= step ? 'bg-primary' : 'bg-muted'}`} />
-        ))}
-      </div>
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto px-5 py-4">
 
       {/* Step 1: Meta + Category + Planning Mode */}
       {step === 1 && (
@@ -333,6 +333,11 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
                 <p className="text-[10px] text-muted-foreground font-body mt-1">Você define suas missões e tarefas</p>
               </button>
             </div>
+            {planningMode === 'ai' && (
+              <p className="text-xs font-body text-muted-foreground bg-muted/40 border border-border/50 rounded-lg px-3 py-2 leading-relaxed">
+                ⚠️ <strong className="text-foreground">Sugestões geradas por IA.</strong> Os planos são sugestões automáticas e podem conter erros ou imprecisões. Cabe ao usuário revisar e adaptar conforme sua realidade antes de usar.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -496,8 +501,10 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
         </div>
       )}
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+      </div>{/* end scrollable */}
+
+      {/* Navigation — always visible at bottom */}
+      <div className="shrink-0 flex items-center justify-between px-5 py-4 border-t border-border bg-card/90 backdrop-blur-sm">
         {step > 1 ? (
           <button type="button" onClick={() => setStep((step - 1) as Step)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-body text-muted-foreground hover:text-foreground transition-all">
