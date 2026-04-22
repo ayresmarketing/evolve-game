@@ -803,9 +803,10 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
 /* ═══════════════════════════════════════════════
    COMPONENT — Agenda page
 ═══════════════════════════════════════════════ */
-function AgendaPage({ pendingToken, pendingMode, onTokenConsumed }: {
+function AgendaPage({ pendingToken, pendingMode, pendingExpiresIn, onTokenConsumed }: {
   pendingToken?: string | null;
   pendingMode?: 'partial' | 'total' | null;
+  pendingExpiresIn?: number | null;
   onTokenConsumed?: () => void;
 }) {
   const [gcalOpen, setGcalOpen] = useState(false);
@@ -887,6 +888,7 @@ function AgendaPage({ pendingToken, pendingMode, onTokenConsumed }: {
         onOpenChange={v => { setGcalOpen(v); if (!v) onTokenConsumed?.(); }}
         onSuccess={handleIntegrationSuccess}
         initialToken={pendingToken}
+        initialExpiresIn={pendingExpiresIn}
         initialMode={pendingMode}
       />
     </div>
@@ -918,18 +920,21 @@ function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [pendingGcalToken, setPendingGcalToken] = useState<string | null>(null);
   const [pendingGcalMode, setPendingGcalMode] = useState<'partial' | 'total' | null>(null);
+  const [pendingGcalExpiresIn, setPendingGcalExpiresIn] = useState<number | null>(null);
 
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.substring(1));
       const token = params.get('access_token');
+      const expiresIn = params.get('expires_in');
       const mode = sessionStorage.getItem('gcal_pending_mode') as 'partial' | 'total' | null;
       if (token) {
         window.history.replaceState(null, '', window.location.pathname);
         sessionStorage.removeItem('gcal_pending_mode');
         setPendingGcalToken(token);
         setPendingGcalMode(mode || 'partial');
+        setPendingGcalExpiresIn(expiresIn ? parseInt(expiresIn) : 3600);
         setCurrentPage('agenda');
       }
     }
@@ -999,7 +1004,8 @@ function Dashboard() {
           <AgendaPage
             pendingToken={pendingGcalToken}
             pendingMode={pendingGcalMode}
-            onTokenConsumed={() => { setPendingGcalToken(null); setPendingGcalMode(null); }}
+            pendingExpiresIn={pendingGcalExpiresIn}
+            onTokenConsumed={() => { setPendingGcalToken(null); setPendingGcalMode(null); setPendingGcalExpiresIn(null); }}
           />
         );
 

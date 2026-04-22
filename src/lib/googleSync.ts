@@ -1,8 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const GCAL_BASE = 'https://www.googleapis.com/calendar/v3/calendars';
 
-/** Busca o token do Google e o ID da agenda do perfil do usuário */
+/** Busca o token do Google, verifica expiração e retorna null (com aviso) se expirado */
 async function getGoogleAuth(): Promise<{ token: string; calendarId: string } | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -16,6 +17,18 @@ async function getGoogleAuth(): Promise<{ token: string; calendarId: string } | 
   const prefs = (profile?.preferences as any) || {};
   const token = prefs.google_access_token;
   if (!token) return null;
+
+  // Verifica expiração — token OAuth dura ~1h
+  const expiry = prefs.google_token_expiry;
+  if (expiry && new Date(expiry) <= new Date()) {
+    // Token expirado: limpa e avisa o usuário
+    const cleaned = { ...prefs };
+    delete cleaned.google_access_token;
+    delete cleaned.google_token_expiry;
+    await supabase.from('profiles').update({ preferences: cleaned }).eq('user_id', user.id);
+    toast.error('Sessão do Google Agenda expirou. Reconecte na aba Agenda.', { id: 'gcal-expired', duration: 8000 });
+    return null;
+  }
 
   return {
     token,
@@ -74,10 +87,18 @@ export async function googleCreateEvent(payload: {
       }
     );
 
-    if (!res.ok) return undefined;
+    if (res.status === 401) {
+      toast.error('Sessão do Google Agenda expirou. Reconecte na aba Agenda.', { id: 'gcal-expired', duration: 8000 });
+      return undefined;
+    }
+    if (!res.ok) {
+      console.error('[googleSync] createEvent error', res.status, await res.text());
+      return undefined;
+    }
     const data = await res.json();
     return data.id as string | undefined;
-  } catch {
+  } catch (err) {
+    console.error('[googleSync] createEvent exception', err);
     return undefined;
   }
 }
@@ -109,7 +130,7 @@ export async function googleUpdateEvent(payload: {
       patch.end = { date: endDate || startDate };
     }
 
-    await fetch(
+    const res = await fetch(
       `${GCAL_BASE}/${encodeURIComponent(auth.calendarId)}/events/${encodeURIComponent(eventId)}`,
       {
         method: 'PATCH',
@@ -120,8 +141,13 @@ export async function googleUpdateEvent(payload: {
         body: JSON.stringify(patch),
       }
     );
-  } catch {
-    // não bloqueia o app
+    if (res.status === 401) {
+      toast.error('Sessão do Google Agenda expirou. Reconecte na aba Agenda.', { id: 'gcal-expired', duration: 8000 });
+    } else if (!res.ok) {
+      console.error('[googleSync] updateEvent error', res.status, await res.text());
+    }
+  } catch (err) {
+    console.error('[googleSync] updateEvent exception', err);
   }
 }
 
@@ -132,15 +158,20 @@ export async function googleDeleteEvent(eventId: string): Promise<void> {
     const auth = await getGoogleAuth();
     if (!auth) return;
 
-    await fetch(
+    const res = await fetch(
       `${GCAL_BASE}/${encodeURIComponent(auth.calendarId)}/events/${encodeURIComponent(eventId)}`,
       {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${auth.token}` },
       }
     );
-  } catch {
-    // não bloqueia o app
+    if (res.status === 401) {
+      toast.error('Sessão do Google Agenda expirou. Reconecte na aba Agenda.', { id: 'gcal-expired', duration: 8000 });
+    } else if (!res.ok && res.status !== 404) {
+      console.error('[googleSync] deleteEvent error', res.status);
+    }
+  } catch (err) {
+    console.error('[googleSync] deleteEvent exception', err);
   }
 }
 
@@ -171,8 +202,8 @@ export async function googleListEvents(timeMin?: string, timeMax?: string): Prom
   }
 }
 
-/** Salva o token do Google no perfil */
-export async function googleSaveToken(accessToken: string, mode: string, calendarId: string): Promise<void> {
+/** Salva o token do Google no perfil (com expiração e normalização de modo) */
+export async function googleSaveToken(accessToken: string, mode: string, calendarId: string, expiresIn?: number): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
@@ -183,14 +214,20 @@ export async function googleSaveToken(accessToken: string, mode: string, calenda
     .single();
 
   const prefs = (profile?.preferences as any) || {};
+  // Normaliza 'total' → 'full' para consistência interna
+  const normalizedMode = mode === 'total' ? 'full' : mode;
+  // Token expira em expiresIn segundos (padrão 3600 = 1h). Salva com 5min de margem
+  const expiry = new Date(Date.now() + ((expiresIn || 3600) - 300) * 1000).toISOString();
+
   await supabase
     .from('profiles')
     .update({
       preferences: {
         ...prefs,
         google_access_token: accessToken,
-        google_calendar_mode: mode,
+        google_calendar_mode: normalizedMode,
         google_calendar_id: calendarId,
+        google_token_expiry: expiry,
       },
     })
     .eq('user_id', user.id);

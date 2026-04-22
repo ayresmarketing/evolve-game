@@ -30,15 +30,18 @@ interface Props {
   onSuccess?: () => void;
   /** Token vindo do redirect OAuth — pula direto para seleção de agenda */
   initialToken?: string | null;
+  /** Tempo de expiração em segundos do token OAuth */
+  initialExpiresIn?: number | null;
   /** Modo escolhido antes do redirect */
   initialMode?: IntegrationMode;
 }
 
-export function GoogleCalendarDialog({ open, onOpenChange, onSuccess, initialToken, initialMode }: Props) {
+export function GoogleCalendarDialog({ open, onOpenChange, onSuccess, initialToken, initialExpiresIn, initialMode }: Props) {
   const [status, setStatus] = useState<GoogleCalendarStatus>({ connected: false, mode: null, loading: true });
   const [selectedMode, setSelectedMode] = useState<IntegrationMode>(initialMode || null);
   const [connecting, setConnecting] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [tokenExpiresIn, setTokenExpiresIn] = useState<number | null>(null);
   const [calendars, setCalendars] = useState<GCalCalendar[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>('primary');
 
@@ -50,9 +53,10 @@ export function GoogleCalendarDialog({ open, onOpenChange, onSuccess, initialTok
   useEffect(() => {
     if (!initialToken) return;
     setAccessToken(initialToken);
+    if (initialExpiresIn) setTokenExpiresIn(initialExpiresIn);
     if (initialMode) setSelectedMode(initialMode);
     fetchCalendars(initialToken);
-  }, [initialToken, initialMode]);
+  }, [initialToken, initialExpiresIn, initialMode]);
 
   const fetchCalendars = async (token: string) => {
     try {
@@ -122,9 +126,11 @@ export function GoogleCalendarDialog({ open, onOpenChange, onSuccess, initialTok
 
   const finalizeIntegration = async () => {
     if (!accessToken || !selectedMode) return;
-    await googleSaveToken(accessToken, selectedMode, selectedCalendarId);
+    const expiresIn = tokenExpiresIn || 3600;
+    await googleSaveToken(accessToken, selectedMode, selectedCalendarId, expiresIn);
     setAccessToken(null);
     setCalendars([]);
+    setTokenExpiresIn(null);
     toast.success('Google Agenda integrada com sucesso!');
     onOpenChange(false);
     onSuccess?.();

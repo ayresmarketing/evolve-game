@@ -30,7 +30,9 @@ export function useGoogleCalendarSync() {
   const getSyncMode = useCallback(async (): Promise<'partial' | 'full' | null> => {
     try {
       const result = await googleGetStatus();
-      return (result.mode as 'partial' | 'full' | null) || null;
+      // Normaliza 'total' → 'full' para compatibilidade com tokens salvos antes da fix
+      const mode = result.mode === 'total' ? 'full' : result.mode;
+      return (mode as 'partial' | 'full' | null) || null;
     } catch {
       return null;
     }
