@@ -41,3 +41,4 @@ service-account*.json
 *.njsproj
 *.sln
 *.sw?
+.mcp.json
