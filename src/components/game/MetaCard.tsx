@@ -52,11 +52,14 @@ function MissionTimer({ metaId, mission }: { metaId: string; mission: any }) {
 }
 
 export function MetaCard({ meta }: { meta: Meta }) {
-  const { completeMission, uncompleteMission, completeEtapa, deleteMeta, deleteMission, scheduleMission, scheduleAllMissions, completeMeta, updateMissionEstimate, stats } = useGame();
+  const { completeMission, uncompleteMission, completeEtapa, deleteMeta, deleteMission, scheduleMission, scheduleAllMissions, completeMeta, updateMissionEstimate, updateMission, stats } = useGame();
   const schedule = useSchedule();
   const [expanded, setExpanded] = useState(false);
   const [editingEstimate, setEditingEstimate] = useState<string | null>(null);
   const [estimateValue, setEstimateValue] = useState('');
+  const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const [editTitleValue, setEditTitleValue] = useState('');
+  const [editDescValue, setEditDescValue] = useState('');
   const cat = CATEGORY_CONFIG[meta.category];
   const streakMult = getStreakMultiplier(stats.streak);
 
@@ -178,15 +181,35 @@ export function MetaCard({ meta }: { meta: Meta }) {
                     {mission.completedToday ? <CheckCircle2 className="w-5 h-5 text-game-green" /> : <Circle className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />}
                   </button>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`text-sm font-body font-bold ${mission.completedToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{mission.title}</p>
-                      {mission.completedToday && (
-                        <button onClick={() => uncompleteMission(meta.id, mission.id)} className="p-0.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground" title="Desfazer">
-                          <Undo2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{mission.description}</p>
+                    {editingTitle === mission.id ? (
+                      <div className="space-y-2 mb-2">
+                        <input value={editTitleValue} onChange={e => setEditTitleValue(e.target.value)} autoFocus
+                          className="w-full bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm font-body text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                        <textarea value={editDescValue} onChange={e => setEditDescValue(e.target.value)} rows={2}
+                          className="w-full bg-secondary border border-border rounded-lg px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none" placeholder="Descrição (opcional)" />
+                        <div className="flex gap-2">
+                          <button onClick={() => { updateMission(meta.id, mission.id, { title: editTitleValue.trim() || mission.title, description: editDescValue.trim() || undefined }); setEditingTitle(null); }}
+                            className="px-3 py-1 rounded-lg bg-primary/10 text-primary text-[10px] font-display hover:bg-primary/20">Salvar</button>
+                          <button onClick={() => setEditingTitle(null)} className="px-3 py-1 rounded-lg text-muted-foreground text-[10px] font-body">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className={`text-sm font-body font-bold ${mission.completedToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{mission.title}</p>
+                        {!mission.completedToday && (
+                          <button onClick={() => { setEditingTitle(mission.id); setEditTitleValue(mission.title); setEditDescValue(mission.description || ''); }}
+                            className="p-0.5 rounded hover:bg-secondary text-muted-foreground hover:text-primary transition-colors" title="Editar título">
+                            <Edit3 className="w-3 h-3" />
+                          </button>
+                        )}
+                        {mission.completedToday && (
+                          <button onClick={() => uncompleteMission(meta.id, mission.id)} className="p-0.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground" title="Desfazer">
+                            <Undo2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {editingTitle !== mission.id && <p className="text-xs text-muted-foreground mt-1">{mission.description}</p>}
 
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className={`text-[9px] px-2 py-0.5 rounded-lg font-display tracking-wider uppercase ${

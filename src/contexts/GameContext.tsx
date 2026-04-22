@@ -73,11 +73,13 @@ interface GameContextType extends GameState {
   startMissionTimer: (metaId: string, missionId: string) => void;
   stopMissionTimer: (metaId: string, missionId: string) => void;
   addAfazer: (afazer: Omit<Afazer, 'id' | 'completed' | 'xpReward' | 'createdAt'>) => void;
+  updateAfazer: (id: string, updates: Partial<Pick<Afazer, 'title' | 'description' | 'category' | 'startDate' | 'endDate' | 'startTime' | 'endTime' | 'estimatedMinutes'>>) => void;
   completeAfazer: (id: string) => void;
   uncompleteAfazer: (id: string) => void;
   deleteAfazer: (id: string) => void;
   startAfazerTimer: (id: string) => void;
   stopAfazerTimer: (id: string) => void;
+  updateMission: (metaId: string, missionId: string, updates: { title?: string; description?: string }) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -540,6 +542,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const deleteMeta = useCallback(async (metaId: string) => {
     if (!userId) return;
+    // Delete Google Calendar events for all missions in this meta
+    const { data: mRows } = await supabase.from('missions').select('google_event_id').eq('meta_id', metaId) as any;
+    if (mRows) {
+      for (const m of mRows) {
+        if (m.google_event_id) googleDeleteEvent(m.google_event_id);
+      }
+    }
     await supabase.from('metas').delete().eq('id', metaId);
     setState(prev => ({ ...prev, metas: prev.metas.filter(m => m.id !== metaId) }));
   }, [userId]) as (metaId: string) => void;
@@ -883,6 +892,67 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, [userId]) as (id: string) => void;
 
+  const updateAfazer = useCallback(async (id: string, updates: Partial<Pick<Afazer, 'title' | 'description' | 'category' | 'startDate' | 'endDate' | 'startTime' | 'endTime' | 'estimatedMinutes'>>) => {
+    if (!userId) return;
+    const dbUpdates: Record<string, any> = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description || null;
+    if (updates.category !== undefined) dbUpdates.category = updates.category;
+    if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+    if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate || null;
+    if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime || null;
+    if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime || null;
+    if (updates.estimatedMinutes !== undefined) dbUpdates.estimated_minutes = updates.estimatedMinutes || null;
+    await supabase.from('afazeres').update(dbUpdates).eq('id', id);
+
+    // Sync to Google Calendar
+    const { data: aRow } = await supabase.from('afazeres').select('google_event_id, start_date, start_time, end_time, estimated_minutes').eq('id', id).single() as any;
+    if (aRow?.google_event_id) {
+      const newStartDate = updates.startDate ?? aRow.start_date;
+      const newStartTime = updates.startTime !== undefined ? updates.startTime : aRow.start_time;
+      const newEndTime = updates.endTime !== undefined ? updates.endTime : aRow.end_time;
+      const newEstimated = updates.estimatedMinutes !== undefined ? updates.estimatedMinutes : aRow.estimated_minutes;
+      const googleTimes = makeGoogleDateTimes(newStartDate, newStartTime, newEndTime, newEstimated);
+      googleUpdateEvent({
+        eventId: aRow.google_event_id,
+        ...(updates.title !== undefined ? { summary: updates.title } : {}),
+        ...(updates.description !== undefined ? { description: updates.description || '' } : {}),
+        ...googleTimes,
+      });
+    }
+
+    setState(prev => ({
+      ...prev,
+      afazeres: prev.afazeres.map(a => a.id !== id ? a : { ...a, ...updates }),
+    }));
+  }, [userId]) as (id: string, updates: any) => void;
+
+  const updateMission = useCallback(async (metaId: string, missionId: string, updates: { title?: string; description?: string }) => {
+    if (!userId) return;
+    const dbUpdates: Record<string, any> = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description || null;
+    await supabase.from('missions').update(dbUpdates).eq('id', missionId);
+
+    // Sync to Google Calendar
+    const { data: mRow } = await supabase.from('missions').select('google_event_id').eq('id', missionId).single() as any;
+    if (mRow?.google_event_id) {
+      googleUpdateEvent({
+        eventId: mRow.google_event_id,
+        ...(updates.title !== undefined ? { summary: `🎯 ${updates.title}` } : {}),
+        ...(updates.description !== undefined ? { description: updates.description || '' } : {}),
+      });
+    }
+
+    setState(prev => ({
+      ...prev,
+      metas: prev.metas.map(meta => {
+        if (meta.id !== metaId) return meta;
+        return { ...meta, missions: meta.missions.map(m => m.id !== missionId ? m : { ...m, ...updates }) };
+      }),
+    }));
+  }, [userId]) as (metaId: string, missionId: string, updates: any) => void;
+
   const deleteAfazer = useCallback(async (id: string) => {
     if (!userId) return;
     // Busca o google_event_id antes de deletar
@@ -924,7 +994,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addLifeGoal, deleteLifeGoal, completeWeeklyMission,
       updateMissionEstimate, scheduleMission, scheduleAllMissions, completeMeta,
       startMissionTimer, stopMissionTimer,
-      addAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer,
+      addAfazer, updateAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer,
+      updateMission,
     }}>
       {children}
     </GameContext.Provider>

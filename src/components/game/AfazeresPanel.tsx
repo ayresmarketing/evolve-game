@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { Category, DayOfWeek, DAYS_OF_WEEK, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
-import { Plus, X, CheckCircle2, Circle, Trash2, Clock, Play, Square, Repeat, Link2 } from 'lucide-react';
+import { Plus, X, CheckCircle2, Circle, Trash2, Clock, Play, Square, Repeat, Link2, Pencil } from 'lucide-react';
 
 export function AfazeresPanel() {
   const { afazeres, addAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer, metas } = useGame();
@@ -342,10 +342,17 @@ export function AfazeresPanel() {
 }
 
 function AfazerItem({ afazer: a }: { afazer: any }) {
-  const { completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer } = useGame();
+  const { completeAfazer, uncompleteAfazer, deleteAfazer, updateAfazer, startAfazerTimer, stopAfazerTimer } = useGame();
   const cat = CATEGORY_CONFIG[a.category as Category];
   const isTimerRunning = !!a.timerStartedAt && !a.timerCompletedAt && !a.completed;
   const [elapsed, setElapsed] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(a.title);
+  const [editDescription, setEditDescription] = useState(a.description || '');
+  const [editStartDate, setEditStartDate] = useState(a.startDate || '');
+  const [editStartTime, setEditStartTime] = useState(a.startTime || '');
+  const [editEndTime, setEditEndTime] = useState(a.endTime || '');
+  const [editEstimated, setEditEstimated] = useState(a.estimatedMinutes ? String(a.estimatedMinutes) : '');
 
   // Timer tick
   useState(() => {
@@ -361,6 +368,62 @@ function AfazerItem({ afazer: a }: { afazer: any }) {
     const s = seconds % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
+
+  const openEdit = () => {
+    setEditTitle(a.title);
+    setEditDescription(a.description || '');
+    setEditStartDate(a.startDate || '');
+    setEditStartTime(a.startTime || '');
+    setEditEndTime(a.endTime || '');
+    setEditEstimated(a.estimatedMinutes ? String(a.estimatedMinutes) : '');
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    if (!editTitle.trim()) return;
+    updateAfazer(a.id, {
+      title: editTitle.trim(),
+      description: editDescription.trim() || undefined,
+      startDate: editStartDate,
+      startTime: editStartTime || undefined,
+      endTime: editEndTime || undefined,
+      estimatedMinutes: editEstimated ? parseInt(editEstimated) : undefined,
+    });
+    setEditing(false);
+  };
+
+  const inputClass = "w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
+
+  if (editing) {
+    return (
+      <article className="glass-card rounded-xl p-4 border border-primary/20 animate-slide-up">
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-display text-[10px] tracking-[0.2em] text-primary uppercase">Editar tarefa</span>
+          <button onClick={() => setEditing(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
+        </div>
+        <div className="space-y-3">
+          <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className={inputClass} placeholder="Nome da tarefa" autoFocus />
+          <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} className={`${inputClass} min-h-[50px] resize-none`} placeholder="Descrição (opcional)" />
+          <input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className={inputClass} />
+          <div className="grid grid-cols-2 gap-2">
+            <input type="time" value={editStartTime} onChange={e => setEditStartTime(e.target.value)} className={inputClass} placeholder="Início" />
+            <input type="time" value={editEndTime} onChange={e => setEditEndTime(e.target.value)} className={inputClass} placeholder="Término" />
+          </div>
+          {editStartTime && !editEndTime && (
+            <input type="number" value={editEstimated} onChange={e => setEditEstimated(e.target.value)} className={inputClass} placeholder="Tempo estimado (min)" min="1" />
+          )}
+          <div className="flex gap-2">
+            <button onClick={saveEdit} disabled={!editTitle.trim()} className="flex-1 bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.15em] py-2.5 rounded-xl hover:shadow-glow-cyan transition-all disabled:opacity-40 uppercase">
+              Salvar
+            </button>
+            <button onClick={() => setEditing(false)} className="px-4 py-2.5 rounded-xl border border-border text-xs font-body text-muted-foreground hover:text-foreground transition-all">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article className={`glass-card rounded-xl p-4 transition-all ${a.completed ? 'border-game-green/15' : ''}`}>
@@ -406,10 +469,17 @@ function AfazerItem({ afazer: a }: { afazer: any }) {
             </div>
           )}
         </div>
-        <button onClick={() => deleteAfazer(a.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0"
-          aria-label="Excluir tarefa">
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex flex-col gap-1 shrink-0">
+          {!a.completed && (
+            <button onClick={openEdit} className="p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary" aria-label="Editar tarefa">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button onClick={() => deleteAfazer(a.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+            aria-label="Excluir tarefa">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </article>
   );
