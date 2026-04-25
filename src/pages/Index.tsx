@@ -220,7 +220,7 @@ function SectionHeader({ icon, title, action }: {
    COMPONENT — Dashboard Home
 ═══════════════════════════════════════════════ */
 function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
-  const { metas, afazeres, stats } = useGame();
+  const { metas, afazeres, stats, showInactivityWarning, dismissInactivityWarning } = useGame();
   const { getDaySchedule } = useSchedule();
 
   /* ── Google OAuth callback ── */
@@ -339,6 +339,22 @@ function DashboardHome({ onNavigate }: { onNavigate: (p: Page) => void }) {
 
   return (
     <div className="space-y-6 animate-fade-in">
+
+      {/* ══════════════════════
+          AVISO 18H DE INATIVIDADE
+      ══════════════════════ */}
+      {showInactivityWarning && (
+        <div
+          className="rounded-xl border border-[#ff4444]/50 bg-[#ff4444]/10 px-4 py-3 flex items-center gap-3 animate-pulse cursor-pointer"
+          onClick={dismissInactivityWarning}
+        >
+          <span className="text-[#ff4444] text-xl flex-shrink-0">⚠️</span>
+          <p className="text-sm font-body text-[#ff4444] font-semibold flex-1">
+            Você está prestes a perder XP. Conclua uma tarefa agora.
+          </p>
+          <button className="text-[#ff4444]/60 hover:text-[#ff4444] text-lg leading-none" onClick={dismissInactivityWarning}>✕</button>
+        </div>
+      )}
 
       {/* ══════════════════════
           HERO — boas-vindas

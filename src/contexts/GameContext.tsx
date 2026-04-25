@@ -26,7 +26,7 @@ function makeGoogleDateTimes(date: string, startTime?: string, endTime?: string,
   return { startDateTime: start, endDateTime: end };
 }
 
-import { Meta, Mission, PlayerStats, Quote, Justificativa, Category, LifeGoal, WeeklyMission, Afazer, DEFAULT_QUOTES, ALTRUISTIC_MISSIONS, getLevelFromXP, getStreakMultiplier, Etapa } from '@/types/game';
+import { Meta, Mission, PlayerStats, Quote, Justificativa, Category, LifeGoal, WeeklyMission, Afazer, DEFAULT_QUOTES, ALTRUISTIC_MISSIONS, getLevelFromXP, getStreakMultiplier, getXPFromMinutes, Etapa } from '@/types/game';
 import { toast } from 'sonner';
 
 interface ManualMissionInput {
@@ -50,6 +50,7 @@ interface GameState {
   lastActiveDate: string;
   afazeres: Afazer[];
   loading: boolean;
+  showInactivityWarning: boolean;
 }
 
 interface GameContextType extends GameState {
@@ -80,6 +81,7 @@ interface GameContextType extends GameState {
   startAfazerTimer: (id: string) => void;
   stopAfazerTimer: (id: string) => void;
   updateMission: (metaId: string, missionId: string, updates: { title?: string; description?: string }) => void;
+  dismissInactivityWarning: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -105,7 +107,7 @@ function generateMissions(meta: { title: string; totalDays: number; mainAction: 
         dailyTarget: m.title,
         etapas: [],
         completedToday: false,
-        xpReward: Math.round(20 + (idx * 5)),
+        xpReward: getXPFromMinutes(m.estimatedMinutes),
         estimatedMinutes: m.estimatedMinutes,
         scheduledDay: scheduledDate.toISOString().split('T')[0],
       });
@@ -127,7 +129,7 @@ function generateMissions(meta: { title: string; totalDays: number; mainAction: 
       { id: generateId(), title: `Reserve o horário ideal`, completed: false, order: 3 },
       { id: generateId(), title: `Comece com 2 minutos`, completed: false, order: 4 },
     ],
-    completedToday: false, xpReward: 15, estimatedMinutes: 20,
+    completedToday: false, xpReward: getXPFromMinutes(20), estimatedMinutes: 20,
     scheduledDay: startDate.toISOString().split('T')[0],
   });
 
@@ -156,7 +158,7 @@ function generateMissions(meta: { title: string; totalDays: number; mainAction: 
     title: `🎯 ${meta.mainAction}`,
     description: `Execute "${meta.mainAction}" ${meta.weeklyFrequency}x por semana. Total: ~${totalSessions} sessões.`,
     frequency: `${meta.weeklyFrequency}x/semana`, dailyTarget: meta.mainAction,
-    etapas: execEtapas, completedToday: false, xpReward: 25, estimatedMinutes: 30,
+    etapas: execEtapas, completedToday: false, xpReward: getXPFromMinutes(30), estimatedMinutes: 30,
     scheduledDay: execDate.toISOString().split('T')[0],
   });
 
@@ -173,7 +175,7 @@ function generateMissions(meta: { title: string; totalDays: number; mainAction: 
       { id: generateId(), title: 'O que pode tornar isso mais fácil?', completed: false, order: 2 },
       { id: generateId(), title: 'Quem estou me tornando?', completed: false, order: 3 },
     ],
-    completedToday: false, xpReward: 20, estimatedMinutes: 15,
+    completedToday: false, xpReward: getXPFromMinutes(15), estimatedMinutes: 15,
     scheduledDay: reviewDate.toISOString().split('T')[0],
   });
 
@@ -188,7 +190,7 @@ function generateMissions(meta: { title: string; totalDays: number; mainAction: 
       { id: generateId(), title: 'Defina o próximo nível', completed: false, order: 2 },
       { id: generateId(), title: 'Celebre! 🎉', completed: false, order: 3 },
     ],
-    completedToday: false, xpReward: 50, estimatedMinutes: 20,
+    completedToday: false, xpReward: getXPFromMinutes(20), estimatedMinutes: 20,
     scheduledDay: meta.deadline.split('T')[0],
   });
 
@@ -208,7 +210,7 @@ function generateWeeklyMission(): WeeklyMission {
 }
 
 const defaultStats: PlayerStats = {
-  xp: 0, level: 1, levelName: 'Despertar',
+  xp: 0, level: 1, levelName: 'Iniciante',
   streak: 0, longestStreak: 0,
   totalMissionsCompleted: 0, totalMetasCompleted: 0,
   badges: [], alertTone: 'equilibrado',
@@ -226,6 +228,7 @@ async function loadFromDB(userId: string): Promise<{ metas: Meta[]; stats: Playe
     totalMissionsCompleted: statsRow.total_missions_completed, totalMetasCompleted: statsRow.total_metas_completed,
     badges: (statsRow.badges as any) || [], alertTone: statsRow.alert_tone as any,
     daysUsed: statsRow.days_used, categoryStreaks: (statsRow.category_streaks as any) || { pessoal: 0, profissional: 0, espiritual: 0 },
+    lastTaskCompletedAt: (statsRow as any).last_task_completed_at || undefined,
   } : defaultStats;
 
   // Load metas with missions and etapas
@@ -304,7 +307,7 @@ async function loadFromDB(userId: string): Promise<{ metas: Meta[]; stats: Playe
 }
 
 async function saveStatsToDB(userId: string, stats: PlayerStats) {
-  await supabase.from('player_stats').update({
+  const updatePayload: Record<string, any> = {
     xp: stats.xp, level: stats.level, level_name: stats.levelName,
     streak: stats.streak, longest_streak: stats.longestStreak,
     total_missions_completed: stats.totalMissionsCompleted,
@@ -313,7 +316,104 @@ async function saveStatsToDB(userId: string, stats: PlayerStats) {
     category_streaks: stats.categoryStreaks as any,
     badges: stats.badges as any,
     last_active_date: new Date().toISOString().split('T')[0],
-  }).eq('user_id', userId);
+  };
+  if (stats.lastTaskCompletedAt !== undefined) {
+    updatePayload.last_task_completed_at = stats.lastTaskCompletedAt;
+  }
+  await supabase.from('player_stats').update(updatePayload).eq('user_id', userId);
+}
+
+/** Calcula decaimento progressivo de XP por inatividade */
+function calcXPDecay(xp: number, daysInactive: number): { newXP: number; totalLost: number } {
+  let remaining = xp;
+  let totalLost = 0;
+  for (let day = 1; day <= daysInactive; day++) {
+    const rate = Math.min(day * 0.02, 0.10);
+    const loss = Math.round(remaining * rate);
+    remaining -= loss;
+    totalLost += loss;
+  }
+  return { newXP: Math.max(0, remaining), totalLost };
+}
+
+/**
+ * Processa decaimento de XP e atualiza streak ao completar uma tarefa.
+ * Retorna os campos de stats atualizados + xpGain final (depois do decaimento).
+ */
+function applyTaskCompletion(prev: PlayerStats, rawXPGain: number): {
+  updatedStats: Partial<PlayerStats>;
+  xpGain: number;
+  leveledUp: boolean;
+  newLevel: number;
+  newLevelName: string;
+  streakMilestone: number | null;
+  decayLost: number;
+  isReturn: boolean;
+} {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const lastCompleted = prev.lastTaskCompletedAt;
+  const lastDate = lastCompleted ? lastCompleted.split('T')[0] : null;
+
+  // --- Decay: só aplicado se > 1 dia sem concluir tarefa ---
+  let xpBeforeGain = prev.xp;
+  let decayLost = 0;
+  let isReturn = false;
+  if (lastDate && lastDate < today) {
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysAgo = Math.floor((now.getTime() - new Date(lastDate).getTime()) / msPerDay);
+    const daysInactive = daysAgo - 1; // 1 dia = ontem, sem inatividade
+    if (daysInactive > 0) {
+      const { newXP, totalLost } = calcXPDecay(prev.xp, daysInactive);
+      xpBeforeGain = newXP;
+      decayLost = totalLost;
+      isReturn = true;
+    }
+  }
+
+  // --- Streak: baseado em dias consecutivos ---
+  let newStreak = prev.streak;
+  if (lastDate === today) {
+    // Já completou hoje — não altera streak
+    newStreak = prev.streak;
+  } else if (lastDate) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    if (lastDate === yesterdayStr) {
+      newStreak = prev.streak + 1;
+    } else {
+      newStreak = 1;
+    }
+  } else {
+    newStreak = 1;
+  }
+
+  const streakMilestone = (newStreak !== prev.streak && (newStreak === 7 || newStreak === 14 || newStreak === 30)) ? newStreak : null;
+
+  // --- XP e nível ---
+  const xpGain = rawXPGain;
+  const newXP = xpBeforeGain + xpGain;
+  const levelInfo = getLevelFromXP(newXP);
+  const leveledUp = levelInfo.level > prev.level;
+
+  return {
+    updatedStats: {
+      xp: newXP,
+      level: levelInfo.level,
+      levelName: levelInfo.name,
+      streak: newStreak,
+      longestStreak: Math.max(newStreak, prev.longestStreak),
+      lastTaskCompletedAt: now.toISOString(),
+    },
+    xpGain,
+    leveledUp,
+    newLevel: levelInfo.level,
+    newLevelName: levelInfo.name,
+    streakMilestone,
+    decayLost,
+    isReturn,
+  };
 }
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -326,6 +426,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     lifeGoals: [], weeklyMission: null,
     lastActiveDate: new Date().toISOString().split('T')[0],
     afazeres: [], loading: true,
+    showInactivityWarning: false,
   });
 
   // Load data from DB on mount
@@ -347,11 +448,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           weeklyMission = wm;
         }
 
+        const inactivityWarning = (() => {
+          const last = data.stats.lastTaskCompletedAt;
+          if (!last) return false;
+          const hoursAgo = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60);
+          return hoursAgo >= 18;
+        })();
+
         setState(prev => ({
           ...prev,
           metas: data.metas, stats: data.stats, afazeres: data.afazeres,
           lifeGoals: data.lifeGoals, weeklyMission,
           justificativas: data.justificativas, loading: false,
+          showInactivityWarning: inactivityWarning,
         }));
 
         // Update days used
@@ -371,6 +480,26 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     })();
     return () => { cancelled = true; };
   }, [userId]);
+
+  // Checa alerta de 18h de inatividade a cada minuto
+  useEffect(() => {
+    const check = () => {
+      setState(prev => {
+        const last = prev.stats.lastTaskCompletedAt;
+        if (!last) return prev;
+        const hoursAgo = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60);
+        const shouldWarn = hoursAgo >= 18;
+        if (shouldWarn === prev.showInactivityWarning) return prev;
+        return { ...prev, showInactivityWarning: shouldWarn };
+      });
+    };
+    const id = setInterval(check, 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const dismissInactivityWarning = useCallback(() => {
+    setState(prev => ({ ...prev, showInactivityWarning: false }));
+  }, []);
 
   const addMeta = useCallback(async (metaData: AddMetaInput) => {
     if (!userId) return;
@@ -448,33 +577,62 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       const lifeGoalMultiplier = meta.linkedLifeGoalId ? 1.5 : 1;
       const streakMult = getStreakMultiplier(prev.stats.streak);
-      const xpGain = Math.round(mission.xpReward * lifeGoalMultiplier * streakMult);
+      const rawXP = Math.round(mission.xpReward * lifeGoalMultiplier * streakMult);
+
+      const { updatedStats, xpGain, leveledUp: _leveledUp, streakMilestone, decayLost, isReturn } =
+        applyTaskCompletion(prev.stats, rawXP);
+
+      // Marca missão completa
+      const updatedMissions = meta.missions.map(mi => mi.id === missionId ? { ...mi, completedToday: true } : mi);
+      const newXpEarned = meta.xpEarned + xpGain;
+
+      // Bônus de 20% se todas as missões da meta estiverem concluídas
+      const allDone = updatedMissions.every(mi => mi.completedToday);
+      const missionBonus = allDone ? Math.round(newXpEarned * 0.20) : 0;
+      const finalXpEarned = newXpEarned + missionBonus;
+      const finalProgress = meta.xpTotal > 0 ? Math.min(100, Math.round(finalXpEarned / meta.xpTotal * 100)) : 0;
 
       const metas = prev.metas.map(m => {
         if (m.id !== metaId) return m;
-        const missions = m.missions.map(mi => mi.id === missionId ? { ...mi, completedToday: true } : mi);
-        const newXpEarned = m.xpEarned + xpGain;
-        const progress = m.xpTotal > 0 ? Math.min(100, Math.round(newXpEarned / m.xpTotal * 100)) : 0;
-        return { ...m, missions, progress, xpEarned: newXpEarned, completed: progress >= 100 };
+        return { ...m, missions: updatedMissions, progress: finalProgress, xpEarned: finalXpEarned, completed: finalProgress >= 100 };
       });
 
-      const xp = prev.stats.xp + xpGain;
-      const levelInfo = getLevelFromXP(xp);
-      const newStreak = prev.stats.streak + 1;
-      const newStats = {
-        ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name,
-        streak: newStreak, longestStreak: Math.max(newStreak, prev.stats.longestStreak),
+      const finalXP = (updatedStats.xp ?? prev.stats.xp) + missionBonus;
+      const finalLevelInfo = getLevelFromXP(finalXP);
+      const newStats: PlayerStats = {
+        ...prev.stats,
+        ...updatedStats,
+        xp: finalXP,
+        level: finalLevelInfo.level,
+        levelName: finalLevelInfo.name,
         totalMissionsCompleted: prev.stats.totalMissionsCompleted + 1,
         totalMetasCompleted: metas.filter(m => m.completed).length,
       };
 
-      // Save async
+      // Toasts assíncronos
+      setTimeout(() => {
+        if (decayLost > 0) {
+          toast.error(`Você perdeu ${decayLost} XP por inatividade.`, { duration: 6000 });
+        }
+        if (isReturn) {
+          toast.success('Você voltou. Agora não para mais.', { duration: 5000 });
+        }
+        if (missionBonus > 0) {
+          toast.success(`🎯 Todas as tarefas concluídas! Bônus: +${missionBonus} XP`, { duration: 5000 });
+        }
+        if (finalLevelInfo.level > prev.stats.level) {
+          toast.success(`🏆 Nível ${finalLevelInfo.level} — ${finalLevelInfo.name}!`, { description: finalLevelInfo.definition?.description, duration: 8000 });
+        } else if (streakMilestone) {
+          toast.success(`🔥 ${streakMilestone} dias consecutivos!`, { duration: 5000 });
+        }
+      }, 0);
+
       const updatedMeta = metas.find(m => m.id === metaId)!;
       supabase.from('missions').update({ completed_today: true }).eq('id', missionId);
       supabase.from('metas').update({ xp_earned: updatedMeta.xpEarned, progress: updatedMeta.progress, completed: updatedMeta.completed }).eq('id', metaId);
       saveStatsToDB(userId, newStats);
 
-      return { ...prev, metas, stats: newStats };
+      return { ...prev, metas, stats: newStats, showInactivityWarning: false };
     });
   }, [userId]) as (metaId: string, missionId: string) => void;
 
@@ -559,9 +717,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const meta = prev.metas.find(m => m.id === metaId);
       if (!meta || meta.completed) return prev;
       const remainingXP = meta.xpTotal - meta.xpEarned;
-      const xp = prev.stats.xp + remainingXP;
+      // Bônus de 30% sobre o total de XP da meta
+      const metaBonus = Math.round(meta.xpTotal * 0.30);
+      const totalGain = remainingXP + metaBonus;
+      const xp = prev.stats.xp + totalGain;
       const levelInfo = getLevelFromXP(xp);
-      const newStats = { ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name, totalMetasCompleted: prev.stats.totalMetasCompleted + 1 };
+      const leveledUp = levelInfo.level > prev.stats.level;
+      const newStats: PlayerStats = {
+        ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name,
+        totalMetasCompleted: prev.stats.totalMetasCompleted + 1,
+      };
+
+      setTimeout(() => {
+        toast.success(`🎉 Meta concluída! Bônus: +${metaBonus} XP (30%)`, { duration: 6000 });
+        if (leveledUp) {
+          toast.success(`🏆 Nível ${levelInfo.level} — ${levelInfo.name}!`, { description: levelInfo.definition?.description, duration: 8000 });
+        }
+      }, 0);
 
       supabase.from('metas').update({ completed: true, progress: 100, xp_earned: meta.xpTotal }).eq('id', metaId);
       meta.missions.forEach(mi => supabase.from('missions').update({ completed_today: true }).eq('id', mi.id));
@@ -654,12 +826,24 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (!userId) return;
     setState(prev => {
       if (!prev.weeklyMission) return prev;
-      const xp = prev.stats.xp + prev.weeklyMission.xpReward;
-      const levelInfo = getLevelFromXP(xp);
-      const newStats = { ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name };
-      supabase.from('weekly_missions').update({ completed: true }).eq('id', prev.weeklyMission.id);
+      const { updatedStats, leveledUp, streakMilestone, decayLost, isReturn } =
+        applyTaskCompletion(prev.stats, prev.weeklyMission.xpReward);
+      const levelInfo = getLevelFromXP(updatedStats.xp ?? prev.stats.xp);
+      const newStats: PlayerStats = { ...prev.stats, ...updatedStats, level: levelInfo.level, levelName: levelInfo.name };
+
+      setTimeout(() => {
+        if (decayLost > 0) toast.error(`Você perdeu ${decayLost} XP por inatividade.`, { duration: 6000 });
+        if (isReturn) toast.success('Você voltou. Agora não para mais.', { duration: 5000 });
+        if (leveledUp) {
+          toast.success(`🏆 Nível ${levelInfo.level} — ${levelInfo.name}!`, { description: levelInfo.definition?.description, duration: 8000 });
+        } else if (streakMilestone) {
+          toast.success(`🔥 ${streakMilestone} dias consecutivos!`, { duration: 5000 });
+        }
+      }, 0);
+
+      supabase.from('weekly_missions').update({ completed: true }).eq('id', prev.weeklyMission!.id);
       saveStatsToDB(userId, newStats);
-      return { ...prev, weeklyMission: { ...prev.weeklyMission, completed: true }, stats: newStats };
+      return { ...prev, weeklyMission: { ...prev.weeklyMission!, completed: true }, stats: newStats, showInactivityWarning: false };
     });
   }, [userId]) as () => void;
 
@@ -739,7 +923,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // Afazeres
   const addAfazer = useCallback(async (data: Omit<Afazer, 'id' | 'completed' | 'xpReward' | 'createdAt'>) => {
     if (!userId) return;
-    const xpReward = data.linkedMetaId ? 10 : 5;
+    const xpReward = getXPFromMinutes(data.estimatedMinutes);
     const id = generateId();
     const createdAt = new Date().toISOString();
     const afazer: Afazer = { ...data, id, completed: false, xpReward, createdAt };
@@ -821,10 +1005,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const afazer = prev.afazeres.find(a => a.id === id);
       if (!afazer || afazer.completed) return prev;
       const streakMult = getStreakMultiplier(prev.stats.streak);
-      const xpGain = Math.round(afazer.xpReward * streakMult);
-      const xp = prev.stats.xp + xpGain;
-      const levelInfo = getLevelFromXP(xp);
-      const completedAt = new Date().toISOString();
+      const rawXP = Math.round(afazer.xpReward * streakMult);
+      const { updatedStats, xpGain, leveledUp, streakMilestone, decayLost, isReturn } =
+        applyTaskCompletion(prev.stats, rawXP);
+      const levelInfo = getLevelFromXP(updatedStats.xp ?? prev.stats.xp);
+      const completedAt = updatedStats.lastTaskCompletedAt ?? new Date().toISOString();
 
       let updatedAfazeres = prev.afazeres.map(a => a.id !== id ? a : { ...a, completed: true, completedAt });
       supabase.from('afazeres').update({ completed: true, completed_at: completedAt }).eq('id', id);
@@ -865,12 +1050,30 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const newStats = {
-        ...prev.stats, xp, level: levelInfo.level, levelName: levelInfo.name,
+      const newStats: PlayerStats = {
+        ...prev.stats,
+        ...updatedStats,
+        level: levelInfo.level,
+        levelName: levelInfo.name,
         totalMissionsCompleted: prev.stats.totalMissionsCompleted + 1,
       };
+
+      setTimeout(() => {
+        if (decayLost > 0) {
+          toast.error(`Você perdeu ${decayLost} XP por inatividade.`, { duration: 6000 });
+        }
+        if (isReturn) {
+          toast.success('Você voltou. Agora não para mais.', { duration: 5000 });
+        }
+        if (leveledUp) {
+          toast.success(`🏆 Nível ${levelInfo.level} — ${levelInfo.name}!`, { description: levelInfo.definition?.description, duration: 8000 });
+        } else if (streakMilestone) {
+          toast.success(`🔥 ${streakMilestone} dias consecutivos!`, { duration: 5000 });
+        }
+      }, 0);
+
       saveStatsToDB(userId, newStats);
-      return { ...prev, afazeres: updatedAfazeres, stats: newStats };
+      return { ...prev, afazeres: updatedAfazeres, stats: newStats, showInactivityWarning: false };
     });
   }, [userId]) as (id: string) => void;
 
@@ -995,7 +1198,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       updateMissionEstimate, scheduleMission, scheduleAllMissions, completeMeta,
       startMissionTimer, stopMissionTimer,
       addAfazer, updateAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer,
-      updateMission,
+      updateMission, dismissInactivityWarning,
     }}>
       {children}
     </GameContext.Provider>
