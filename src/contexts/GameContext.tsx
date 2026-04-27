@@ -549,9 +549,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           ...googleTimes,
           sourceType: 'meta',
           sourceId: m.id,
-        }).then(eventId => {
+        }).then(async (eventId) => {
           if (eventId) {
-            supabase.from('missions').update({ google_event_id: eventId } as any).eq('id', m.id);
+            await supabase.from('missions').update({ google_event_id: eventId } as any).eq('id', m.id);
           }
         });
       }
@@ -876,8 +876,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           summary: `🎯 ${mRow?.title || ''}`,
           description: meta ? `Meta: ${meta.title}` : '',
           ...googleTimes,
-        }).then(eventId => {
-          if (eventId) supabase.from('missions').update({ google_event_id: eventId } as any).eq('id', missionId);
+        }).then(async (eventId) => {
+          if (eventId) await supabase.from('missions').update({ google_event_id: eventId } as any).eq('id', missionId);
         });
       }
     }
@@ -946,8 +946,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       ...googleTimes,
       sourceType: 'afazer',
       sourceId: id,
-    }).then(eventId => {
-      if (eventId) supabase.from('afazeres').update({ google_event_id: eventId } as any).eq('id', id);
+    }).then(async (eventId) => {
+      if (eventId) await supabase.from('afazeres').update({ google_event_id: eventId } as any).eq('id', id);
     });
 
     setState(prev => {
@@ -1109,19 +1109,29 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('afazeres').update(dbUpdates).eq('id', id);
 
     // Sync to Google Calendar
-    const { data: aRow } = await supabase.from('afazeres').select('google_event_id, start_date, start_time, end_time, estimated_minutes').eq('id', id).single() as any;
+    const { data: aRow } = await supabase.from('afazeres').select('google_event_id, title, description, start_date, start_time, end_time, estimated_minutes').eq('id', id).single() as any;
+    const newStartDate = updates.startDate ?? aRow?.start_date;
+    const newStartTime = updates.startTime !== undefined ? updates.startTime : aRow?.start_time;
+    const newEndTime = updates.endTime !== undefined ? updates.endTime : aRow?.end_time;
+    const newEstimated = updates.estimatedMinutes !== undefined ? updates.estimatedMinutes : aRow?.estimated_minutes;
+    const googleTimes = makeGoogleDateTimes(newStartDate, newStartTime, newEndTime, newEstimated);
     if (aRow?.google_event_id) {
-      const newStartDate = updates.startDate ?? aRow.start_date;
-      const newStartTime = updates.startTime !== undefined ? updates.startTime : aRow.start_time;
-      const newEndTime = updates.endTime !== undefined ? updates.endTime : aRow.end_time;
-      const newEstimated = updates.estimatedMinutes !== undefined ? updates.estimatedMinutes : aRow.estimated_minutes;
-      const googleTimes = makeGoogleDateTimes(newStartDate, newStartTime, newEndTime, newEstimated);
       googleUpdateEvent({
         eventId: aRow.google_event_id,
         ...(updates.title !== undefined ? { summary: updates.title } : {}),
         ...(updates.description !== undefined ? { description: updates.description || '' } : {}),
         ...googleTimes,
       });
+    } else {
+      // Tarefa criada antes de conectar o Calendar — cria o evento agora
+      const eventId = await googleCreateEvent({
+        summary: updates.title ?? aRow?.title ?? '',
+        description: updates.description !== undefined ? (updates.description || '') : (aRow?.description || ''),
+        ...googleTimes,
+        sourceType: 'afazer',
+        sourceId: id,
+      });
+      if (eventId) await supabase.from('afazeres').update({ google_event_id: eventId } as any).eq('id', id);
     }
 
     setState(prev => ({

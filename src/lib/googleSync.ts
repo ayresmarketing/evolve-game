@@ -2,9 +2,49 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const GCAL_BASE = 'https://www.googleapis.com/calendar/v3/calendars';
+const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
 
-/** Busca o token do Google, verifica expiração e retorna null (com aviso) se expirado */
-async function getGoogleAuth(): Promise<{ token: string; calendarId: string } | null> {
+const GOOGLE_CLIENT_ID =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID) ||
+  '990869380684-iu5iuvukn6sl69vhsc0e8qcbv0n3s8r6.apps.googleusercontent.com';
+
+// Resolve/rejeita a Promise da renovação silenciosa em curso
+let _silentRefreshResolve: ((token: string | null) => void) | null = null;
+
+/** Chamado pelo Index.tsx quando um popup de silent refresh retorna um token via postMessage */
+export function handleSilentRefreshCallback(token: string | null) {
+  _silentRefreshResolve?.(token);
+  _silentRefreshResolve = null;
+}
+
+/** Tenta renovar o token silenciosamente via popup (prompt=none). Retorna o novo token ou null. */
+async function trySilentRefresh(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  return new Promise(resolve => {
+    _silentRefreshResolve = resolve;
+    const redirectUri = `${window.location.origin}/`;
+    const url =
+      `https://accounts.google.com/o/oauth2/v2/auth` +
+      `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=token` +
+      `&scope=${encodeURIComponent(GCAL_SCOPES)}` +
+      `&prompt=none`;
+    const popup = window.open(url, 'gcal-silent-refresh', 'width=1,height=1,left=-2000,top=-2000');
+    // Timeout de 10s: se o popup não responder (bloqueado ou erro), desiste
+    const timer = setTimeout(() => {
+      popup?.close();
+      resolve(null);
+      _silentRefreshResolve = null;
+    }, 10_000);
+    // Limpa o timer assim que a Promise for resolvida via handleSilentRefreshCallback
+    const orig = _silentRefreshResolve;
+    _silentRefreshResolve = (t) => { clearTimeout(timer); orig?.(t); };
+  });
+}
+
+/** Busca o token do Google, tenta refresh silencioso se expirado */
+async function getGoogleAuth(): Promise<{ token: string; calendarId: string; prefs: any; userId: string } | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
@@ -18,10 +58,17 @@ async function getGoogleAuth(): Promise<{ token: string; calendarId: string } | 
   const token = prefs.google_access_token;
   if (!token) return null;
 
-  // Verifica expiração — token OAuth dura ~1h
   const expiry = prefs.google_token_expiry;
   if (expiry && new Date(expiry) <= new Date()) {
-    // Token expirado: limpa e avisa o usuário
+    // Token expirado — tenta refresh silencioso via popup
+    const newToken = await trySilentRefresh();
+    if (newToken) {
+      const newExpiry = new Date(Date.now() + (3600 - 300) * 1000).toISOString();
+      const newPrefs = { ...prefs, google_access_token: newToken, google_token_expiry: newExpiry };
+      await supabase.from('profiles').update({ preferences: newPrefs }).eq('user_id', user.id);
+      return { token: newToken, calendarId: prefs.google_calendar_id || 'primary', prefs: newPrefs, userId: user.id };
+    }
+    // Refresh falhou: limpa token e avisa
     const cleaned = { ...prefs };
     delete cleaned.google_access_token;
     delete cleaned.google_token_expiry;
@@ -33,6 +80,8 @@ async function getGoogleAuth(): Promise<{ token: string; calendarId: string } | 
   return {
     token,
     calendarId: prefs.google_calendar_id || 'primary',
+    prefs,
+    userId: user.id,
   };
 }
 

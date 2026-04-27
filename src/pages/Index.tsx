@@ -19,7 +19,7 @@ import { GoogleCalendarDialog } from '@/components/game/GoogleCalendarDialog';
 import { getLevelFromXP, CATEGORY_CONFIG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
 import { supabase } from '@/integrations/supabase/client';
-import { googleGetStatus } from '@/lib/googleSync';
+import { googleGetStatus, handleSilentRefreshCallback } from '@/lib/googleSync';
 import {
   Zap, Target, ListChecks, Calendar, Activity, ChevronRight, Flame,
   CalendarDays, Droplets, Moon, Sun, BarChart3, TrendingUp,
@@ -954,6 +954,17 @@ function Dashboard() {
         setCurrentPage('agenda');
       }
     }
+  }, []);
+
+  // Recebe token de popups de silent refresh (renovação automática de token expirado)
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'google-oauth-callback' && event.data?.access_token) {
+        handleSilentRefreshCallback(event.data.access_token);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
   }, []);
 
   useEffect(() => {
