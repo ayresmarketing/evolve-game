@@ -1,3 +1,6 @@
+# Local credentials (NEVER commit)
+.credentials/
+
 # Logs
 logs
 *.log

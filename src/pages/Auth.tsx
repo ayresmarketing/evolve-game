@@ -1,76 +1,38 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, CheckCircle2, KeyRound, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
 import { GlitchWord } from '@/components/game/GlitchWord';
 
-/* ── Grid dot particle ── */
+/* ── Particle ── */
 function Particle({ style }: { style: React.CSSProperties }) {
   return <div className="absolute rounded-full pointer-events-none" style={style} />;
 }
-
-const PARTICLES = Array.from({ length: 24 }, (_, i) => ({
+const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
   key: i,
   style: {
-    width:  `${3 + (i % 4) * 2}px`,
-    height: `${3 + (i % 4) * 2}px`,
-    left:   `${(i * 41 + 13) % 100}%`,
-    top:    `${(i * 57 +  9) % 100}%`,
-    background: i % 4 === 0
-      ? 'rgba(0,232,121,0.20)'
-      : i % 4 === 1
-      ? 'rgba(6,214,232,0.14)'
-      : i % 4 === 2
-      ? 'rgba(139,92,246,0.12)'
-      : 'rgba(255,255,255,0.05)',
+    width: `${3 + (i % 4) * 2}px`, height: `${3 + (i % 4) * 2}px`,
+    left: `${(i * 41 + 13) % 100}%`, top: `${(i * 57 + 9) % 100}%`,
+    background: i % 3 === 0 ? 'rgba(0,232,121,0.18)' : i % 3 === 1 ? 'rgba(6,214,232,0.12)' : 'rgba(139,92,246,0.10)',
     animation: `float-${(i % 3) + 1} ${5 + (i % 4)}s ease-in-out infinite`,
-    animationDelay: `${(i * 0.35) % 3}s`,
-    filter: 'blur(1px)',
+    animationDelay: `${(i * 0.35) % 3}s`, filter: 'blur(1px)',
   } as React.CSSProperties,
 }));
 
-export default function Auth() {
-  const { user, loading, signIn } = useAuth();
-  const [email, setEmail]           = useState('');
-  const [password, setPassword]     = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+const WELCOME_STEPS = [
+  { icon: Mail,       color: '#00e879', title: 'Verifique seu e-mail',       desc: 'Acabamos de enviar suas credenciais de acesso para o e-mail usado na assinatura. Abra agora.' },
+  { icon: KeyRound,   color: '#06d6e8', title: 'Copie a senha recebida',      desc: 'No e-mail você encontra o seu e-mail e uma senha temporária. Use exatamente como está.' },
+  { icon: LogIn,      color: '#8b5cf6', title: 'Entre e comece a evoluir',    desc: 'Faça login aqui ao lado. Depois, se quiser, troque a senha nas Configurações do app.' },
+];
+
+/* ── Login form (shared) ── */
+function LoginForm({ compact = false }: { compact?: boolean }) {
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  /* Inject particle keyframes once */
-  useEffect(() => {
-    const id = 'auth-particle-style';
-    if (document.getElementById(id)) return;
-    const style = document.createElement('style');
-    style.id = id;
-    style.textContent = `
-      @keyframes float-1 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-20px) scale(1.08)} }
-      @keyframes float-2 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-12px) scale(0.92)} }
-      @keyframes float-3 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-28px) scale(1.04)} }
-      @keyframes auth-glow { 0%,100%{opacity:.45} 50%{opacity:.80} }
-      @keyframes auth-drift { 0%,100%{transform:translateX(0)} 50%{transform:translateX(40px)} }
-      @keyframes auth-scan { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
-    `;
-    document.head.appendChild(style);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#040a17] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center animate-glow-pulse"
-            style={{ boxShadow: '0 0 32px rgba(0,232,121,0.5)' }}>
-            <Zap className="w-6 h-6 text-black" strokeWidth={3} />
-          </div>
-          <div className="w-24 h-1 rounded-full bg-white/10 overflow-hidden">
-            <div className="w-full h-full bg-gradient-to-r from-[#00e879] to-[#06d6e8] animate-shimmer" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (user) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,201 +44,224 @@ export default function Auth() {
         if (error.message.includes('Invalid login')) toast.error('Email ou senha incorretos.');
         else toast.error(error.message);
       }
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
-  return (
-    <div className="min-h-screen bg-[#040a17] flex items-center justify-center overflow-hidden relative">
+  const inputCls = `w-full py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body focus:outline-none transition-all`;
+  const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' };
+  const focusStyle = 'rgba(0,232,121,0.36)';
+  const blurStyle  = 'rgba(255,255,255,0.09)';
 
-      {/* ── Atmospheric glows ── */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute w-[700px] h-[700px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(0,232,121,0.09) 0%, transparent 70%)',
-            top: '-20%', left: '-20%',
-            animation: 'auth-glow 5s ease-in-out infinite, auth-drift 10s ease-in-out infinite',
-          }}
-        />
-        <div
-          className="absolute w-[600px] h-[600px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(6,214,232,0.07) 0%, transparent 70%)',
-            bottom: '-20%', right: '-15%',
-            animation: 'auth-glow 6s ease-in-out infinite reverse',
-          }}
-        />
-        <div
-          className="absolute w-[400px] h-[400px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%)',
-            top: '40%', left: '60%',
-            animation: 'auth-glow 7s ease-in-out infinite 1s',
-          }}
-        />
-        {/* Subtle grid */}
-        <div
-          className="absolute inset-0 opacity-[0.025]"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px)',
-            backgroundSize: '52px 52px',
-          }}
-        />
-        {/* Scan line */}
-        <div
-          className="absolute left-0 right-0 h-[2px] opacity-[0.04]"
-          style={{
-            background: 'linear-gradient(90deg, transparent, rgba(0,232,121,1), transparent)',
-            animation: 'auth-scan 8s linear infinite',
-          }}
-        />
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {!compact && (
+        <div className="mb-6">
+          <h2 className="font-display text-[22px] text-white tracking-wide">Acesso ao Sistema</h2>
+          <p className="text-[11px] text-white/38 font-body mt-1.5">Entre e retome sua evolução de onde parou.</p>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">Email</label>
+        <div className="relative">
+          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required
+            className={`${inputCls} pl-9 pr-4`} style={inputStyle}
+            onFocus={e => e.currentTarget.style.borderColor = focusStyle}
+            onBlur={e  => e.currentTarget.style.borderColor = blurStyle} />
+        </div>
       </div>
 
-      {/* ── Floating particles ── */}
+      <div>
+        <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">Senha</label>
+        <div className="relative">
+          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
+          <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+            placeholder="••••••••" required minLength={6}
+            className={`${inputCls} pl-9 pr-11`} style={inputStyle}
+            onFocus={e => e.currentTarget.style.borderColor = focusStyle}
+            onBlur={e  => e.currentTarget.style.borderColor = blurStyle} />
+          <button type="button" onClick={() => setShowPw(v => !v)}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/28 hover:text-white/55 transition-colors">
+            {showPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" disabled={submitting}
+        className="w-full mt-2 py-3.5 rounded-xl font-display text-sm tracking-[0.18em] uppercase font-bold flex items-center justify-center gap-2.5 transition-all disabled:opacity-50"
+        style={{ background: submitting ? 'rgba(0,232,121,0.5)' : 'linear-gradient(135deg,#00e879,#06d6e8)', color: '#040a17', boxShadow: submitting ? 'none' : '0 0 28px rgba(0,232,121,0.40)' }}>
+        {submitting
+          ? <div className="w-5 h-5 border-2 border-black/25 border-t-black/70 rounded-full animate-spin" />
+          : <><span>Entrar no Sistema</span><ArrowRight className="w-4 h-4" /></>}
+      </button>
+    </form>
+  );
+}
+
+export default function Auth() {
+  const { user, loading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const isWelcome = searchParams.get('welcome') === '1';
+
+  useEffect(() => {
+    const id = 'auth-particle-style';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      @keyframes float-1{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-20px) scale(1.08)}}
+      @keyframes float-2{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-12px) scale(0.92)}}
+      @keyframes float-3{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-28px) scale(1.04)}}
+      @keyframes auth-glow{0%,100%{opacity:.45}50%{opacity:.80}}
+      @keyframes auth-scan{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+    `;
+    document.head.appendChild(style);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#040a17] flex items-center justify-center">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center"
+          style={{ boxShadow: '0 0 32px rgba(0,232,121,0.5)' }}>
+          <Zap className="w-6 h-6 text-black" strokeWidth={3} />
+        </div>
+      </div>
+    );
+  }
+
+  if (user) return <Navigate to="/" replace />;
+
+  /* ─── Background layers (shared) ─── */
+  const bg = (
+    <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle,rgba(0,232,121,0.09) 0%,transparent 70%)', top: '-20%', left: '-20%', animation: 'auth-glow 5s ease-in-out infinite' }} />
+      <div className="absolute w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle,rgba(6,214,232,0.07) 0%,transparent 70%)', bottom: '-20%', right: '-15%', animation: 'auth-glow 6s ease-in-out infinite reverse' }} />
+      <div className="absolute inset-0 opacity-[0.022]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.8) 1px,transparent 1px)', backgroundSize: '52px 52px' }} />
+      <div className="absolute left-0 right-0 h-[2px] opacity-[0.04]" style={{ background: 'linear-gradient(90deg,transparent,rgba(0,232,121,1),transparent)', animation: 'auth-scan 8s linear infinite' }} />
       {PARTICLES.map(p => <Particle key={p.key} style={p.style} />)}
+    </div>
+  );
 
-      {/* ── Center card ── */}
-      <div className="relative z-10 w-full max-w-sm mx-4">
+  /* ─── Logo header ─── */
+  const logo = (
+    <div className="flex flex-col items-center mb-8 gap-3">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center"
+        style={{ boxShadow: '0 0 40px rgba(0,232,121,0.50), 0 0 80px rgba(0,232,121,0.20)' }}>
+        <Zap className="w-8 h-8 text-black" strokeWidth={3} />
+      </div>
+      <p className="font-display text-base tracking-[0.28em] font-bold uppercase"
+        style={{ background: 'linear-gradient(135deg,#00e879,#06d6e8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+        SUA VIDA É UM{' '}
+        <GlitchWord word="JOGO" buildDelay={600}
+          style={{ background: 'linear-gradient(135deg,#00e879,#06d6e8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }} />
+      </p>
+    </div>
+  );
 
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8 gap-3">
-          <div
-            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center mb-1 animate-float"
-            style={{ boxShadow: '0 0 40px rgba(0,232,121,0.50), 0 0 80px rgba(0,232,121,0.20)' }}
-          >
-            <Zap className="w-8 h-8 text-black" strokeWidth={3} />
+  const cardStyle = { background: 'rgba(13,21,38,0.75)', border: '1px solid rgba(0,232,121,0.12)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' };
+
+  /* ══════════════════════════════════════════════
+     WELCOME MODE — split layout
+  ══════════════════════════════════════════════ */
+  if (isWelcome) {
+    return (
+      <div className="min-h-screen bg-[#040a17] flex items-center justify-center overflow-hidden relative px-4 py-10">
+        {bg}
+        <div className="relative z-10 w-full max-w-5xl">
+
+          {/* Logo centered above */}
+          <div className="flex justify-center mb-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center"
+                style={{ boxShadow: '0 0 24px rgba(0,232,121,0.40)' }}>
+                <Zap className="w-5 h-5 text-black" strokeWidth={3} />
+              </div>
+              <p className="font-display text-sm tracking-[0.28em] font-bold uppercase"
+                style={{ background: 'linear-gradient(135deg,#00e879,#06d6e8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                SUA VIDA É UM JOGO
+              </p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="font-display text-base tracking-[0.28em] font-bold uppercase"
-              style={{
-                background: 'linear-gradient(135deg, #00e879, #06d6e8)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              SUA VIDA É UM{' '}
-              <GlitchWord
-                word="JOGO"
-                buildDelay={600}
-                style={{
-                  background: 'linear-gradient(135deg, #00e879, #06d6e8)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}
-              />
-            </p>
-            <p className="text-[9px] text-white/28 tracking-[0.22em] font-body uppercase mt-1">
-              Plataforma de evolução pessoal
-            </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+            {/* LEFT — instructions */}
+            <div className="rounded-2xl px-7 py-8" style={cardStyle}>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-5"
+                style={{ background: 'rgba(0,232,121,0.10)', border: '1px solid rgba(0,232,121,0.22)' }}>
+                <CheckCircle2 className="w-3 h-3" style={{ color: '#00e879' }} />
+                <span className="text-[10px] font-display tracking-[0.2em] uppercase" style={{ color: '#00e879' }}>
+                  Assinatura confirmada
+                </span>
+              </div>
+
+              <h2 className="font-display text-xl text-white tracking-wide mb-2">
+                O que fazer agora?
+              </h2>
+              <p className="text-[12px] text-white/40 font-body mb-6 leading-relaxed">
+                Siga os 3 passos abaixo para acessar o sistema pela primeira vez.
+              </p>
+
+              <div className="space-y-4">
+                {WELCOME_STEPS.map((step, i) => {
+                  const Icon = step.icon;
+                  return (
+                    <div key={i} className="flex items-start gap-4 p-4 rounded-xl"
+                      style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${step.color}15` }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                        style={{ background: `${step.color}12`, border: `1px solid ${step.color}28` }}>
+                        <Icon className="w-3.5 h-3.5" style={{ color: step.color }} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-display tracking-[0.2em] uppercase mb-1" style={{ color: step.color }}>
+                          Passo {i + 1}
+                        </p>
+                        <p className="text-sm font-body font-semibold text-white mb-0.5">{step.title}</p>
+                        <p className="text-[11px] text-white/38 font-body leading-relaxed">{step.desc}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-[10px] text-white/22 font-body mt-5 leading-relaxed">
+                Não recebeu o e-mail? Verifique a pasta de spam.<br />
+                Remetente: <span className="text-white/35">noreply@suavidaeumjogo.com</span>
+              </p>
+            </div>
+
+            {/* RIGHT — login form */}
+            <div className="rounded-2xl px-7 py-8" style={cardStyle}>
+              <LoginForm compact={false} />
+
+              <div className="mt-6 pt-5 border-t border-white/6">
+                <div className="flex items-center justify-center gap-4">
+                  {['Metas com IA', 'Gamificação', 'Evolução diária'].map(f => (
+                    <div key={f} className="flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5" style={{ color: '#00e879' }} />
+                      <span className="text-[8px] text-white/22 font-body">{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* Glass card */}
-        <div
-          className="rounded-2xl px-7 py-8"
-          style={{
-            background: 'rgba(13,21,38,0.75)',
-            border: '1px solid rgba(0,232,121,0.12)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,232,121,0.06)',
-          }}
-        >
-          {/* Headline */}
-          <div className="mb-6">
-            <h1 className="font-display text-[22px] text-white tracking-wide">
-              Acesso ao Sistema
-            </h1>
-            <p className="text-[11px] text-white/38 font-body mt-1.5 leading-relaxed">
-              Entre e retome sua evolução de onde parou.
-            </p>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
-                <input
-                  type="email" value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="seu@email.com" required
-                  className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body
-                    focus:outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.09)',
-                  }}
-                  onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,232,121,0.36)'}
-                  onBlur={e  => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
-                Senha
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••" required minLength={6}
-                  className="w-full pl-9 pr-11 py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body
-                    focus:outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.09)',
-                  }}
-                  onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,232,121,0.36)'}
-                  onBlur={e  => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/28 hover:text-white/55 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full mt-2 py-3.5 rounded-xl font-display text-sm tracking-[0.18em] uppercase font-bold
-                flex items-center justify-center gap-2.5 transition-all disabled:opacity-50"
-              style={{
-                background: submitting
-                  ? 'rgba(0,232,121,0.5)'
-                  : 'linear-gradient(135deg, #00e879, #06d6e8)',
-                color: '#040a17',
-                boxShadow: submitting
-                  ? 'none'
-                  : '0 0 30px rgba(0,232,121,0.42), 0 4px 16px rgba(0,0,0,0.3)',
-              }}
-            >
-              {submitting ? (
-                <div className="w-5 h-5 border-2 border-black/25 border-t-black/70 rounded-full animate-spin" />
-              ) : (
-                <>
-                  Entrar no Sistema
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Features hint */}
+  /* ══════════════════════════════════════════════
+     NORMAL LOGIN
+  ══════════════════════════════════════════════ */
+  return (
+    <div className="min-h-screen bg-[#040a17] flex items-center justify-center overflow-hidden relative">
+      {bg}
+      <div className="relative z-10 w-full max-w-sm mx-4">
+        {logo}
+        <div className="rounded-2xl px-7 py-8" style={cardStyle}>
+          <LoginForm />
           <div className="mt-6 pt-5 border-t border-white/6">
             <div className="flex items-center justify-center gap-4">
               {['Metas com IA', 'Gamificação', 'Evolução diária'].map(f => (
@@ -286,9 +271,7 @@ export default function Auth() {
                 </div>
               ))}
             </div>
-            <p className="text-[8px] text-white/16 font-body text-center mt-3">
-              © 2026 Sua Vida é um Jogo
-            </p>
+            <p className="text-[8px] text-white/16 font-body text-center mt-3">© 2026 Sua Vida é um Jogo</p>
           </div>
         </div>
       </div>
