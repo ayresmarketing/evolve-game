@@ -35,44 +35,118 @@ async function sendWelcomeEmail(email: string, password: string, siteUrl: string
 
   const from = Deno.env.get("RESEND_FROM") || "Sua Vida é um Jogo <onboarding@resend.dev>";
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-body{margin:0;padding:0;background:#040a17;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif}
-.wrap{max-width:480px;margin:40px auto;padding:0 20px}
-.header{text-align:center;padding-bottom:24px}
-.logo{width:56px;height:56px;background:linear-gradient(135deg,#00e879,#06d6e8);border-radius:14px;display:inline-block;line-height:56px;font-size:26px;text-align:center}
-.brand{font-size:9px;letter-spacing:.28em;color:rgba(0,232,121,.8);text-transform:uppercase;margin:8px 0 0;display:block}
-.card{background:#0d1526;border:1px solid rgba(0,232,121,.18);border-radius:16px;padding:32px}
-h1{font-size:20px;color:#fff;margin:0 0 8px;letter-spacing:.03em}
-p{font-size:13px;color:rgba(255,255,255,.55);line-height:1.6;margin:0 0 16px}
-.box{background:rgba(0,232,121,.08);border:1px solid rgba(0,232,121,.22);border-radius:10px;padding:16px 18px;margin:12px 0}
-.lbl{font-size:9px;text-transform:uppercase;letter-spacing:.2em;color:rgba(0,232,121,.7);margin:0 0 4px}
-.val{font-size:15px;color:#fff;letter-spacing:.06em;font-family:monospace;margin:0}
-.btn{display:block;background:linear-gradient(135deg,#00e879,#06d6e8);color:#040a17!important;text-decoration:none;font-weight:700;text-align:center;padding:14px 24px;border-radius:10px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 8px}
-.note{font-size:11px;color:rgba(255,255,255,.30);border-top:1px solid rgba(255,255,255,.07);padding-top:16px;margin-top:16px}
-.footer{text-align:center;font-size:10px;color:rgba(255,255,255,.20);margin-top:20px}
-</style></head><body>
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#04080f;font-family:'Inter',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .outer{padding:48px 20px}
+  .wrap{max-width:520px;margin:0 auto}
+  /* Header */
+  .header{text-align:center;margin-bottom:36px}
+  .logo-ring{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#00e879,#06d6e8);box-shadow:0 0 40px rgba(0,232,121,.45),0 0 80px rgba(0,232,121,.15)}
+  .logo-bolt{font-size:28px;line-height:1}
+  .brand-tag{display:inline-block;margin-top:14px;font-size:9px;letter-spacing:.32em;color:rgba(0,232,121,.75);text-transform:uppercase}
+  /* Card */
+  .card{background:linear-gradient(160deg,#0b1628 0%,#0d1a30 100%);border:1px solid rgba(0,232,121,.14);border-radius:20px;padding:40px 36px;position:relative;overflow:hidden}
+  .card::before{content:'';position:absolute;top:-80px;right:-80px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(0,232,121,.06) 0%,transparent 70%);pointer-events:none}
+  /* Badge */
+  .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,232,121,.10);border:1px solid rgba(0,232,121,.20);border-radius:100px;padding:5px 12px;margin-bottom:22px}
+  .badge-dot{width:6px;height:6px;border-radius:50%;background:#00e879;box-shadow:0 0 6px rgba(0,232,121,.8)}
+  .badge-text{font-size:10px;letter-spacing:.18em;color:rgba(0,232,121,.9);text-transform:uppercase;font-weight:600}
+  /* Typography */
+  h1{font-size:26px;font-weight:700;color:#ffffff;line-height:1.25;letter-spacing:-.01em;margin-bottom:14px}
+  h1 span{background:linear-gradient(135deg,#00e879,#06d6e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .subtitle{font-size:14px;color:rgba(255,255,255,.50);line-height:1.65;margin-bottom:28px;font-weight:400}
+  /* Divider */
+  .divider{height:1px;background:linear-gradient(90deg,transparent,rgba(0,232,121,.18),transparent);margin:24px 0}
+  /* Credential block */
+  .cred-label{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:rgba(0,232,121,.65);font-weight:600;margin-bottom:8px}
+  .cred-card{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:18px 20px;margin-bottom:12px}
+  .cred-value{font-size:15px;color:#ffffff;font-family:'Courier New',monospace;letter-spacing:.08em;font-weight:500;word-break:break-all}
+  .password-highlight{background:rgba(0,232,121,.12);border:1px solid rgba(0,232,121,.28);border-radius:12px;padding:18px 20px;margin-bottom:12px}
+  .password-value{font-size:22px;color:#00e879;font-family:'Courier New',monospace;letter-spacing:.15em;font-weight:700;text-shadow:0 0 20px rgba(0,232,121,.4)}
+  /* CTA */
+  .cta-wrap{margin:28px 0 8px}
+  .cta{display:block;background:linear-gradient(135deg,#00e879,#06d6e8);color:#04080f!important;text-decoration:none;font-weight:700;text-align:center;padding:16px 28px;border-radius:12px;font-size:13px;letter-spacing:.16em;text-transform:uppercase;box-shadow:0 0 28px rgba(0,232,121,.35),0 4px 16px rgba(0,0,0,.3)}
+  /* Note */
+  .note{font-size:12px;color:rgba(255,255,255,.28);line-height:1.6;text-align:center;margin-top:20px}
+  .note strong{color:rgba(255,255,255,.45);font-weight:500}
+  /* Footer */
+  .footer{text-align:center;margin-top:28px}
+  .footer p{font-size:11px;color:rgba(255,255,255,.18);line-height:1.7}
+  .footer a{color:rgba(0,232,121,.5);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="outer">
 <div class="wrap">
+
+  <!-- Header -->
   <div class="header">
-    <div class="logo">⚡</div>
-    <span class="brand">Sua Vida é um Jogo</span>
+    <div class="logo-ring"><span class="logo-bolt">&#9889;</span></div>
+    <span class="brand-tag">Sua Vida &eacute; um Jogo</span>
   </div>
+
+  <!-- Card -->
   <div class="card">
-    <h1>Bem-vindo ao Sistema! 🎮</h1>
-    <p>Sua assinatura foi confirmada. Use as credenciais abaixo para acessar o app:</p>
-    <div class="box"><p class="lbl">Email</p><p class="val">${email}</p></div>
-    <div class="box"><p class="lbl">Senha temporária</p><p class="val">${password}</p></div>
-    <a class="btn" href="${siteUrl}/auth">Acessar o Sistema →</a>
-    <p class="note">💡 Guarde essa senha. Você pode alterá-la quando quiser nas Configurações do app após fazer login.</p>
+    <div class="badge">
+      <div class="badge-dot"></div>
+      <span class="badge-text">Acesso liberado</span>
+    </div>
+
+    <h1>Parab&eacute;ns pela<br>sua <span>decis&atilde;o!</span></h1>
+
+    <p class="subtitle">
+      Sua jornada de evolu&ccedil;&atilde;o come&ccedil;a agora. Preparamos tudo para que voc&ecirc; tenha acesso imediato ao sistema &mdash; abaixo est&atilde;o suas credenciais de entrada.
+    </p>
+
+    <div class="divider"></div>
+
+    <p class="cred-label">Seu e-mail de acesso</p>
+    <div class="cred-card">
+      <p class="cred-value">${email}</p>
+    </div>
+
+    <p class="cred-label" style="margin-top:16px">Senha gerada para voc&ecirc;</p>
+    <div class="password-highlight">
+      <p class="password-value">${password}</p>
+    </div>
+
+    <p class="subtitle" style="margin-bottom:0;font-size:13px">
+      Esta &eacute; a senha gerada para que voc&ecirc; tenha acesso &agrave; sua conta. Se quiser, pode trocá-la a qualquer momento diretamente no sistema, na aba de <strong style="color:rgba(255,255,255,.55)">Configura&ccedil;&otilde;es</strong>.
+    </p>
+
+    <div class="cta-wrap">
+      <a class="cta" href="${siteUrl}/auth">Entrar no Sistema &rarr;</a>
+    </div>
+
+    <p class="note">
+      <strong>Guarde este e-mail.</strong> Ele cont&eacute;m suas credenciais de acesso.<br>
+      N&atilde;o compartilhe sua senha com ningu&eacute;m.
+    </p>
   </div>
-  <div class="footer">© 2026 Sua Vida é um Jogo · Não compartilhe suas credenciais</div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>&copy; 2026 Sua Vida &eacute; um Jogo &nbsp;&middot;&nbsp; Todos os direitos reservados</p>
+    <p style="margin-top:4px">D&uacute;vidas? Entre em contato pelo suporte.</p>
+  </div>
+
 </div>
-</body></html>`;
+</div>
+</body>
+</html>`;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: email, subject: "Bem-vindo! Suas credenciais de acesso 🎮", html }),
+      body: JSON.stringify({ from, to: email, subject: "Parabéns pela sua decisão! Aqui estão seus acessos 🎮", html }),
     });
     if (!res.ok) {
       const body = await res.text();
