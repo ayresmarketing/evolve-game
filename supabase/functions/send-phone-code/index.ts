@@ -6,36 +6,37 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const WHATSAPP_API_URL  = Deno.env.get("WHATSAPP_API_URL")  ?? "";
+// Mega API credentials — set these as Supabase Edge Function secrets
+const WHATSAPP_HOST     = Deno.env.get("WHATSAPP_HOST")     ?? "";
 const WHATSAPP_INSTANCE = Deno.env.get("WHATSAPP_INSTANCE") ?? "";
-const WHATSAPP_API_KEY  = Deno.env.get("WHATSAPP_API_KEY")  ?? "";
+const WHATSAPP_TOKEN    = Deno.env.get("WHATSAPP_TOKEN")    ?? "";
 
 async function sendWhatsAppCode(phone: string, code: string): Promise<void> {
-  if (!WHATSAPP_API_URL || !WHATSAPP_INSTANCE) {
-    console.log("[send-phone-code] WhatsApp API not configured (dev mode). Code:", phone, code);
+  if (!WHATSAPP_HOST || !WHATSAPP_INSTANCE) {
+    console.log("[send-phone-code] Mega API not configured (dev mode). Code:", phone, code);
     return;
   }
 
   const message = `🔐 *Sua Vida é um Jogo*\n\nSeu código de verificação é: *${code}*\n\nVálido por 10 minutos. Não compartilhe com ninguém.`;
 
-  // Evolution API format — adjust if using a different provider
-  const endpoint = `${WHATSAPP_API_URL}/message/sendText/${WHATSAPP_INSTANCE}`;
+  // Mega API format: POST https://{host}/message/sendText/{instanceKey}
+  const endpoint = `https://${WHATSAPP_HOST}/message/sendText/${WHATSAPP_INSTANCE}`;
 
   const res = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": WHATSAPP_API_KEY,
+      "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
     },
     body: JSON.stringify({
       number: phone,
-      text: message,
+      textMessage: { text: message },
     }),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`WhatsApp API error ${res.status}: ${body}`);
+    throw new Error(`Mega API error ${res.status}: ${body}`);
   }
 }
 
