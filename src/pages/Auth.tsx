@@ -132,16 +132,17 @@ export default function Auth() {
 
   if (user) return <Navigate to="/" replace />;
 
-  /* ─── Background layers (shared) ─── */
-  const bg = (
+  /* ─── Background layers ─── */
+  const bgGlows = (
     <div className="absolute inset-0 pointer-events-none">
       <div className="absolute w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle,rgba(0,232,121,0.09) 0%,transparent 70%)', top: '-20%', left: '-20%', animation: 'auth-glow 5s ease-in-out infinite' }} />
       <div className="absolute w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle,rgba(6,214,232,0.07) 0%,transparent 70%)', bottom: '-20%', right: '-15%', animation: 'auth-glow 6s ease-in-out infinite reverse' }} />
       <div className="absolute inset-0 opacity-[0.022]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.8) 1px,transparent 1px)', backgroundSize: '52px 52px' }} />
       <div className="absolute left-0 right-0 h-[2px] opacity-[0.04]" style={{ background: 'linear-gradient(90deg,transparent,rgba(0,232,121,1),transparent)', animation: 'auth-scan 8s linear infinite' }} />
-      {PARTICLES.map(p => <Particle key={p.key} style={p.style} />)}
     </div>
   );
+  // Normal login keeps the floating particles; welcome mode uses clean bg only
+  const bg = <>{bgGlows}{PARTICLES.map(p => <Particle key={p.key} style={p.style} />)}</>;
 
   /* ─── Logo header ─── */
   const logo = (
@@ -166,76 +167,75 @@ export default function Auth() {
   ══════════════════════════════════════════════ */
   if (isWelcome) {
     return (
-      <div className="min-h-screen bg-[#040a17] flex items-center justify-center overflow-hidden relative px-4 py-10">
-        {bg}
-        <div className="relative z-10 w-full max-w-5xl">
+      <div className="min-h-screen bg-[#040a17] flex items-center justify-center overflow-hidden relative px-4 py-8">
+        {bgGlows}
+        <div className="relative z-10 w-full max-w-4xl">
 
           {/* Logo centered above */}
-          <div className="flex justify-center mb-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center"
-                style={{ boxShadow: '0 0 24px rgba(0,232,121,0.40)' }}>
-                <Zap className="w-5 h-5 text-black" strokeWidth={3} />
+          <div className="flex justify-center mb-8">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center"
+                style={{ boxShadow: '0 0 20px rgba(0,232,121,0.38)' }}>
+                <Zap className="w-4.5 h-4.5 text-black" strokeWidth={3} />
               </div>
-              <p className="font-display text-sm tracking-[0.28em] font-bold uppercase"
+              <p className="font-display text-[11px] tracking-[0.3em] font-bold uppercase"
                 style={{ background: 'linear-gradient(135deg,#00e879,#06d6e8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 SUA VIDA É UM JOGO
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
             {/* LEFT — instructions */}
-            <div className="rounded-2xl px-7 py-8" style={cardStyle}>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-5"
+            <div className="rounded-2xl px-6 py-6" style={cardStyle}>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full mb-4"
                 style={{ background: 'rgba(0,232,121,0.10)', border: '1px solid rgba(0,232,121,0.22)' }}>
-                <CheckCircle2 className="w-3 h-3" style={{ color: '#00e879' }} />
-                <span className="text-[10px] font-display tracking-[0.2em] uppercase" style={{ color: '#00e879' }}>
+                <CheckCircle2 className="w-2.5 h-2.5" style={{ color: '#00e879' }} />
+                <span className="text-[9px] font-display tracking-[0.2em] uppercase" style={{ color: '#00e879' }}>
                   Assinatura confirmada
                 </span>
               </div>
 
-              <h2 className="font-display text-xl text-white tracking-wide mb-2">
+              <h2 className="font-display text-lg text-white tracking-wide mb-1">
                 O que fazer agora?
               </h2>
-              <p className="text-[12px] text-white/40 font-body mb-6 leading-relaxed">
-                Siga os 3 passos abaixo para acessar o sistema pela primeira vez.
+              <p className="text-[11px] text-white/38 font-body mb-4 leading-relaxed">
+                Siga os 3 passos abaixo para acessar o sistema.
               </p>
 
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {WELCOME_STEPS.map((step, i) => {
                   const Icon = step.icon;
                   return (
-                    <div key={i} className="flex items-start gap-4 p-4 rounded-xl"
+                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
                       style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${step.color}15` }}>
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                        style={{ background: `${step.color}12`, border: `1px solid ${step.color}28` }}>
-                        <Icon className="w-3.5 h-3.5" style={{ color: step.color }} />
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: `${step.color}12`, border: `1px solid ${step.color}25` }}>
+                        <Icon className="w-3 h-3" style={{ color: step.color }} />
                       </div>
-                      <div>
-                        <p className="text-[9px] font-display tracking-[0.2em] uppercase mb-1" style={{ color: step.color }}>
-                          Passo {i + 1}
-                        </p>
-                        <p className="text-sm font-body font-semibold text-white mb-0.5">{step.title}</p>
-                        <p className="text-[11px] text-white/38 font-body leading-relaxed">{step.desc}</p>
+                      <div className="min-w-0">
+                        <span className="text-[8px] font-display tracking-[0.18em] uppercase mr-1.5" style={{ color: step.color }}>
+                          {i + 1}.
+                        </span>
+                        <span className="text-[12px] font-body font-semibold text-white">{step.title}</span>
+                        <p className="text-[10px] text-white/35 font-body leading-snug mt-0.5 truncate">{step.desc}</p>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <p className="text-[10px] text-white/22 font-body mt-5 leading-relaxed">
-                Não recebeu o e-mail? Verifique a pasta de spam.<br />
-                Remetente: <span className="text-white/35">noreply@suavidaeumjogo.com</span>
+              <p className="text-[9px] text-white/20 font-body mt-4">
+                Não recebeu? Verifique o spam. Remetente: <span className="text-white/30">noreply@suavidaeumjogo.com</span>
               </p>
             </div>
 
             {/* RIGHT — login form */}
-            <div className="rounded-2xl px-7 py-8" style={cardStyle}>
+            <div className="rounded-2xl px-6 py-6" style={cardStyle}>
               <LoginForm compact={false} />
 
-              <div className="mt-6 pt-5 border-t border-white/6">
+              <div className="mt-5 pt-4 border-t border-white/6">
                 <div className="flex items-center justify-center gap-4">
                   {['Metas com IA', 'Gamificação', 'Evolução diária'].map(f => (
                     <div key={f} className="flex items-center gap-1">
