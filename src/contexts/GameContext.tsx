@@ -74,10 +74,11 @@ interface GameContextType extends GameState {
   startMissionTimer: (metaId: string, missionId: string) => void;
   stopMissionTimer: (metaId: string, missionId: string) => void;
   addAfazer: (afazer: Omit<Afazer, 'id' | 'completed' | 'xpReward' | 'createdAt'>) => void;
-  updateAfazer: (id: string, updates: Partial<Pick<Afazer, 'title' | 'description' | 'category' | 'startDate' | 'endDate' | 'startTime' | 'endTime' | 'estimatedMinutes'>>) => void;
+  updateAfazer: (id: string, updates: Partial<Pick<Afazer, 'title' | 'description' | 'category' | 'startDate' | 'endDate' | 'startTime' | 'endTime' | 'estimatedMinutes'>>, updateAll?: boolean) => void;
   completeAfazer: (id: string) => void;
   uncompleteAfazer: (id: string) => void;
-  deleteAfazer: (id: string) => void;
+  deleteAfazer: (id: string, deleteAll?: boolean) => void;
+  deleteAfazerSeries: (groupId: string) => void;
   startAfazerTimer: (id: string) => void;
   stopAfazerTimer: (id: string) => void;
   updateMission: (metaId: string, missionId: string, updates: { title?: string; description?: string }) => void;
@@ -279,6 +280,7 @@ async function loadFromDB(userId: string): Promise<{ metas: Meta[]; stats: Playe
     timerCompletedAt: a.timer_completed_at || undefined,
     actualMinutes: a.actual_minutes || undefined,
     googleEventId: (a as any).google_event_id || undefined,
+    recurrentGroupId: (a as any).recurrent_group_id || undefined,
   }));
 
   // Load life goals
@@ -920,10 +922,65 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, [userId]) as (metaId: string) => void;
 
+  // ── Helper: generate all dates in range matching given week days ──
+  function getRecurringDates(startDate: string, endDate: string, days: DayOfWeek[]): string[] {
+    const dayMap: Record<string, number> = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
+    const selectedNums = days.length > 0 ? days.map(d => dayMap[d]) : [0,1,2,3,4,5,6];
+    const dates: string[] = [];
+    const cur = new Date(startDate + 'T12:00');
+    const end = new Date(endDate + 'T12:00');
+    while (cur <= end) {
+      if (selectedNums.includes(cur.getDay())) dates.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
+  }
+
   // Afazeres
   const addAfazer = useCallback(async (data: Omit<Afazer, 'id' | 'completed' | 'xpReward' | 'createdAt'>) => {
     if (!userId) return;
     const xpReward = getXPFromMinutes(data.estimatedMinutes);
+
+    // ── Bulk creation: recurring WITH an end date ──────────────────────
+    if (data.isRecurrent && data.recurrentEndDate && data.startDate) {
+      const groupId = generateId();
+      const dates = getRecurringDates(data.startDate, data.recurrentEndDate, data.recurrentDays || []);
+      if (dates.length === 0) return;
+
+      const rows = dates.map(date => {
+        const id = generateId();
+        return { id, date };
+      });
+
+      await supabase.from('afazeres').insert(rows.map(r => ({
+        id: r.id, user_id: userId, title: data.title, description: data.description || null,
+        category: data.category, start_date: r.date, end_date: null,
+        start_time: data.startTime || null, end_time: data.endTime || null,
+        is_recurrent: true, recurrent_days: (data.recurrentDays as any) || [],
+        recurrent_end_date: data.recurrentEndDate || null,
+        linked_meta_id: data.linkedMetaId || null, xp_reward: xpReward,
+        estimated_minutes: data.estimatedMinutes || null,
+        recurrent_group_id: groupId,
+      } as any)));
+
+      const newAfazeres: Afazer[] = rows.map(r => ({
+        ...data, id: r.id, startDate: r.date, endDate: undefined,
+        completed: false, xpReward, createdAt: new Date().toISOString(), recurrentGroupId: groupId,
+      }));
+      setState(prev => ({ ...prev, afazeres: [...prev.afazeres, ...newAfazeres] }));
+
+      // Google Calendar: cria evento para cada data (fire-and-forget)
+      rows.forEach(r => {
+        const googleTimes = makeGoogleDateTimes(r.date, data.startTime, data.endTime, data.estimatedMinutes);
+        googleCreateEvent({ summary: data.title, description: data.description || '', ...googleTimes, sourceType: 'afazer', sourceId: r.id })
+          .then(async (eventId) => {
+            if (eventId) await supabase.from('afazeres').update({ google_event_id: eventId } as any).eq('id', r.id);
+          });
+      });
+      return;
+    }
+
+    // ── Single creation (existing behavior) ───────────────────────────
     const id = generateId();
     const createdAt = new Date().toISOString();
     const afazer: Afazer = { ...data, id, completed: false, xpReward, createdAt };
@@ -938,7 +995,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       estimated_minutes: data.estimatedMinutes || null,
     } as any);
 
-    // Google Calendar sync: usa datetime se tiver horário, usando estimatedMinutes para duração
+    // Google Calendar sync
     const googleTimes = makeGoogleDateTimes(data.startDate, data.startTime, data.endTime, data.estimatedMinutes);
     googleCreateEvent({
       summary: data.title,
@@ -1014,7 +1071,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       let updatedAfazeres = prev.afazeres.map(a => a.id !== id ? a : { ...a, completed: true, completedAt });
       supabase.from('afazeres').update({ completed: true, completed_at: completedAt }).eq('id', id);
 
-      if (afazer.isRecurrent) {
+      // Rolling creation only for recurring tasks WITHOUT a pre-created series (no recurrentGroupId)
+      if (afazer.isRecurrent && !afazer.recurrentGroupId) {
         const nextDate = new Date(afazer.startDate);
         nextDate.setDate(nextDate.getDate() + 1);
         if (afazer.recurrentDays && afazer.recurrentDays.length > 0) {
@@ -1168,12 +1226,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAfazer = useCallback(async (id: string) => {
     if (!userId) return;
-    // Busca o google_event_id antes de deletar
     const { data: aRow } = await supabase.from('afazeres').select('google_event_id').eq('id', id).single() as any;
     await supabase.from('afazeres').delete().eq('id', id);
     if (aRow?.google_event_id) googleDeleteEvent(aRow.google_event_id);
     setState(prev => ({ ...prev, afazeres: prev.afazeres.filter(a => a.id !== id) }));
   }, [userId]) as (id: string) => void;
+
+  const deleteAfazerSeries = useCallback(async (groupId: string) => {
+    if (!userId || !groupId) return;
+    const { data: rows } = await supabase.from('afazeres').select('id, google_event_id').eq('recurrent_group_id' as any, groupId) as any;
+    await supabase.from('afazeres').delete().eq('recurrent_group_id' as any, groupId);
+    (rows || []).forEach((r: any) => { if (r.google_event_id) googleDeleteEvent(r.google_event_id); });
+    setState(prev => ({ ...prev, afazeres: prev.afazeres.filter(a => a.recurrentGroupId !== groupId) }));
+  }, [userId]) as (groupId: string) => void;
 
   const startAfazerTimer = useCallback(async (id: string) => {
     if (!userId) return;
@@ -1207,7 +1272,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addLifeGoal, deleteLifeGoal, completeWeeklyMission,
       updateMissionEstimate, scheduleMission, scheduleAllMissions, completeMeta,
       startMissionTimer, stopMissionTimer,
-      addAfazer, updateAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer,
+      addAfazer, updateAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, deleteAfazerSeries, startAfazerTimer, stopAfazerTimer,
       updateMission, dismissInactivityWarning,
     }}>
       {children}

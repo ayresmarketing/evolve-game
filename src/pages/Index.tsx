@@ -23,7 +23,7 @@ import { googleGetStatus, handleSilentRefreshCallback } from '@/lib/googleSync';
 import {
   Zap, Target, ListChecks, Calendar, Activity, ChevronRight, Flame,
   CalendarDays, Droplets, Moon, Sun, BarChart3, TrendingUp,
-  CheckCircle2, Clock, CalendarPlus, Sliders, Sparkles,
+  CheckCircle2, Clock, CalendarPlus, Sliders, Sparkles, Filter,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -926,6 +926,8 @@ function PageTitle({ title, subtitle }: { title: string; subtitle?: string }) {
 /* ═══════════════════════════════════════════════
    COMPONENT — Dashboard shell
 ═══════════════════════════════════════════════ */
+type MetasFilterMode = 'all' | 'soon7' | 'soon14' | 'soon30' | 'custom';
+
 function Dashboard() {
   const { stats } = useGame();
   const [currentPage, setCurrentPage] = useState<Page>(() => {
@@ -934,6 +936,10 @@ function Dashboard() {
   });
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lifequest_theme') !== 'light');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [metasFilter, setMetasFilter] = useState<MetasFilterMode>('all');
+  const [metasCustomStart, setMetasCustomStart] = useState('');
+  const [metasCustomEnd, setMetasCustomEnd] = useState('');
+  const [metasShowCustom, setMetasShowCustom] = useState(false);
   const [pendingGcalToken, setPendingGcalToken] = useState<string | null>(null);
   const [pendingGcalMode, setPendingGcalMode] = useState<'partial' | 'total' | null>(null);
   const [pendingGcalExpiresIn, setPendingGcalExpiresIn] = useState<number | null>(null);
@@ -995,19 +1001,70 @@ function Dashboard() {
       case 'dashboard':
         return <DashboardHome onNavigate={setCurrentPage} />;
 
-      case 'metas':
+      case 'metas': {
+        const today = new Date().toISOString().split('T')[0];
+        const addDays = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]; };
+        const metasFiltered = metasFilter === 'all' ? activeMetas : activeMetas.filter(m => {
+          if (metasFilter === 'soon7')  return m.deadline >= today && m.deadline <= addDays(7);
+          if (metasFilter === 'soon14') return m.deadline >= today && m.deadline <= addDays(14);
+          if (metasFilter === 'soon30') return m.deadline >= today && m.deadline <= addDays(30);
+          if (metasFilter === 'custom' && metasCustomStart && metasCustomEnd) return m.deadline >= metasCustomStart && m.deadline <= metasCustomEnd;
+          return true;
+        });
+        const filterBtns: { label: string; key: MetasFilterMode }[] = [
+          { label: 'Todas', key: 'all' }, { label: '7d', key: 'soon7' },
+          { label: '14d', key: 'soon14' }, { label: '30d', key: 'soon30' },
+        ];
         return (
           <div className="space-y-5 animate-fade-in">
             <PageTitle title="Gerenciar Metas" />
             <CreateMetaDialog />
             <CategoryOverview />
+
+            {/* Date filter */}
+            <div className="section-card">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <span className="font-display text-[10px] tracking-[0.22em] text-muted-foreground uppercase">Filtrar por prazo</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {filterBtns.map(b => (
+                    <button key={b.key} onClick={() => { setMetasFilter(b.key); setMetasShowCustom(false); }}
+                      className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider border transition-all ${metasFilter === b.key ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'}`}>
+                      {b.label}
+                    </button>
+                  ))}
+                  <button onClick={() => setMetasShowCustom(v => !v)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider border transition-all ${metasFilter === 'custom' ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'}`}>
+                    <Sliders className="w-2.5 h-2.5" /> Período
+                  </button>
+                </div>
+              </div>
+              {metasShowCustom && (
+                <div className="flex items-center gap-2 flex-wrap mt-3">
+                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                  <input type="date" value={metasCustomStart} onChange={e => setMetasCustomStart(e.target.value)}
+                    className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
+                  <span className="text-[10px] text-muted-foreground">até</span>
+                  <input type="date" value={metasCustomEnd} min={metasCustomStart} onChange={e => setMetasCustomEnd(e.target.value)}
+                    className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
+                  <button onClick={() => { if (metasCustomStart && metasCustomEnd) setMetasFilter('custom'); }}
+                    disabled={!metasCustomStart || !metasCustomEnd}
+                    className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-body font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50">
+                    Aplicar
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-4">
-              {activeMetas.map(meta => (
+              {metasFiltered.map(meta => (
                 <div key={meta.id}>
                   <MetaCard meta={meta} />
                   <FutureProjection meta={meta} />
                 </div>
               ))}
+              {metasFiltered.length === 0 && (
+                <p className="text-sm text-muted-foreground font-body text-center py-6">Nenhuma meta no período selecionado.</p>
+              )}
             </div>
             {completedMetas.length > 0 && (
               <div className="space-y-3 opacity-55">
@@ -1017,6 +1074,7 @@ function Dashboard() {
             )}
           </div>
         );
+      }
 
       case 'afazeres':
         return (

@@ -1,11 +1,43 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { Category, DayOfWeek, DAYS_OF_WEEK, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
-import { Plus, X, CheckCircle2, Circle, Trash2, Clock, Play, Square, Repeat, Link2, Pencil } from 'lucide-react';
+import { Plus, X, CheckCircle2, Circle, Trash2, Clock, Play, Square, Repeat, Link2, Pencil, CalendarDays, Sliders } from 'lucide-react';
+
+type FilterMode = { type: 'all' } | { type: 'today' } | { type: 'days'; n: number } | { type: 'custom'; start: string; end: string };
+
+function buildRange(mode: FilterMode): string[] {
+  const today = new Date().toISOString().split('T')[0];
+  if (mode.type === 'today') return [today];
+  if (mode.type === 'all') return [];
+  if (mode.type === 'custom') {
+    const dates: string[] = [];
+    const cur = new Date(mode.start + 'T12:00');
+    const end = new Date(mode.end + 'T12:00');
+    while (cur <= end) { dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate() + 1); }
+    return dates;
+  }
+  // days
+  return Array.from({ length: mode.n }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() + i); return d.toISOString().split('T')[0];
+  });
+}
 
 export function AfazeresPanel() {
-  const { afazeres, addAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, startAfazerTimer, stopAfazerTimer, metas } = useGame();
+  const { afazeres, addAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, deleteAfazerSeries, startAfazerTimer, stopAfazerTimer, metas } = useGame();
+
+  // ── Date filter ──────────────────────────────────────────────────
+  const [filterMode, setFilterMode] = useState<FilterMode>({ type: 'all' });
+  const [showCustom, setShowCustom] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+
+  const dateRange = useMemo(() => buildRange(filterMode), [filterMode]);
+
+  const filteredAfazeres = useMemo(() => {
+    if (filterMode.type === 'all') return afazeres;
+    return afazeres.filter(a => dateRange.includes(a.startDate));
+  }, [afazeres, filterMode, dateRange]);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -102,10 +134,11 @@ export function AfazeresPanel() {
     setShowDescription(false); setDateOption('today'); setHasDailyTime(false); setDailyTime('');
   };
 
-  const completedAfazeres = afazeres.filter(a => a.completed);
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayAfazeres = afazeres.filter(a => !a.completed && (a.startDate === todayStr || (a.isRecurrent && !a.completed)));
-  const upcomingAfazeres = afazeres.filter(a => !a.completed && a.startDate && a.startDate > todayStr && !a.isRecurrent);
+  const completedAfazeres = filteredAfazeres.filter(a => a.completed);
+  const todayAfazeres = filteredAfazeres.filter(a => !a.completed && a.startDate === todayStr);
+  const upcomingAfazeres = filteredAfazeres.filter(a => !a.completed && a.startDate > todayStr);
+  const pastAfazeres = filteredAfazeres.filter(a => !a.completed && a.startDate < todayStr);
 
   const categories: { value: Category; label: string; icon: string; activeClass: string }[] = [
     { value: 'pessoal', label: 'Pessoal', icon: '🟣', activeClass: 'border-game-purple bg-game-purple/10 text-game-purple' },
@@ -308,12 +341,65 @@ export function AfazeresPanel() {
         </div>
       )}
 
+      {/* ── Date filter controls ── */}
+      <div className="glass-card rounded-2xl p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+          <span className="font-display text-[10px] tracking-[0.22em] text-muted-foreground uppercase">Período</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {([
+              { label: 'Todos', mode: { type: 'all' } as FilterMode },
+              { label: 'Hoje',  mode: { type: 'today' } as FilterMode },
+              { label: '7d',    mode: { type: 'days', n: 7 } as FilterMode },
+              { label: '14d',   mode: { type: 'days', n: 14 } as FilterMode },
+              { label: '30d',   mode: { type: 'days', n: 30 } as FilterMode },
+            ] as { label: string; mode: FilterMode }[]).map(({ label, mode }) => {
+              const active = JSON.stringify(filterMode) === JSON.stringify(mode);
+              return (
+                <button key={label} onClick={() => { setFilterMode(mode); setShowCustom(false); }}
+                  className={`px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider border transition-all ${active ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'}`}>
+                  {label}
+                </button>
+              );
+            })}
+            <button onClick={() => setShowCustom(v => !v)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-display tracking-wider border transition-all ${filterMode.type === 'custom' ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'}`}>
+              <Sliders className="w-2.5 h-2.5" /> Período
+            </button>
+          </div>
+        </div>
+        {showCustom && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+              className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
+            <span className="text-[10px] text-muted-foreground">até</span>
+            <input type="date" value={customEnd} min={customStart} onChange={e => setCustomEnd(e.target.value)}
+              className="rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-body text-foreground focus:outline-none focus:border-primary/50" />
+            <button onClick={() => { if (customStart && customEnd) setFilterMode({ type: 'custom', start: customStart, end: customEnd }); }}
+              disabled={!customStart || !customEnd}
+              className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-body font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50">
+              Aplicar
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Today's tasks */}
       {todayAfazeres.length > 0 && (
         <section aria-label="Tarefas de hoje">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase">📅 Hoje</h3>
           <div className="space-y-2">
-            {todayAfazeres.map(a => <AfazerItem key={a.id} afazer={a} />)}
+            {todayAfazeres.map(a => <AfazerItem key={a.id} afazer={a} deleteAfazerSeries={deleteAfazerSeries} />)}
+          </div>
+        </section>
+      )}
+
+      {/* Past (only shown when filter includes past dates) */}
+      {pastAfazeres.length > 0 && (
+        <section aria-label="Tarefas passadas">
+          <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase">📆 Anteriores ({pastAfazeres.length})</h3>
+          <div className="space-y-2">
+            {pastAfazeres.map(a => <AfazerItem key={a.id} afazer={a} deleteAfazerSeries={deleteAfazerSeries} />)}
           </div>
         </section>
       )}
@@ -323,7 +409,7 @@ export function AfazeresPanel() {
         <section aria-label="Próximas tarefas">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase">📋 Próximas ({upcomingAfazeres.length})</h3>
           <div className="space-y-2">
-            {upcomingAfazeres.map(a => <AfazerItem key={a.id} afazer={a} />)}
+            {upcomingAfazeres.map(a => <AfazerItem key={a.id} afazer={a} deleteAfazerSeries={deleteAfazerSeries} />)}
           </div>
         </section>
       )}
@@ -333,16 +419,21 @@ export function AfazeresPanel() {
         <section aria-label="Tarefas concluídas">
           <h3 className="font-display text-[10px] tracking-[0.25em] text-muted-foreground mb-3 uppercase opacity-60">✅ Concluídos ({completedAfazeres.length})</h3>
           <div className="space-y-2 opacity-60">
-            {completedAfazeres.slice(0, 10).map(a => <AfazerItem key={a.id} afazer={a} />)}
+            {completedAfazeres.slice(0, 15).map(a => <AfazerItem key={a.id} afazer={a} deleteAfazerSeries={deleteAfazerSeries} />)}
           </div>
         </section>
+      )}
+
+      {filteredAfazeres.length === 0 && (
+        <p className="text-sm text-muted-foreground font-body text-center py-6">Nenhum afazer no período selecionado.</p>
       )}
     </div>
   );
 }
 
-function AfazerItem({ afazer: a }: { afazer: any }) {
+function AfazerItem({ afazer: a, deleteAfazerSeries }: { afazer: any; deleteAfazerSeries: (groupId: string) => void }) {
   const { completeAfazer, uncompleteAfazer, deleteAfazer, updateAfazer, startAfazerTimer, stopAfazerTimer } = useGame();
+  const [showDeletePrompt, setShowDeletePrompt] = useState(false);
   const cat = CATEGORY_CONFIG[a.category as Category];
   const isTimerRunning = !!a.timerStartedAt && !a.timerCompletedAt && !a.completed;
   const [elapsed, setElapsed] = useState(0);
@@ -475,12 +566,32 @@ function AfazerItem({ afazer: a }: { afazer: any }) {
               <Pencil className="w-3.5 h-3.5" />
             </button>
           )}
-          <button onClick={() => deleteAfazer(a.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-            aria-label="Excluir tarefa">
+          <button onClick={() => a.recurrentGroupId ? setShowDeletePrompt(true) : deleteAfazer(a.id)}
+            className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive" aria-label="Excluir tarefa">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
+
+      {/* Delete series prompt */}
+      {showDeletePrompt && (
+        <div className="mt-3 p-3 rounded-xl border border-destructive/25 bg-destructive/5 animate-slide-up">
+          <p className="text-xs font-body text-foreground mb-3">Esta tarefa faz parte de uma série recorrente. O que deseja excluir?</p>
+          <div className="flex gap-2">
+            <button onClick={() => { deleteAfazer(a.id); setShowDeletePrompt(false); }}
+              className="flex-1 py-2 rounded-lg border border-border text-xs font-body text-muted-foreground hover:text-foreground transition-all">
+              Só esta
+            </button>
+            <button onClick={() => { deleteAfazerSeries(a.recurrentGroupId); setShowDeletePrompt(false); }}
+              className="flex-1 py-2 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-xs font-body font-semibold hover:bg-destructive/20 transition-all">
+              Todas ({a.recurrentGroupId ? 'série' : '...'})
+            </button>
+            <button onClick={() => setShowDeletePrompt(false)} className="px-3 py-2 rounded-lg text-xs font-body text-muted-foreground hover:text-foreground">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </article>
   );
 }
