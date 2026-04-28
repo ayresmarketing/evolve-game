@@ -3,8 +3,9 @@ import {
   Plus, Trash2, TrendingUp, Wallet,
   ArrowUpRight, ArrowDownRight, Pencil, Check, X,
   CalendarDays, Sliders, BarChart3,
-  RefreshCw, Wifi, WifiOff, AlertCircle,
+  RefreshCw, Wifi, WifiOff, MessageCircle, Settings2,
 } from 'lucide-react';
+import { WhatsAppDialog } from '@/components/game/WhatsAppDialog';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -500,6 +501,7 @@ function PhoneSetupInline({ onSave, userId }: { onSave: (phone: string) => void;
 export function FinancePanel() {
   const { user } = useAuth();
   const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -708,7 +710,7 @@ export function FinancePanel() {
   return (
     <div className="space-y-5">
 
-      {/* Status bar */}
+      {/* WhatsApp integration button + status bar */}
       <div className="flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2 min-w-0">
           {whatsappPhone ? (
@@ -726,7 +728,9 @@ export function FinancePanel() {
                 <WifiOff className="w-3 h-3" /> Desconectado
               </span>
             )
-          ) : null}
+          ) : (
+            <span className="text-[10px] font-body text-muted-foreground">WhatsApp não vinculado</span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {whatsappPhone && (
@@ -735,10 +739,36 @@ export function FinancePanel() {
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           )}
+          {whatsappPhone ? (
+            <button
+              onClick={() => setShowWhatsAppDialog(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-[10px] font-display tracking-wider hover:bg-green-500/15 transition-colors"
+              title="Alterar número"
+            >
+              <Settings2 className="w-3 h-3" />
+              Alterar
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowWhatsAppDialog(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-[10px] font-display tracking-wider hover:bg-green-500/15 transition-colors"
+            >
+              <MessageCircle className="w-3 h-3" />
+              Integrar WhatsApp
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Phone setup — só aparece se não tiver número vinculado e não houver no metadata */}
+      {user && (
+        <WhatsAppDialog
+          open={showWhatsAppDialog}
+          onOpenChange={setShowWhatsAppDialog}
+          userId={user.id}
+          currentPhone={whatsappPhone || undefined}
+          onSuccess={(phone) => setWhatsappPhone(phone)}
+        />
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-3">

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
+import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { GlitchWord } from '@/components/game/GlitchWord';
 
 /* ── Grid dot particle ── */
@@ -32,12 +31,9 @@ const PARTICLES = Array.from({ length: 24 }, (_, i) => ({
 }));
 
 export default function Auth() {
-  const { user, loading, signIn, signUp } = useAuth();
-  const [mode, setMode]             = useState<'login' | 'signup'>('login');
+  const { user, loading, signIn } = useAuth();
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [whatsapp, setWhatsapp]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -57,21 +53,6 @@ export default function Auth() {
     `;
     document.head.appendChild(style);
   }, []);
-
-  const toDigits   = (v: string) => v.replace(/\D/g, '');
-  const formatPhone = (digits: string) => {
-    const d   = digits.slice(0, 10);
-    const ddd = d.slice(0, 2);
-    const p1  = d.slice(2, 6);
-    const p2  = d.slice(6, 10);
-    if (!ddd) return '';
-    if (!p1)  return `(${ddd}`;
-    if (!p2)  return `(${ddd}) ${p1}`;
-    return `(${ddd}) ${p1}-${p2}`;
-  };
-
-  const phoneDigits = toDigits(whatsapp).slice(0, 10);
-  const phoneE164   = phoneDigits.length === 10 ? `55${phoneDigits}` : '';
 
   if (loading) {
     return (
@@ -94,51 +75,16 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { toast.error('Preencha todos os campos.'); return; }
-    if (mode === 'signup' && password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
     setSubmitting(true);
     try {
-      if (mode === 'login') {
-        let { error } = await signIn(email, password);
-        if (error && /not confirmed|não confirmado|não verificado|not verified/i.test(error.message)) {
-          const { error: confirmErr } = await supabase.functions.invoke('create-confirmed-user', {
-            body: { action: 'confirm', email },
-          });
-          if (!confirmErr) {
-            const retry = await signIn(email, password);
-            error = retry.error;
-          }
-        }
-        if (error) {
-          if (error.message.includes('Invalid login')) toast.error('Email ou senha incorretos.');
-          else toast.error(error.message);
-        }
-      } else {
-        if (phoneDigits.length !== 10) {
-          toast.error('Informe DDD + número (8 dígitos).');
-          return;
-        }
-        const { error } = await signUp(email, password, displayName, phoneE164);
-        if (error) { toast.error(error.message); return; }
-        const { error: loginErr } = await signIn(email, password);
-        if (loginErr) {
-          toast.success('Conta criada! Faça login para continuar.');
-          setMode('login');
-          setPassword(''); setDisplayName(''); setWhatsapp('');
-        } else {
-          toast.success('Conta criada com sucesso!');
-        }
+      const { error } = await signIn(email, password);
+      if (error) {
+        if (error.message.includes('Invalid login')) toast.error('Email ou senha incorretos.');
+        else toast.error(error.message);
       }
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const switchMode = (m: 'login' | 'signup') => {
-    setMode(m);
-    setEmail(''); setPassword(''); setDisplayName(''); setWhatsapp('');
   };
 
   return (
@@ -240,90 +186,18 @@ export default function Auth() {
             boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,232,121,0.06)',
           }}
         >
-          {/* Tab switcher */}
-          <div className="flex mb-7 border-b border-white/8">
-            {(['login', 'signup'] as const).map(m => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => switchMode(m)}
-                className={`flex-1 pb-3 text-[11px] font-display tracking-[0.2em] uppercase transition-all ${
-                  mode === m
-                    ? '-mb-px border-b-2 border-[#00e879]'
-                    : 'text-white/30 hover:text-white/50'
-                }`}
-                style={mode === m
-                  ? { color: '#00e879', textShadow: '0 0 12px rgba(0,232,121,0.6)' }
-                  : {}}
-              >
-                {m === 'login' ? 'Entrar' : 'Cadastrar'}
-              </button>
-            ))}
-          </div>
-
           {/* Headline */}
           <div className="mb-6">
             <h1 className="font-display text-[22px] text-white tracking-wide">
-              {mode === 'login' ? 'Acesso ao Sistema' : 'Iniciar Jornada'}
+              Acesso ao Sistema
             </h1>
             <p className="text-[11px] text-white/38 font-body mt-1.5 leading-relaxed">
-              {mode === 'login'
-                ? 'Entre e retome sua evolução de onde parou.'
-                : 'Crie sua conta e comece a evoluir hoje.'}
+              Entre e retome sua evolução de onde parou.
             </p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
-              <div>
-                <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
-                  Nome de Exibição
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
-                  <input
-                    type="text" value={displayName}
-                    onChange={e => setDisplayName(e.target.value)}
-                    placeholder="Como quer ser chamado?"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body
-                      focus:outline-none transition-all"
-                    style={{
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.09)',
-                    }}
-                    onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,232,121,0.36)'}
-                    onBlur={e  => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
-                  />
-                </div>
-              </div>
-            )}
-
-            {mode === 'signup' && (
-              <div>
-                <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
-                  WhatsApp
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base leading-none select-none">🇧🇷</span>
-                  <input
-                    type="tel" value={formatPhone(phoneDigits)}
-                    onChange={e => setWhatsapp(e.target.value)}
-                    placeholder="(31) 1234-5678"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-white placeholder:text-white/18 font-body
-                      focus:outline-none transition-all"
-                    style={{
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.09)',
-                    }}
-                    onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,232,121,0.36)'}
-                    onBlur={e  => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
-                  />
-                </div>
-                <p className="text-[9px] text-white/22 font-body mt-1 ml-0.5">DDD + 8 dígitos</p>
-              </div>
-            )}
-
             <div>
               <label className="block text-[9px] font-display tracking-[0.26em] text-white/30 uppercase mb-1.5">
                 Email
@@ -395,7 +269,7 @@ export default function Auth() {
                 <div className="w-5 h-5 border-2 border-black/25 border-t-black/70 rounded-full animate-spin" />
               ) : (
                 <>
-                  {mode === 'login' ? 'Entrar no Sistema' : 'Criar Conta'}
+                  Entrar no Sistema
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

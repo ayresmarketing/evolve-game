@@ -6,6 +6,39 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const WHATSAPP_API_URL  = Deno.env.get("WHATSAPP_API_URL")  ?? "";
+const WHATSAPP_INSTANCE = Deno.env.get("WHATSAPP_INSTANCE") ?? "";
+const WHATSAPP_API_KEY  = Deno.env.get("WHATSAPP_API_KEY")  ?? "";
+
+async function sendWhatsAppCode(phone: string, code: string): Promise<void> {
+  if (!WHATSAPP_API_URL || !WHATSAPP_INSTANCE) {
+    console.log("[send-phone-code] WhatsApp API not configured (dev mode). Code:", phone, code);
+    return;
+  }
+
+  const message = `🔐 *Sua Vida é um Jogo*\n\nSeu código de verificação é: *${code}*\n\nVálido por 10 minutos. Não compartilhe com ninguém.`;
+
+  // Evolution API format — adjust if using a different provider
+  const endpoint = `${WHATSAPP_API_URL}/message/sendText/${WHATSAPP_INSTANCE}`;
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": WHATSAPP_API_KEY,
+    },
+    body: JSON.stringify({
+      number: phone,
+      text: message,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`WhatsApp API error ${res.status}: ${body}`);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -28,14 +61,14 @@ serve(async (req) => {
       expires_at: expiresAt,
     });
 
-    // TODO: Integrar provedor SMS real (Twilio/Zenvia/Infobip)\n
-    console.log("SMS code (dev):", phone, code);
+    await sendWhatsAppCode(phone, code);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    console.error("[send-phone-code] error:", msg);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

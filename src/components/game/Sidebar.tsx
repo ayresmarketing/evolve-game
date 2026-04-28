@@ -2,12 +2,14 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Target, ListChecks, Calendar, Heart, TrendingUp,
   DollarSign, Droplets, StickyNote, Swords, Sun, Moon, LogOut,
-  Zap, ChevronRight, ChevronLeft,
+  Zap, ChevronRight, ChevronLeft, KeyRound,
 } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLevelFromXP } from '@/types/game';
 import { GlitchWord } from '@/components/game/GlitchWord';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export type Page =
   | 'dashboard' | 'metas' | 'afazeres' | 'agenda'
@@ -63,7 +65,16 @@ export function DesktopSidebar({
   sidebarCollapsed = false, onToggleSidebar,
 }: BottomNavProps) {
   const { stats } = useGame();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+
+  const handleResetPassword = async () => {
+    if (!user?.email) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) toast.error('Erro ao enviar e-mail: ' + error.message);
+    else toast.success('E-mail de redefinição enviado!');
+  };
   const { level, name, icon } = getLevelFromXP(stats.xp);
   const xpProgress = Math.min(((stats.xp % 1000) / 1000) * 100, 100);
   const collapsed = sidebarCollapsed;
@@ -204,6 +215,16 @@ export function DesktopSidebar({
           )}
         </button>
         <button
+          onClick={handleResetPassword}
+          title={collapsed ? 'Trocar Senha' : undefined}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground
+            hover:text-foreground hover:bg-secondary/50 transition-all
+            ${collapsed ? 'justify-center' : ''}`}
+        >
+          <KeyRound className="w-[17px] h-[17px] flex-shrink-0" />
+          {!collapsed && <span className="text-sm font-body font-semibold">Trocar Senha</span>}
+        </button>
+        <button
           onClick={async () => await signOut()}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
             text-destructive/55 hover:text-destructive hover:bg-destructive/8 transition-all
@@ -221,8 +242,17 @@ export function DesktopSidebar({
    MOBILE BOTTOM NAV
 ═══════════════════════════════════════════════════ */
 export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }: BottomNavProps) {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [showMore, setShowMore] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (!user?.email) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) toast.error('Erro ao enviar e-mail: ' + error.message);
+    else toast.success('E-mail de redefinição enviado!');
+  };
 
   const visibleItems = allNavItems.slice(0, 5);
   const moreItems    = allNavItems.slice(5);
@@ -268,6 +298,15 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
               <span className="text-[10px] font-body font-semibold leading-tight">
                 {darkMode ? 'Claro' : 'Escuro'}
               </span>
+            </button>
+
+            <button
+              onClick={() => { close(); handleResetPassword(); }}
+              className="flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl
+                text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all"
+            >
+              <KeyRound className="w-5 h-5" />
+              <span className="text-[10px] font-body font-semibold leading-tight">Senha</span>
             </button>
 
             <button

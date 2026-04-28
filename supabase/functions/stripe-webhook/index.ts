@@ -17,6 +17,25 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
+async function createUserFromSubscription(email: string, name?: string): Promise<void> {
+  try {
+    const { data: list } = await supabase.auth.admin.listUsers();
+    const existing = list?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+    if (existing) {
+      logStep("User already exists, skipping invite", { email });
+      return;
+    }
+    const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
+      data: { display_name: name || '', invited_via: 'stripe_subscription' },
+      redirectTo: `${Deno.env.get("SITE_URL") || "https://seuapp.com"}/reset-password`,
+    });
+    if (error) logStep("Error inviting user", { email, error: error.message });
+    else logStep("User invited via Supabase", { email });
+  } catch (err) {
+    logStep("createUserFromSubscription error", { err: String(err) });
+  }
+}
+
 async function upsertSubscriber(data: {
   email: string;
   stripe_customer_id: string;
@@ -86,6 +105,14 @@ serve(async (req) => {
           subscription_end: new Date(sub.current_period_end * 1000).toISOString(),
           cancel_at_period_end: sub.cancel_at_period_end,
         });
+
+        // Retrieve name from customer if available
+        let customerName: string | undefined;
+        try {
+          const customer = await stripe.customers.retrieve(customerId);
+          if (!customer.deleted) customerName = (customer as any).name || undefined;
+        } catch { /* ignore */ }
+        await createUserFromSubscription(email, customerName);
         break;
       }
 
