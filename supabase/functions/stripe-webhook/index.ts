@@ -169,23 +169,28 @@ async function createUserFromSubscription(email: string, name?: string): Promise
       return;
     }
 
-    const password = generatePassword();
-    const { error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { display_name: name || '', created_via: 'stripe_subscription' },
-    });
-
-    if (error) {
-      logStep("Error creating user", { email, error: error.message });
-      return;
-    }
-
-    logStep("User created with random password", { email });
-
     const siteUrl = Deno.env.get("SITE_URL") || "https://suavidaeumjogo.netlify.app";
-    await sendWelcomeEmail(email, password, siteUrl);
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+
+    if (resendKey) {
+      // Com Resend: cria com senha aleatória e manda e-mail customizado com credenciais
+      const password = generatePassword();
+      const { error } = await supabase.auth.admin.createUser({
+        email, password, email_confirm: true,
+        user_metadata: { display_name: name || '', created_via: 'stripe_subscription' },
+      });
+      if (error) { logStep("Error creating user", { email, error: error.message }); return; }
+      logStep("User created with random password", { email });
+      await sendWelcomeEmail(email, password, siteUrl);
+    } else {
+      // Sem Resend: usa o e-mail de convite nativo do Supabase (chega sempre)
+      const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
+        data: { display_name: name || '', created_via: 'stripe_subscription' },
+        redirectTo: `${siteUrl}/reset-password`,
+      });
+      if (error) logStep("Error inviting user", { email, error: error.message });
+      else logStep("User invited via Supabase native email", { email });
+    }
   } catch (err) {
     logStep("createUserFromSubscription error", { err: String(err) });
   }
