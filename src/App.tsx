@@ -9,6 +9,7 @@ import { SubscriptionGate } from "@/components/game/SubscriptionGate";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
+import Obrigado from "./pages/Obrigado.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { Zap } from "lucide-react";
 
@@ -44,6 +45,7 @@ const App = () => (
             <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/obrigado" element={<Obrigado />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

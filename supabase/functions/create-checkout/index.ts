@@ -83,8 +83,8 @@ serve(async (req) => {
         metadata: { user_id: user.id },
       },
       metadata: { user_id: user.id },
-      success_url: `${origin}/?checkout=success`,
-      cancel_url: `${origin}/?checkout=cancel`,
+      success_url: `${origin}/obrigado`,
+      cancel_url: `${origin}/auth`,
       allow_promotion_codes: true,
     });
 

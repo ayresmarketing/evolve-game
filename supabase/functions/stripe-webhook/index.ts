@@ -17,6 +17,7 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
+/** Cria conta Supabase via invite quando não existe */
 async function createUserFromSubscription(email: string, name?: string): Promise<void> {
   try {
     const { data: list } = await supabase.auth.admin.listUsers();
@@ -25,9 +26,10 @@ async function createUserFromSubscription(email: string, name?: string): Promise
       logStep("User already exists, skipping invite", { email });
       return;
     }
+    const siteUrl = Deno.env.get("SITE_URL") || "https://suavidaeumjogo.netlify.app";
     const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
       data: { display_name: name || '', invited_via: 'stripe_subscription' },
-      redirectTo: `${Deno.env.get("SITE_URL") || "https://seuapp.com"}/reset-password`,
+      redirectTo: `${siteUrl}/reset-password`,
     });
     if (error) logStep("Error inviting user", { email, error: error.message });
     else logStep("User invited via Supabase", { email });
@@ -36,6 +38,7 @@ async function createUserFromSubscription(email: string, name?: string): Promise
   }
 }
 
+/** Upsert na tabela subscribers — defensivo: current_period_end pode ser null em trial */
 async function upsertSubscriber(data: {
   email: string;
   stripe_customer_id: string;
@@ -45,14 +48,18 @@ async function upsertSubscriber(data: {
   subscription_end?: string | null;
   cancel_at_period_end?: boolean;
 }) {
-  const { error } = await supabase
-    .from("subscribers")
-    .upsert(
-      { ...data, updated_at: new Date().toISOString() },
-      { onConflict: "email" }
-    );
-  if (error) logStep("DB upsert error", { error: error.message });
-  else logStep("DB upserted", { email: data.email, status: data.status });
+  try {
+    const { error } = await supabase
+      .from("subscribers")
+      .upsert(
+        { ...data, updated_at: new Date().toISOString() },
+        { onConflict: "email" }
+      );
+    if (error) logStep("DB upsert error", { error: error.message });
+    else logStep("DB upserted", { email: data.email, status: data.status });
+  } catch (err) {
+    logStep("upsertSubscriber error", { err: String(err) });
+  }
 }
 
 async function getEmailFromCustomer(customerId: string): Promise<string | null> {
@@ -63,6 +70,12 @@ async function getEmailFromCustomer(customerId: string): Promise<string | null> 
   } catch {
     return null;
   }
+}
+
+/** Converte timestamp Unix para ISO, retorna null se inválido */
+function toISO(ts: number | null | undefined): string | null {
+  if (!ts) return null;
+  try { return new Date(ts * 1000).toISOString(); } catch { return null; }
 }
 
 serve(async (req) => {
@@ -85,13 +98,17 @@ serve(async (req) => {
 
   logStep("Event received", { type: event.type, id: event.id });
 
-  try {
-    switch (event.type) {
-      case "checkout.session.completed": {
+  // Each case handles its own errors so one failure never causes a 500
+  switch (event.type) {
+
+    case "checkout.session.completed": {
+      try {
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.mode !== "subscription") break;
         const customerId = session.customer as string;
         const subscriptionId = session.subscription as string;
+        if (!customerId || !subscriptionId) { logStep("Missing customer or subscription"); break; }
+
         const email = session.customer_email ?? (await getEmailFromCustomer(customerId));
         if (!email) { logStep("No email from checkout session"); break; }
 
@@ -101,25 +118,29 @@ serve(async (req) => {
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
           status: sub.status,
-          trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-          subscription_end: new Date(sub.current_period_end * 1000).toISOString(),
-          cancel_at_period_end: sub.cancel_at_period_end,
+          trial_end: toISO(sub.trial_end),
+          subscription_end: toISO(sub.current_period_end),
+          cancel_at_period_end: sub.cancel_at_period_end ?? false,
         });
 
-        // Retrieve name from customer if available
         let customerName: string | undefined;
         try {
           const customer = await stripe.customers.retrieve(customerId);
           if (!customer.deleted) customerName = (customer as any).name || undefined;
         } catch { /* ignore */ }
         await createUserFromSubscription(email, customerName);
-        break;
+      } catch (err) {
+        logStep("checkout.session.completed error", { err: String(err) });
       }
+      break;
+    }
 
-      case "customer.subscription.created":
-      case "customer.subscription.updated": {
+    case "customer.subscription.created":
+    case "customer.subscription.updated": {
+      try {
         const sub = event.data.object as Stripe.Subscription;
         const customerId = sub.customer as string;
+        if (!customerId) break;
         const email = await getEmailFromCustomer(customerId);
         if (!email) { logStep("No email for subscription event"); break; }
 
@@ -128,16 +149,21 @@ serve(async (req) => {
           stripe_customer_id: customerId,
           stripe_subscription_id: sub.id,
           status: sub.status,
-          trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-          subscription_end: new Date(sub.current_period_end * 1000).toISOString(),
-          cancel_at_period_end: sub.cancel_at_period_end,
+          trial_end: toISO(sub.trial_end),
+          subscription_end: toISO(sub.current_period_end),
+          cancel_at_period_end: sub.cancel_at_period_end ?? false,
         });
-        break;
+      } catch (err) {
+        logStep(`${event.type} error`, { err: String(err) });
       }
+      break;
+    }
 
-      case "customer.subscription.deleted": {
+    case "customer.subscription.deleted": {
+      try {
         const sub = event.data.object as Stripe.Subscription;
         const customerId = sub.customer as string;
+        if (!customerId) break;
         const email = await getEmailFromCustomer(customerId);
         if (!email) break;
 
@@ -147,16 +173,21 @@ serve(async (req) => {
           stripe_subscription_id: sub.id,
           status: "canceled",
           trial_end: null,
-          subscription_end: new Date(sub.current_period_end * 1000).toISOString(),
+          subscription_end: toISO(sub.current_period_end),
           cancel_at_period_end: false,
         });
-        break;
+      } catch (err) {
+        logStep("customer.subscription.deleted error", { err: String(err) });
       }
+      break;
+    }
 
-      case "invoice.payment_succeeded": {
+    case "invoice.payment_succeeded": {
+      try {
         const invoice = event.data.object as Stripe.Invoice;
-        if (!invoice.subscription) break;
-        const sub = await stripe.subscriptions.retrieve(invoice.subscription as string);
+        const subscriptionId = (invoice as any).subscription as string | null;
+        if (!subscriptionId) break;
+        const sub = await stripe.subscriptions.retrieve(subscriptionId);
         const email = await getEmailFromCustomer(sub.customer as string);
         if (!email) break;
 
@@ -166,16 +197,21 @@ serve(async (req) => {
           stripe_subscription_id: sub.id,
           status: "active",
           trial_end: null,
-          subscription_end: new Date(sub.current_period_end * 1000).toISOString(),
-          cancel_at_period_end: sub.cancel_at_period_end,
+          subscription_end: toISO(sub.current_period_end),
+          cancel_at_period_end: sub.cancel_at_period_end ?? false,
         });
-        break;
+      } catch (err) {
+        logStep("invoice.payment_succeeded error", { err: String(err) });
       }
+      break;
+    }
 
-      case "invoice.payment_failed": {
+    case "invoice.payment_failed": {
+      try {
         const invoice = event.data.object as Stripe.Invoice;
-        if (!invoice.subscription) break;
-        const sub = await stripe.subscriptions.retrieve(invoice.subscription as string);
+        const subscriptionId = (invoice as any).subscription as string | null;
+        if (!subscriptionId) break;
+        const sub = await stripe.subscriptions.retrieve(subscriptionId);
         const email = await getEmailFromCustomer(sub.customer as string);
         if (!email) break;
 
@@ -184,39 +220,29 @@ serve(async (req) => {
           stripe_customer_id: sub.customer as string,
           stripe_subscription_id: sub.id,
           status: "past_due",
-          subscription_end: new Date(sub.current_period_end * 1000).toISOString(),
-          cancel_at_period_end: sub.cancel_at_period_end,
+          subscription_end: toISO(sub.current_period_end),
+          cancel_at_period_end: sub.cancel_at_period_end ?? false,
         });
-        break;
+      } catch (err) {
+        logStep("invoice.payment_failed error", { err: String(err) });
       }
-
-      case "charge.refunded": {
-        const charge = event.data.object as Stripe.Charge;
-        logStep("Charge refunded", {
-          chargeId: charge.id,
-          amount: charge.amount_refunded,
-          customer: charge.customer,
-        });
-        // Refund is logged; subscription status is handled by subscription events
-        break;
-      }
-
-      case "customer.subscription.trial_will_end": {
-        const sub = event.data.object as Stripe.Subscription;
-        logStep("Trial ending soon", {
-          subscriptionId: sub.id,
-          trialEnd: sub.trial_end,
-        });
-        // Extensibility point: send email reminder here
-        break;
-      }
-
-      default:
-        logStep("Unhandled event type", { type: event.type });
+      break;
     }
-  } catch (err) {
-    logStep("Handler error", { err: String(err) });
-    return new Response("Handler error", { status: 500 });
+
+    case "charge.refunded": {
+      const charge = event.data.object as Stripe.Charge;
+      logStep("Charge refunded", { chargeId: charge.id, amount: charge.amount_refunded });
+      break;
+    }
+
+    case "customer.subscription.trial_will_end": {
+      const sub = event.data.object as Stripe.Subscription;
+      logStep("Trial ending soon", { subscriptionId: sub.id, trialEnd: sub.trial_end });
+      break;
+    }
+
+    default:
+      logStep("Unhandled event type", { type: event.type });
   }
 
   return new Response(JSON.stringify({ received: true }), {
