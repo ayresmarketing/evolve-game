@@ -6,20 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Mega API credentials — set these as Supabase Edge Function secrets
 const WHATSAPP_HOST     = Deno.env.get("WHATSAPP_HOST")     ?? "";
 const WHATSAPP_INSTANCE = Deno.env.get("WHATSAPP_INSTANCE") ?? "";
 const WHATSAPP_TOKEN    = Deno.env.get("WHATSAPP_TOKEN")    ?? "";
 
 async function sendWhatsAppCode(phone: string, code: string): Promise<void> {
-  if (!WHATSAPP_HOST || !WHATSAPP_INSTANCE) {
-    console.log("[send-phone-code] Mega API not configured (dev mode). Code:", phone, code);
-    return;
+  if (!WHATSAPP_HOST || !WHATSAPP_INSTANCE || !WHATSAPP_TOKEN) {
+    throw new Error(
+      `Mega API não configurada. Verifique os secrets: WHATSAPP_HOST=${!!WHATSAPP_HOST}, WHATSAPP_INSTANCE=${!!WHATSAPP_INSTANCE}, WHATSAPP_TOKEN=${!!WHATSAPP_TOKEN}`
+    );
   }
 
   const message = `🔐 *Sua Vida é um Jogo*\n\nSeu código de verificação é: *${code}*\n\nVálido por 10 minutos. Não compartilhe com ninguém.`;
-
-  // Mega API: Authorization header sem "Bearer"
   const endpoint = `https://${WHATSAPP_HOST}/message/sendText/${WHATSAPP_INSTANCE}`;
 
   const res = await fetch(endpoint, {
@@ -35,10 +33,27 @@ async function sendWhatsAppCode(phone: string, code: string): Promise<void> {
   });
 
   const responseBody = await res.text();
-  console.log(`[send-phone-code] Mega API response ${res.status}:`, responseBody);
+  console.log(`[send-phone-code] Mega API ${res.status}:`, responseBody);
 
   if (!res.ok) {
-    throw new Error(`Mega API error ${res.status}: ${responseBody}`);
+    throw new Error(`Mega API HTTP ${res.status}: ${responseBody}`);
+  }
+
+  // Detect application-level errors (HTTP 200 but body indicates failure)
+  try {
+    const json = JSON.parse(responseBody);
+    if (json.error) {
+      throw new Error(`Mega API: ${responseBody}`);
+    }
+    if (json.status === "ERROR" || json.status === "FAILED" || json.status === "DISCONNECTED") {
+      throw new Error(`Mega API status=${json.status}: ${responseBody}`);
+    }
+  } catch (parseErr) {
+    if (parseErr instanceof SyntaxError) {
+      // Response is not JSON — trust HTTP 200
+    } else {
+      throw parseErr;
+    }
   }
 }
 
