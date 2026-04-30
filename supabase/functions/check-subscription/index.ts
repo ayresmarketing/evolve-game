@@ -12,6 +12,11 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${d}`);
 };
 
+function toISO(ts: number | null | undefined): string | null {
+  if (!ts) return null;
+  try { return new Date(ts * 1000).toISOString(); } catch { return null; }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -26,9 +31,6 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
 
@@ -39,7 +41,7 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    // 1. Check DB first (fast path — updated by webhook)
+    // ── 1. Check DB first (fast path — no Stripe needed) ───────────────
     const { data: dbRecord } = await supabaseClient
       .from("subscribers")
       .select("*")
@@ -49,37 +51,38 @@ serve(async (req) => {
     if (dbRecord) {
       logStep("DB record found", { status: dbRecord.status });
 
-      // If DB says active or trialing and not expired, trust it
       const isActiveOrTrial = ["active", "trialing"].includes(dbRecord.status);
       const notExpired = dbRecord.subscription_end
         ? new Date(dbRecord.subscription_end) > new Date()
-        : true;
+        : true; // null = no expiry recorded = trust status field
 
       if (isActiveOrTrial && notExpired) {
+        logStep("Returning subscribed from DB");
         return new Response(JSON.stringify({
           subscribed: true,
           trial: dbRecord.status === "trialing",
           subscription_end: dbRecord.subscription_end,
           trial_end: dbRecord.trial_end,
           status: dbRecord.status,
-          cancel_at_period_end: dbRecord.cancel_at_period_end,
+          cancel_at_period_end: dbRecord.cancel_at_period_end ?? false,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         });
       }
 
-      // If DB says canceled/past_due but record is recent (< 5 min), trust it
+      // Recent canceled/past_due record → trust it
       const updatedAt = new Date(dbRecord.updated_at);
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
       if (updatedAt > fiveMinAgo) {
+        logStep("Returning not-subscribed from recent DB record");
         return new Response(JSON.stringify({
           subscribed: false,
           trial: false,
           subscription_end: dbRecord.subscription_end,
           trial_end: null,
           status: dbRecord.status,
-          cancel_at_period_end: dbRecord.cancel_at_period_end,
+          cancel_at_period_end: dbRecord.cancel_at_period_end ?? false,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -87,7 +90,16 @@ serve(async (req) => {
       }
     }
 
-    // 2. Fallback: query Stripe directly and sync to DB
+    // ── 2. Fallback: query Stripe directly ─────────────────────────────
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      logStep("STRIPE_SECRET_KEY not set, no DB record — returning not subscribed");
+      return new Response(JSON.stringify({ subscribed: false, trial: false, status: null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     logStep("Falling back to Stripe API");
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
@@ -101,14 +113,15 @@ serve(async (req) => {
     }
 
     const customerId = customers.data[0].id;
-    const activeSubs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
-    const trialSubs = await stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 1 });
-    const pastDueSubs = await stripe.subscriptions.list({ customer: customerId, status: "past_due", limit: 1 });
+    const [activeSubs, trialSubs, pastDueSubs] = await Promise.all([
+      stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 }),
+      stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 1 }),
+      stripe.subscriptions.list({ customer: customerId, status: "past_due", limit: 1 }),
+    ]);
 
     const subscription = activeSubs.data[0] || trialSubs.data[0] || pastDueSubs.data[0];
 
     if (!subscription) {
-      // Sync canceled state to DB
       if (dbRecord) {
         await supabaseClient.from("subscribers").update({
           status: "canceled",
@@ -123,10 +136,9 @@ serve(async (req) => {
     }
 
     const isTrial = subscription.status === "trialing";
-    const subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-    const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null;
+    const subscriptionEnd = toISO((subscription as any).current_period_end);
+    const trialEnd = toISO((subscription as any).trial_end);
 
-    // Sync to DB
     await supabaseClient.from("subscribers").upsert({
       email: user.email,
       stripe_customer_id: customerId,
@@ -134,7 +146,7 @@ serve(async (req) => {
       status: subscription.status,
       trial_end: trialEnd,
       subscription_end: subscriptionEnd,
-      cancel_at_period_end: subscription.cancel_at_period_end,
+      cancel_at_period_end: (subscription as any).cancel_at_period_end ?? false,
       updated_at: new Date().toISOString(),
     }, { onConflict: "email" });
 
@@ -146,11 +158,12 @@ serve(async (req) => {
       subscription_end: subscriptionEnd,
       trial_end: trialEnd,
       status: subscription.status,
-      cancel_at_period_end: subscription.cancel_at_period_end,
+      cancel_at_period_end: (subscription as any).cancel_at_period_end ?? false,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
+
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: msg });
