@@ -19,14 +19,14 @@ async function sendWhatsAppCode(phone: string, code: string): Promise<void> {
 
   const message = `🔐 *Sua Vida é um Jogo*\n\nSeu código de verificação é: *${code}*\n\nVálido por 10 minutos. Não compartilhe com ninguém.`;
 
-  // Mega API format: POST https://{host}/message/sendText/{instanceKey}
+  // Mega API: Authorization header sem "Bearer"
   const endpoint = `https://${WHATSAPP_HOST}/message/sendText/${WHATSAPP_INSTANCE}`;
 
   const res = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
+      "Authorization": WHATSAPP_TOKEN,
     },
     body: JSON.stringify({
       number: phone,
@@ -34,9 +34,11 @@ async function sendWhatsAppCode(phone: string, code: string): Promise<void> {
     }),
   });
 
+  const responseBody = await res.text();
+  console.log(`[send-phone-code] Mega API response ${res.status}:`, responseBody);
+
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Mega API error ${res.status}: ${body}`);
+    throw new Error(`Mega API error ${res.status}: ${responseBody}`);
   }
 }
 

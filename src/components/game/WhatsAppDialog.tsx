@@ -17,11 +17,10 @@ type Step = 'phone' | 'code' | 'done';
 const toDigits = (v: string) => v.replace(/\D/g, '');
 
 function formatPhone(digits: string) {
-  const d = digits.slice(0, 11);
+  const d = digits.slice(0, 10); // DDD (2) + número (8) = 10 dígitos
   if (d.length <= 2)  return d;
   if (d.length <= 6)  return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
 }
 
 export function WhatsAppDialog({ open, onOpenChange, userId, currentPhone, onSuccess }: Props) {
@@ -31,12 +30,12 @@ export function WhatsAppDialog({ open, onOpenChange, userId, currentPhone, onSuc
   const [loading, setLoading] = useState(false);
   const [phoneE164, setPhoneE164] = useState('');
 
-  const digits = toDigits(phone);
-  const isPhoneValid = digits.length >= 10 && digits.length <= 11;
+  const digits = toDigits(phone).slice(0, 10);
+  const isPhoneValid = digits.length === 10;
 
   const handleSendCode = async () => {
     if (!isPhoneValid) {
-      toast.error('Informe DDD + número (10 ou 11 dígitos).');
+      toast.error('Informe DDD + número (exatamente 10 dígitos).');
       return;
     }
     const e164 = `55${digits}`;
@@ -137,11 +136,11 @@ export function WhatsAppDialog({ open, onOpenChange, userId, currentPhone, onSuc
                   type="tel"
                   value={formatPhone(digits)}
                   onChange={e => setPhone(e.target.value)}
-                  placeholder="(31) 99999-9999"
+                  placeholder="(31) 8385-7304"
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-secondary/50 border border-border text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
                 />
               </div>
-              <p className="text-[10px] text-muted-foreground font-body mt-1.5">DDD + número (sem +55)</p>
+              <p className="text-[10px] text-muted-foreground font-body mt-1.5">DDD + número — ex: 3183857304</p>
             </div>
             <button
               onClick={handleSendCode}
