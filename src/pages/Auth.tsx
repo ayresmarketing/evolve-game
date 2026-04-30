@@ -21,9 +21,9 @@ const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
 }));
 
 const WELCOME_STEPS = [
-  { icon: Mail,       color: '#00e879', title: 'Verifique seu e-mail',       desc: 'Acabamos de enviar suas credenciais de acesso para o e-mail usado na assinatura. Abra agora.' },
-  { icon: KeyRound,   color: '#06d6e8', title: 'Copie a senha recebida',      desc: 'No e-mail você encontra o seu e-mail e uma senha temporária. Use exatamente como está.' },
-  { icon: LogIn,      color: '#8b5cf6', title: 'Entre e comece a evoluir',    desc: 'Faça login aqui ao lado. Depois, se quiser, troque a senha nas Configurações do app.' },
+  { icon: Mail,    color: '#00e879', title: 'Acesse o e-mail que enviamos',   desc: 'Enviamos uma mensagem com seu link de acesso para o e-mail cadastrado na assinatura.' },
+  { icon: KeyRound,color: '#06d6e8', title: 'Defina a senha que desejar',     desc: 'Clique no botão do e-mail e escolha uma senha pessoal para entrar no sistema.' },
+  { icon: LogIn,   color: '#8b5cf6', title: 'Clique no botão e entre!',       desc: 'Após definir sua senha, você já pode acessar o sistema e começar sua jornada.' },
 ];
 
 /* ── Login form (shared) ── */
@@ -200,8 +200,8 @@ export default function Auth() {
               <h2 className="font-display text-lg text-white tracking-wide mb-1">
                 O que fazer agora?
               </h2>
-              <p className="text-[11px] text-white/38 font-body mb-4 leading-relaxed">
-                Siga os 3 passos abaixo para acessar o sistema.
+              <p className="text-[12px] text-white/70 font-body mb-4 leading-relaxed">
+                Siga os 3 passos abaixo para acessar o sistema pela primeira vez.
               </p>
 
               <div className="space-y-2.5">
@@ -219,15 +219,15 @@ export default function Auth() {
                           <span className="text-[10px] font-display tracking-[0.15em] uppercase mr-1.5" style={{ color: step.color }}>{i + 1}.</span>
                           {step.title}
                         </p>
-                        <p className="text-[12px] text-white/40 font-body leading-snug mt-1">{step.desc}</p>
+                        <p className="text-[12px] text-white/70 font-body leading-snug mt-1">{step.desc}</p>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <p className="text-[9px] text-white/20 font-body mt-4">
-                Não recebeu? Verifique o spam. Remetente: <span className="text-white/30">noreply@suavidaeumjogo.com</span>
+              <p className="text-[10px] text-white/50 font-body mt-4">
+                Não recebeu? Verifique a pasta de spam.
               </p>
             </div>
 
