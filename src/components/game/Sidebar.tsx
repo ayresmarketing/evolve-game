@@ -266,9 +266,10 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
       )}
 
       {showMore && (
-        <div className="fixed bottom-[72px] left-3 right-3 z-50 rounded-2xl border border-border/70
+        <div className="fixed left-3 right-3 z-50 rounded-2xl border border-border/70
           bg-card/96 backdrop-blur-xl shadow-[0_-8px_40px_hsl(224_60%_2%/0.65)] p-3.5
-          animate-slide-up">
+          animate-slide-up"
+          style={{ bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="grid grid-cols-5 gap-1">
             {moreItems.map(item => {
               const Icon = item.icon;
