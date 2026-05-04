@@ -323,7 +323,8 @@ export function BottomNav({ currentPage, onPageChange, darkMode, onToggleTheme }
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden
         bg-card/95 backdrop-blur-xl border-t border-border/50
-        shadow-[0_-4px_30px_hsl(224_60%_2%/0.5)]">
+        shadow-[0_-4px_30px_hsl(224_60%_2%/0.5)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex items-center justify-around px-2 py-1.5 max-w-[768px] mx-auto">
           {visibleItems.map(item => {
             const Icon = item.icon;
