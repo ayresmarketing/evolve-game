@@ -24,7 +24,7 @@ async function sendWhatsAppCode(phone: string, code: string): Promise<void> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": WHATSAPP_TOKEN,
+      "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
     },
     body: JSON.stringify({
       number: phone,

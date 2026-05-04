@@ -136,11 +136,11 @@ export function WhatsAppDialog({ open, onOpenChange, userId, currentPhone, onSuc
                   type="tel"
                   value={formatPhone(digits)}
                   onChange={e => setPhone(e.target.value)}
-                  placeholder="(31) 8385-7304"
+                  placeholder="(31) 00000-000"
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-secondary/50 border border-border text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
                 />
               </div>
-              <p className="text-[10px] text-muted-foreground font-body mt-1.5">DDD + número — ex: 3183857304</p>
+              <p className="text-[10px] text-muted-foreground font-body mt-1.5">DDD + número — ex: 3100000000</p>
             </div>
             <button
               onClick={handleSendCode}
