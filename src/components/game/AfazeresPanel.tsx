@@ -103,6 +103,14 @@ export function AfazeresPanel() {
       finalEstimatedMinutes = diff;
     }
 
+    // For "todos os dias" (hasDailyTime) without explicit end date: create 60 days of instances
+    let resolvedRecurrentEndDate = resolvedIsRecurrent && recurrentEndDate ? recurrentEndDate : undefined;
+    if (hasDailyTime && !recurrentEndDate) {
+      const end = new Date(resolvedStartDate + 'T12:00');
+      end.setDate(end.getDate() + 60);
+      resolvedRecurrentEndDate = end.toISOString().split('T')[0];
+    }
+
     const data = {
       title: title.trim(),
       description: (showDescription && description.trim()) ? description.trim() : undefined,
@@ -113,7 +121,7 @@ export function AfazeresPanel() {
       endTime: endTime || undefined,
       isRecurrent: resolvedIsRecurrent,
       recurrentDays: resolvedRecurrentDays,
-      recurrentEndDate: resolvedIsRecurrent && recurrentEndDate ? recurrentEndDate : undefined,
+      recurrentEndDate: resolvedRecurrentEndDate,
       linkedMetaId: linkedMetaId || undefined,
       estimatedMinutes: finalEstimatedMinutes,
     };
@@ -432,8 +440,10 @@ export function AfazeresPanel() {
 }
 
 function AfazerItem({ afazer: a, deleteAfazerSeries }: { afazer: any; deleteAfazerSeries: (groupId: string) => void }) {
-  const { completeAfazer, uncompleteAfazer, deleteAfazer, updateAfazer, startAfazerTimer, stopAfazerTimer } = useGame();
+  const { completeAfazer, uncompleteAfazer, deleteAfazer, updateAfazer, updateAfazerSeries, startAfazerTimer, stopAfazerTimer } = useGame();
   const [showDeletePrompt, setShowDeletePrompt] = useState(false);
+  const [showEditSeriesPrompt, setShowEditSeriesPrompt] = useState(false);
+  const [pendingEditData, setPendingEditData] = useState<any>(null);
   const cat = CATEGORY_CONFIG[a.category as Category];
   const isTimerRunning = !!a.timerStartedAt && !a.timerCompletedAt && !a.completed;
   const [elapsed, setElapsed] = useState(0);
@@ -472,15 +482,22 @@ function AfazerItem({ afazer: a, deleteAfazerSeries }: { afazer: any; deleteAfaz
 
   const saveEdit = () => {
     if (!editTitle.trim()) return;
-    updateAfazer(a.id, {
+    const editData = {
       title: editTitle.trim(),
       description: editDescription.trim() || undefined,
       startDate: editStartDate,
       startTime: editStartTime || undefined,
       endTime: editEndTime || undefined,
       estimatedMinutes: editEstimated ? parseInt(editEstimated) : undefined,
-    });
-    setEditing(false);
+    };
+    if (a.recurrentGroupId) {
+      setPendingEditData(editData);
+      setEditing(false);
+      setShowEditSeriesPrompt(true);
+    } else {
+      updateAfazer(a.id, editData);
+      setEditing(false);
+    }
   };
 
   const inputClass = "w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
@@ -572,6 +589,26 @@ function AfazerItem({ afazer: a, deleteAfazerSeries }: { afazer: any; deleteAfaz
           </button>
         </div>
       </div>
+
+      {/* Edit series prompt */}
+      {showEditSeriesPrompt && pendingEditData && (
+        <div className="mt-3 p-3 rounded-xl border border-primary/25 bg-primary/5 animate-slide-up">
+          <p className="text-xs font-body text-foreground mb-3">Esta tarefa faz parte de uma série. O que deseja editar?</p>
+          <div className="flex gap-2">
+            <button onClick={() => { updateAfazer(a.id, pendingEditData); setShowEditSeriesPrompt(false); setPendingEditData(null); }}
+              className="flex-1 py-2 rounded-lg border border-border text-xs font-body text-muted-foreground hover:text-foreground transition-all">
+              Só esta
+            </button>
+            <button onClick={() => { updateAfazerSeries(a.recurrentGroupId, pendingEditData); setShowEditSeriesPrompt(false); setPendingEditData(null); }}
+              className="flex-1 py-2 rounded-lg border border-primary/40 bg-primary/10 text-primary text-xs font-body font-semibold hover:bg-primary/20 transition-all">
+              Todas (série)
+            </button>
+            <button onClick={() => { setShowEditSeriesPrompt(false); setPendingEditData(null); }} className="px-3 py-2 rounded-lg text-xs font-body text-muted-foreground hover:text-foreground">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Delete series prompt */}
       {showDeletePrompt && (

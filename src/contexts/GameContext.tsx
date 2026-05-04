@@ -74,7 +74,8 @@ interface GameContextType extends GameState {
   startMissionTimer: (metaId: string, missionId: string) => void;
   stopMissionTimer: (metaId: string, missionId: string) => void;
   addAfazer: (afazer: Omit<Afazer, 'id' | 'completed' | 'xpReward' | 'createdAt'>) => void;
-  updateAfazer: (id: string, updates: Partial<Pick<Afazer, 'title' | 'description' | 'category' | 'startDate' | 'endDate' | 'startTime' | 'endTime' | 'estimatedMinutes'>>, updateAll?: boolean) => void;
+  updateAfazer: (id: string, updates: Partial<Pick<Afazer, 'title' | 'description' | 'category' | 'startDate' | 'endDate' | 'startTime' | 'endTime' | 'estimatedMinutes'>>) => void;
+  updateAfazerSeries: (groupId: string, updates: Partial<Pick<Afazer, 'title' | 'description' | 'startTime' | 'endTime' | 'estimatedMinutes'>>) => void;
   completeAfazer: (id: string) => void;
   uncompleteAfazer: (id: string) => void;
   deleteAfazer: (id: string, deleteAll?: boolean) => void;
@@ -1232,6 +1233,35 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, afazeres: prev.afazeres.filter(a => a.id !== id) }));
   }, [userId]) as (id: string) => void;
 
+  const updateAfazerSeries = useCallback(async (groupId: string, updates: Partial<Pick<Afazer, 'title' | 'description' | 'startTime' | 'endTime' | 'estimatedMinutes'>>) => {
+    if (!userId || !groupId) return;
+    const dbUpdates: Record<string, any> = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description || null;
+    if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime || null;
+    if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime || null;
+    if (updates.estimatedMinutes !== undefined) dbUpdates.estimated_minutes = updates.estimatedMinutes || null;
+
+    await supabase.from('afazeres').update(dbUpdates).eq('recurrent_group_id' as any, groupId);
+
+    const { data: rows } = await supabase.from('afazeres').select('google_event_id, start_date').eq('recurrent_group_id' as any, groupId) as any;
+    (rows || []).forEach((row: any) => {
+      if (!row.google_event_id) return;
+      const googleTimes = makeGoogleDateTimes(row.start_date, updates.startTime, updates.endTime, updates.estimatedMinutes);
+      googleUpdateEvent({
+        eventId: row.google_event_id,
+        ...(updates.title !== undefined ? { summary: updates.title } : {}),
+        ...(updates.description !== undefined ? { description: updates.description || '' } : {}),
+        ...googleTimes,
+      });
+    });
+
+    setState(prev => ({
+      ...prev,
+      afazeres: prev.afazeres.map(a => a.recurrentGroupId !== groupId ? a : { ...a, ...updates }),
+    }));
+  }, [userId]) as (groupId: string, updates: any) => void;
+
   const deleteAfazerSeries = useCallback(async (groupId: string) => {
     if (!userId || !groupId) return;
     const { data: rows } = await supabase.from('afazeres').select('id, google_event_id').eq('recurrent_group_id' as any, groupId) as any;
@@ -1272,7 +1302,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addLifeGoal, deleteLifeGoal, completeWeeklyMission,
       updateMissionEstimate, scheduleMission, scheduleAllMissions, completeMeta,
       startMissionTimer, stopMissionTimer,
-      addAfazer, updateAfazer, completeAfazer, uncompleteAfazer, deleteAfazer, deleteAfazerSeries, startAfazerTimer, stopAfazerTimer,
+      addAfazer, updateAfazer, updateAfazerSeries, completeAfazer, uncompleteAfazer, deleteAfazer, deleteAfazerSeries, startAfazerTimer, stopAfazerTimer,
       updateMission, dismissInactivityWarning,
     }}>
       {children}
