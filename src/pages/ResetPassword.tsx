@@ -10,14 +10,34 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
+  const [waiting, setWaiting] = useState(true);
 
   useEffect(() => {
+    // Implicit flow: hash already has the token
     const hash = window.location.hash;
-    const params = new URLSearchParams(window.location.search);
-    // implicit flow: token in hash; PKCE flow: code in query string
-    if (hash.includes('type=recovery') || hash.includes('type=invite') || params.has('code')) {
+    if (hash.includes('type=recovery') || hash.includes('type=invite')) {
       setReady(true);
+      setWaiting(false);
+      return;
     }
+
+    // PKCE flow: Supabase exchanges ?code= asynchronously and fires onAuthStateChange.
+    // We wait for that session instead of reading the URL (which may already be cleaned).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setReady(true);
+        setWaiting(false);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) { setReady(true); setWaiting(false); }
+    });
+
+    // After 8 s with no session → link is truly invalid/expired
+    const t = setTimeout(() => setWaiting(false), 8000);
+
+    return () => { subscription.unsubscribe(); clearTimeout(t); };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,13 +76,19 @@ export default function ResetPassword() {
         <div className="relative z-10 text-center px-4">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00e879] to-[#06d6e8] flex items-center justify-center mx-auto mb-5"
             style={{ boxShadow: '0 0 32px rgba(0,232,121,0.4)' }}>
-            <Zap className="w-7 h-7 text-black" strokeWidth={3} />
+            {waiting
+              ? <div className="w-6 h-6 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              : <Zap className="w-7 h-7 text-black" strokeWidth={3} />}
           </div>
-          <p className="text-white/40 font-body text-sm">Link inválido ou expirado.</p>
-          <button onClick={() => navigate('/auth')}
-            className="mt-4 text-[11px] font-body text-white/30 hover:text-white/60 transition-colors underline underline-offset-2">
-            Voltar ao login
-          </button>
+          {waiting
+            ? <p className="text-white/40 font-body text-sm">Verificando link...</p>
+            : <>
+                <p className="text-white/40 font-body text-sm">Link inválido ou expirado.</p>
+                <button onClick={() => navigate('/auth')}
+                  className="mt-4 text-[11px] font-body text-white/30 hover:text-white/60 transition-colors underline underline-offset-2">
+                  Voltar ao login
+                </button>
+              </>}
         </div>
       </div>
     );
