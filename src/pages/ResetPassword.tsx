@@ -13,7 +13,9 @@ export default function ResetPassword() {
 
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes('type=recovery') || hash.includes('type=invite')) {
+    const params = new URLSearchParams(window.location.search);
+    // implicit flow: token in hash; PKCE flow: code in query string
+    if (hash.includes('type=recovery') || hash.includes('type=invite') || params.has('code')) {
       setReady(true);
     }
   }, []);
