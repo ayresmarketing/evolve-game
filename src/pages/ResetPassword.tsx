@@ -29,8 +29,9 @@ export default function ResetPassword() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Senha definida! Entrando no sistema...');
-      navigate('/');
+      toast.success('Senha definida! Faça login para entrar.');
+      await supabase.auth.signOut();
+      navigate('/auth');
     }
     setSubmitting(false);
   };
