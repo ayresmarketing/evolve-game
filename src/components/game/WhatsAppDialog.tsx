@@ -80,18 +80,13 @@ export function WhatsAppDialog({ open, onOpenChange, userId, currentPhone, onSuc
     if (enteredCode.length !== 5) return;
     setVerifying(true);
     try {
-      // n8n sends Brazilian time (UTC-3) without timezone offset, so Supabase
-      // stores it as-is (e.g. "15:34" treated as UTC). We compensate by
-      // subtracting 3h from the current UTC time before comparing.
-      const brazilNow = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-
       // Check code: must match cod_5digitos and still be within expiration
       const { data } = await (supabase as any)
         .from('auth_cod_whatsapp')
         .select('id')
         .eq('user_id', userId)
         .eq('cod_5digitos', enteredCode)
-        .gt('expiration', brazilNow)
+        .gt('expiration', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
