@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { StickyNote, Plus, Search, Star, Tag, Target, X, Calendar } from 'lucide-react';
 
 type NoteCategory = 'aprendizado' | 'ideia' | 'reflexão' | 'erro' | 'insight';
@@ -35,6 +36,12 @@ function loadNotes(): Note[] {
 export function NotesPanel() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
   const [showForm, setShowForm] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', check, { passive: true });
+    return () => window.removeEventListener('resize', check);
+  }, []);
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<NoteCategory | undefined>();
   const [search, setSearch] = useState('');
@@ -90,8 +97,8 @@ export function NotesPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Quick create */}
-      {!showForm ? (
+      {/* Quick create trigger */}
+      {!showForm && (
         <button onClick={() => setShowForm(true)}
           className="w-full section-card flex items-center gap-3 text-left hover:border-primary/30 transition-all group cursor-pointer">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-all">
@@ -102,47 +109,66 @@ export function NotesPanel() {
             <p className="text-xs text-muted-foreground font-body">Registre um pensamento, ideia ou aprendizado</p>
           </div>
         </button>
-      ) : (
-        <div className="section-card space-y-3">
+      )}
+
+      {/* Form — inline on desktop, full-screen portal on mobile */}
+      {showForm && !isMobile && (
+        <div className="section-card space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-xs tracking-wider text-foreground">Nova Anotação</h3>
             <button onClick={() => setShowForm(false)} className="p-1 rounded-lg hover:bg-secondary text-muted-foreground">
               <X className="w-4 h-4" />
             </button>
           </div>
-
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="Escreva livremente..."
-            rows={4}
-            autoFocus
-            className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-          />
-
-          {/* Optional category */}
+          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Escreva livremente..." rows={4} autoFocus
+            className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
           <div>
             <p className="text-[10px] font-display tracking-wider text-muted-foreground mb-2 uppercase">Categoria (opcional)</p>
             <div className="flex flex-wrap gap-1.5">
               {CATEGORIES.map(cat => (
-                <button key={cat.value}
-                  onClick={() => setCategory(category === cat.value ? undefined : cat.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-body transition-all ${
-                    category === cat.value
-                      ? 'bg-primary/15 text-primary border border-primary/25'
-                      : 'bg-secondary/50 text-muted-foreground border border-border hover:text-foreground'
-                  }`}>
+                <button key={cat.value} onClick={() => setCategory(category === cat.value ? undefined : cat.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-body transition-all ${category === cat.value ? 'bg-primary/15 text-primary border border-primary/25' : 'bg-secondary/50 text-muted-foreground border border-border hover:text-foreground'}`}>
                   {cat.icon} {cat.label}
                 </button>
               ))}
             </div>
           </div>
-
           <button onClick={addNote} disabled={!content.trim()}
             className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-display text-sm tracking-wider hover:opacity-90 transition-all disabled:opacity-40">
             Salvar
           </button>
         </div>
+      )}
+
+      {showForm && isMobile && createPortal(
+        <div className="fixed inset-0 z-[200] bg-background flex flex-col overflow-hidden">
+          <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border">
+            <h3 className="font-display text-xs tracking-wider text-foreground">Nova Anotação</h3>
+            <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-5">
+            <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Escreva livremente..." rows={5} autoFocus
+              className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+            <div>
+              <p className="text-[10px] font-display tracking-wider text-muted-foreground mb-3 uppercase">Categoria (opcional)</p>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES.map(cat => (
+                  <button key={cat.value} onClick={() => setCategory(category === cat.value ? undefined : cat.value)}
+                    className={`px-4 py-2 rounded-xl text-sm font-body transition-all ${category === cat.value ? 'bg-primary/15 text-primary border border-primary/25' : 'bg-secondary/50 text-muted-foreground border border-border hover:text-foreground'}`}>
+                    {cat.icon} {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button onClick={addNote} disabled={!content.trim()}
+              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-display text-sm tracking-wider hover:opacity-90 transition-all disabled:opacity-40">
+              Salvar
+            </button>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Search & filters */}

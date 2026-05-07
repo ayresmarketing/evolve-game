@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useGame } from '@/contexts/GameContext';
 import { Category, DayOfWeek, DAYS_OF_WEEK, CATEGORY_CONFIG, CATEGORY_BG } from '@/types/game';
 import { formatMinutesToHM } from '@/lib/formatTime';
@@ -39,6 +40,12 @@ export function AfazeresPanel() {
     return afazeres.filter(a => dateRange.includes(a.startDate));
   }, [afazeres, filterMode, dateRange]);
   const [showForm, setShowForm] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', check, { passive: true });
+    return () => window.removeEventListener('resize', check);
+  }, []);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<Category>('pessoal');
@@ -154,6 +161,132 @@ export function AfazeresPanel() {
     { value: 'espiritual', label: 'Espiritual', icon: '🔵', activeClass: 'border-game-blue bg-game-blue/10 text-game-blue' },
   ];
 
+  // Shared form fields used by both mobile portal and desktop inline
+  const afazerFormFields = (
+    <>
+      <div>
+        <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Nome da tarefa *</label>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Ir ao mercado" className={inputClass} autoFocus />
+      </div>
+      <div>
+        <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Quando?</label>
+        <div className="flex gap-2 mb-2">
+          {(['today', 'tomorrow', 'custom'] as const).map(opt => (
+            <button key={opt} type="button" onClick={() => setDateOption(opt)}
+              className={`flex-1 py-2 px-2 rounded-xl text-xs font-body font-semibold border transition-all ${dateOption === opt ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+              {opt === 'today' ? 'Hoje' : opt === 'tomorrow' ? 'Amanhã' : 'Outra data'}
+            </button>
+          ))}
+        </div>
+        {dateOption === 'custom' && <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputClass} />}
+      </div>
+      <div>
+        <button type="button" onClick={() => setShowDescription(p => !p)}
+          className="flex items-center gap-2 text-xs font-body text-muted-foreground hover:text-foreground transition-colors mb-1">
+          <span className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${showDescription ? 'bg-primary border-primary' : 'border-border'}`}>
+            {showDescription && <span className="text-primary-foreground text-[10px] font-bold">✓</span>}
+          </span>
+          Adicionar descrição (opcional)
+        </button>
+        {showDescription && <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes da tarefa..." className={`${inputClass} min-h-[60px] resize-none mt-2`} />}
+      </div>
+      <div>
+        <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Categoria</label>
+        <div className="flex gap-2">
+          {categories.map(cat => (
+            <button key={cat.value} type="button" onClick={() => setCategory(cat.value)}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-body font-semibold border transition-all ${category === cat.value ? cat.activeClass : 'border-border text-muted-foreground'}`}>
+              {cat.icon} {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Data término (opcional)</label>
+        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputClass} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Horário início</label>
+          <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Horário término</label>
+          <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className={inputClass} />
+        </div>
+      </div>
+      {needsEstimate && (
+        <div>
+          <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Tempo estimado (min) *</label>
+          <input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} placeholder="Ex: 30" min="1" className={inputClass} />
+          <p className="text-[10px] text-muted-foreground font-body mt-1">⚠️ Como não foi definido horário de término, informe o tempo estimado.</p>
+        </div>
+      )}
+      {!startTime && (
+        <div>
+          <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Tempo estimado (min)</label>
+          <input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} placeholder="Ex: 30" min="1" className={inputClass} />
+        </div>
+      )}
+      <div>
+        <button type="button" onClick={() => setHasDailyTime(p => !p)}
+          className="flex items-center gap-2 text-xs font-body text-muted-foreground hover:text-foreground transition-colors mb-1">
+          <span className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${hasDailyTime ? 'bg-primary border-primary' : 'border-border'}`}>
+            {hasDailyTime && <span className="text-primary-foreground text-[10px] font-bold">✓</span>}
+          </span>
+          Esta tarefa acontece todo dia em um horário fixo
+        </button>
+        {hasDailyTime && (
+          <div className="mt-2">
+            <input type="time" value={dailyTime} onChange={e => setDailyTime(e.target.value)} className={inputClass} />
+            <p className="text-[10px] text-muted-foreground font-body mt-1">⟳ Será criada como tarefa recorrente todos os dias neste horário.</p>
+          </div>
+        )}
+      </div>
+      {!hasDailyTime && (
+        <>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setIsRecurrent(!isRecurrent)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-body font-semibold border transition-all ${isRecurrent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+              <Repeat className="w-3.5 h-3.5" /> Tarefa recorrente
+            </button>
+          </div>
+          {isRecurrent && (
+            <div className="space-y-3 pl-2 border-l-2 border-primary/20">
+              <div className="flex gap-1.5 flex-wrap">
+                {DAYS_OF_WEEK.map(d => (
+                  <button key={d.value} type="button" onClick={() => toggleDay(d.value)}
+                    className={`w-9 h-9 rounded-lg text-xs font-body font-bold border transition-all ${recurrentDays.includes(d.value) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                    {d.short}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Finaliza em</label>
+                <input type="date" value={recurrentEndDate} onChange={e => setRecurrentEndDate(e.target.value)} className={inputClass} />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      {metas.filter(m => !m.completed).length > 0 && (
+        <div>
+          <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Conectar a uma meta</label>
+          <select value={linkedMetaId} onChange={e => setLinkedMetaId(e.target.value)} className={inputClass}>
+            <option value="">Nenhuma (tarefa avulsa)</option>
+            {metas.filter(m => !m.completed).map(m => (
+              <option key={m.id} value={m.id}>{m.title}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      <button type="button" onClick={handleSubmit} disabled={!title.trim()}
+        className="w-full bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.2em] py-3.5 rounded-xl hover:shadow-glow-cyan transition-all duration-300 uppercase font-bold disabled:opacity-40">
+        ✅ CRIAR AFAZER
+      </button>
+    </>
+  );
+
   return (
     <div className="space-y-5">
       {/* Link prompt dialog */}
@@ -194,159 +327,28 @@ export function AfazeresPanel() {
         </button>
       )}
 
-      {/* Creation form */}
+      {/* Creation form — inline on desktop, full-screen portal on mobile */}
       {showForm && !showLinkPrompt && (
-        <div className="glass-card rounded-2xl p-4 sm:p-6 animate-slide-up">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="font-display text-[11px] tracking-[0.2em] text-primary uppercase">Novo Afazer</h3>
-            <button onClick={resetForm} className="p-2 rounded-lg hover:bg-secondary"><X className="w-4 h-4 text-muted-foreground" /></button>
+        isMobile ? createPortal(
+          <div className="fixed inset-0 z-[200] bg-background flex flex-col overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-4 pt-4 pb-3 border-b border-border">
+              <h3 className="font-display text-[11px] tracking-[0.2em] text-primary uppercase">Novo Afazer</h3>
+              <button onClick={resetForm} className="p-2 rounded-lg hover:bg-secondary"><X className="w-4 h-4 text-muted-foreground" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-5">{afazerFormFields}</div>
+            </div>
+          </div>,
+          document.body
+        ) : (
+          <div className="glass-card rounded-2xl p-4 sm:p-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-display text-[11px] tracking-[0.2em] text-primary uppercase">Novo Afazer</h3>
+              <button onClick={resetForm} className="p-2 rounded-lg hover:bg-secondary"><X className="w-4 h-4 text-muted-foreground" /></button>
+            </div>
+            <div className="space-y-4">{afazerFormFields}</div>
           </div>
-          <div className="space-y-4">
-            <div>
-              <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Nome da tarefa *</label>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Ir ao mercado" className={inputClass} autoFocus />
-            </div>
-            <div>
-              <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Quando?</label>
-              <div className="flex gap-2 mb-2">
-                {(['today', 'tomorrow', 'custom'] as const).map(opt => (
-                  <button key={opt} type="button" onClick={() => setDateOption(opt)}
-                    className={`flex-1 py-2 px-2 rounded-xl text-xs font-body font-semibold border transition-all ${
-                      dateOption === opt ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'
-                    }`}>
-                    {opt === 'today' ? 'Hoje' : opt === 'tomorrow' ? 'Amanhã' : 'Outra data'}
-                  </button>
-                ))}
-              </div>
-              {dateOption === 'custom' && (
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputClass} />
-              )}
-            </div>
-            <div>
-              <button type="button" onClick={() => setShowDescription(p => !p)}
-                className="flex items-center gap-2 text-xs font-body text-muted-foreground hover:text-foreground transition-colors mb-1">
-                <span className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${showDescription ? 'bg-primary border-primary' : 'border-border'}`}>
-                  {showDescription && <span className="text-primary-foreground text-[10px] font-bold">✓</span>}
-                </span>
-                Adicionar descrição (opcional)
-              </button>
-              {showDescription && (
-                <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes da tarefa..." className={`${inputClass} min-h-[60px] resize-none mt-2`} />
-              )}
-            </div>
-            <div>
-              <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Categoria</label>
-              <div className="flex gap-2">
-                {categories.map(cat => (
-                  <button key={cat.value} type="button" onClick={() => setCategory(cat.value)}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-body font-semibold border transition-all ${
-                      category === cat.value ? cat.activeClass : 'border-border text-muted-foreground'
-                    }`}>
-                    {cat.icon} {cat.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Data término (opcional)</label>
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputClass} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Horário início</label>
-                <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Horário término</label>
-                <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className={inputClass} />
-              </div>
-            </div>
-
-            {/* Show estimated minutes only when start time is set but NO end time */}
-            {needsEstimate && (
-              <div>
-                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Tempo estimado (min) *</label>
-                <input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} placeholder="Ex: 30" min="1" className={inputClass} />
-                <p className="text-[10px] text-muted-foreground font-body mt-1">
-                  ⚠️ Como não foi definido horário de término, informe o tempo estimado.
-                </p>
-              </div>
-            )}
-
-            {/* Show estimated minutes optionally when no time at all */}
-            {!startTime && (
-              <div>
-                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Tempo estimado (min)</label>
-                <input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} placeholder="Ex: 30" min="1" className={inputClass} />
-              </div>
-            )}
-
-            {/* Daily fixed time */}
-            <div>
-              <button type="button" onClick={() => setHasDailyTime(p => !p)}
-                className="flex items-center gap-2 text-xs font-body text-muted-foreground hover:text-foreground transition-colors mb-1">
-                <span className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${hasDailyTime ? 'bg-primary border-primary' : 'border-border'}`}>
-                  {hasDailyTime && <span className="text-primary-foreground text-[10px] font-bold">✓</span>}
-                </span>
-                Esta tarefa acontece todo dia em um horário fixo
-              </button>
-              {hasDailyTime && (
-                <div className="mt-2">
-                  <input type="time" value={dailyTime} onChange={e => setDailyTime(e.target.value)} className={inputClass} />
-                  <p className="text-[10px] text-muted-foreground font-body mt-1">⟳ Será criada como tarefa recorrente todos os dias neste horário.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Recurrence */}
-            {!hasDailyTime && (
-              <>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => setIsRecurrent(!isRecurrent)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-body font-semibold border transition-all ${isRecurrent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
-                    <Repeat className="w-3.5 h-3.5" /> Tarefa recorrente
-                  </button>
-                </div>
-                {isRecurrent && (
-                  <div className="space-y-3 pl-2 border-l-2 border-primary/20">
-                    <div className="flex gap-1.5 flex-wrap">
-                      {DAYS_OF_WEEK.map(d => (
-                        <button key={d.value} type="button" onClick={() => toggleDay(d.value)}
-                          className={`w-9 h-9 rounded-lg text-xs font-body font-bold border transition-all ${
-                            recurrentDays.includes(d.value) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'
-                          }`}>
-                          {d.short}
-                        </button>
-                      ))}
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Finaliza em</label>
-                      <input type="date" value={recurrentEndDate} onChange={e => setRecurrentEndDate(e.target.value)} className={inputClass} />
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Link to meta */}
-            {metas.filter(m => !m.completed).length > 0 && (
-              <div>
-                <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Conectar a uma meta</label>
-                <select value={linkedMetaId} onChange={e => setLinkedMetaId(e.target.value)} className={inputClass}>
-                  <option value="">Nenhuma (tarefa avulsa)</option>
-                  {metas.filter(m => !m.completed).map(m => (
-                    <option key={m.id} value={m.id}>{m.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <button type="button" onClick={handleSubmit} disabled={!title.trim()}
-              className="w-full bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.2em] py-3 rounded-xl hover:shadow-glow-cyan transition-all duration-300 uppercase font-bold disabled:opacity-40">
-              ✅ CRIAR AFAZER
-            </button>
-          </div>
-        </div>
+        )
       )}
 
       {/* ── Date filter controls ── */}
