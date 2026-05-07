@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useGame } from '@/contexts/GameContext';
 import { Category } from '@/types/game';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,13 +67,13 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
     window.addEventListener('resize', check, { passive: true });
     return () => window.removeEventListener('resize', check);
   }, []);
-  const totalSteps = isMobile ? 8 : 5;
+  const totalSteps = isMobile ? 6 : 5;
 
-  // Mobile: 1=title 2=category 3=planningMode 4=deadline 5=mainAction 6=frequency 7=planning 8=extras
-  // Desktop: 1=title+category+planningMode 2=deadline 3=mainAction 4=frequency 5=planning+extras
+  // Mobile: 1=title+category  2=planningMode  3=deadline  4=mainAction  5=frequency  6=planning+extras
+  // Desktop: 1=title+category+planningMode  2=deadline  3=mainAction  4=frequency  5=planning+extras
   const showBlock = (block: string): boolean => {
     if (isMobile) {
-      const map: Record<string, number> = { title: 1, category: 2, planningMode: 3, deadline: 4, mainAction: 5, frequency: 6, planning: 7, extras: 8 };
+      const map: Record<string, number> = { title: 1, category: 1, planningMode: 2, deadline: 3, mainAction: 4, frequency: 5, planning: 6, extras: 6 };
       return step === map[block];
     }
     const map: Record<string, number[]> = { title: [1], category: [1], planningMode: [1], deadline: [2], mainAction: [3], frequency: [4], planning: [5], extras: [5] };
@@ -234,14 +235,12 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
       switch (step) {
         case 1: return title.trim().length > 0;
         case 2: return true;
-        case 3: return true;
-        case 4: return deadlineType === 'days' ? parseInt(days) > 0 : !!deadlineDate;
-        case 5: return mainAction.trim().length > 0;
-        case 6: return parseInt(weeklyFrequency) > 0;
-        case 7:
+        case 3: return deadlineType === 'days' ? parseInt(days) > 0 : !!deadlineDate;
+        case 4: return mainAction.trim().length > 0;
+        case 5: return parseInt(weeklyFrequency) > 0;
+        case 6:
           if (planningMode === 'ai') return !!aiPlan;
           return manualMissions.some(m => m.title.trim() && m.tasks.some(t => t.title.trim()));
-        case 8: return true;
         default: return false;
       }
     }
@@ -282,10 +281,10 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
 
   const frequencyOptions = ['diária', '2x por semana', '3x por semana', '4x por semana', '5x por semana', '1x por semana', 'semanal'];
 
-  return (
-    /* Modal overlay */
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
-      <div className="glass-card rounded-t-2xl sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col animate-slide-up shadow-2xl overflow-hidden">
+  return createPortal(
+    /* Modal overlay — rendered in document.body to avoid parent stacking contexts */
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass-card sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col animate-slide-up shadow-2xl overflow-hidden">
       {/* Fixed header */}
       <div className="shrink-0 px-5 pt-5 pb-0">
         <div className="flex items-center justify-between mb-4">
@@ -562,7 +561,7 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
         {step < totalSteps ? (
           <div className="flex items-center gap-3">
             {/* Skip on frequency step */}
-            {((isMobile && step === 6) || (!isMobile && step === 4)) && (
+            {((isMobile && step === 5) || (!isMobile && step === 4)) && (
               <button
                 type="button"
                 onClick={() => setStep(step + 1)}
@@ -584,7 +583,8 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
         )}
       </div>
     </div>
-  </div>
+  </div>,
+  document.body
   );
 }
 
