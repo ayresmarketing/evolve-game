@@ -75,39 +75,48 @@ export function WhatsAppDialog({ open, onOpenChange, userId, currentPhone, onSuc
     }
   };
 
-  // Step 2 — verify code against Supabase then save phone
+  // Step 2 — verify code against auth_cod_whatsapp then save phone
   const handleVerifyCode = async () => {
     if (enteredCode.length !== 5) return;
     setVerifying(true);
     try {
-      // TODO: when user tells us the table structure, replace this block.
-      // Expected query:
-      //   supabase.from('whatsapp_verification_codes')
-      //     .select('*')
-      //     .eq('user_id', userId)
-      //     .eq('code', enteredCode)
-      //     .gte('expires_at', new Date().toISOString())
-      //     .single()
-      //
-      // For now we trust the code and save the phone directly.
-      // The user will notify us when the Supabase side is ready.
+      // Check code: must match cod_5digitos and still be within expiration
+      const { data } = await (supabase as any)
+        .from('auth_cod_whatsapp')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('cod_5digitos', enteredCode)
+        .gt('expiration', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const { error } = await supabase.from('user_whatsapp_config' as any).upsert({
-        user_id: userId,
-        whatsapp_phone: e164,
-        whatsapp_phone_raw: e164,
-        whatsapp_phone_normalized: e164,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
+      if (!data) {
+        toast.error('Código inválido ou expirado.');
+        setCodeDigits(['', '', '', '', '']);
+        setTimeout(() => inputRefs.current[0]?.focus(), 50);
+        return;
+      }
 
-      if (error) throw error;
+      // Code valid — save phone
+      const { error: saveError } = await (supabase as any)
+        .from('user_whatsapp_config')
+        .upsert({
+          user_id: userId,
+          whatsapp_phone: e164,
+          whatsapp_phone_raw: e164,
+          whatsapp_phone_normalized: e164,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+
+      if (saveError) throw saveError;
 
       toast.success('Número verificado e vinculado!');
       onSuccess(e164);
       setDone(true);
       setTimeout(() => { onOpenChange(false); reset(); }, 1500);
     } catch (err: any) {
-      toast.error('Erro ao verificar: ' + err.message);
+      toast.error('Erro: ' + err.message);
     } finally {
       setVerifying(false);
     }
