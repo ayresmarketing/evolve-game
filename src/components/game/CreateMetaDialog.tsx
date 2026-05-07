@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { Category } from '@/types/game';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, X, Sparkles, ArrowRight, ArrowLeft, Target, Calendar, Repeat, Zap, Wand2, PenLine, Trash2, RefreshCw, Edit3, Loader2, Clock, Brain } from 'lucide-react';
 import { toast } from 'sonner';
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = number;
 type PlanningMode = 'ai' | 'manual';
 
 const META_EXAMPLES = [
@@ -58,6 +58,26 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
   const [weeklyFrequency, setWeeklyFrequency] = useState('5');
   const [reward, setReward] = useState('');
   const [linkedGoalId, setLinkedGoalId] = useState('');
+
+  // Mobile detection — split into 8 steps on mobile, 5 on desktop
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', check, { passive: true });
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  const totalSteps = isMobile ? 8 : 5;
+
+  // Mobile: 1=title 2=category 3=planningMode 4=deadline 5=mainAction 6=frequency 7=planning 8=extras
+  // Desktop: 1=title+category+planningMode 2=deadline 3=mainAction 4=frequency 5=planning+extras
+  const showBlock = (block: string): boolean => {
+    if (isMobile) {
+      const map: Record<string, number> = { title: 1, category: 2, planningMode: 3, deadline: 4, mainAction: 5, frequency: 6, planning: 7, extras: 8 };
+      return step === map[block];
+    }
+    const map: Record<string, number[]> = { title: [1], category: [1], planningMode: [1], deadline: [2], mainAction: [3], frequency: [4], planning: [5], extras: [5] };
+    return (map[block] ?? []).includes(step);
+  };
 
   // AI plan state
   const [aiPlan, setAiPlan] = useState<AIPlan | null>(null);
@@ -209,15 +229,31 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
     toast.success('Meta criada com sucesso! 🎯');
   };
 
-  const canNext = () => {
+  const canNext = (): boolean => {
+    if (isMobile) {
+      switch (step) {
+        case 1: return title.trim().length > 0;
+        case 2: return true;
+        case 3: return true;
+        case 4: return deadlineType === 'days' ? parseInt(days) > 0 : !!deadlineDate;
+        case 5: return mainAction.trim().length > 0;
+        case 6: return parseInt(weeklyFrequency) > 0;
+        case 7:
+          if (planningMode === 'ai') return !!aiPlan;
+          return manualMissions.some(m => m.title.trim() && m.tasks.some(t => t.title.trim()));
+        case 8: return true;
+        default: return false;
+      }
+    }
     switch (step) {
       case 1: return title.trim().length > 0;
-      case 2: return (deadlineType === 'days' ? parseInt(days) > 0 : !!deadlineDate);
+      case 2: return deadlineType === 'days' ? parseInt(days) > 0 : !!deadlineDate;
       case 3: return mainAction.trim().length > 0;
       case 4: return parseInt(weeklyFrequency) > 0;
       case 5:
         if (planningMode === 'ai') return !!aiPlan;
         return manualMissions.some(m => m.title.trim() && m.tasks.some(t => t.title.trim()));
+      default: return false;
     }
   };
 
@@ -262,8 +298,8 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
           </button>
         </div>
         {/* Progress bar */}
-        <div className="flex gap-1.5 mb-4">
-          {[1, 2, 3, 4, 5].map(s => (
+        <div className="flex gap-1 mb-4">
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
             <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-300 ${s <= step ? 'bg-primary' : 'bg-muted'}`} />
           ))}
         </div>
@@ -272,8 +308,8 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
 
-      {/* Step 1: Meta + Category + Planning Mode */}
-      {step === 1 && (
+      {/* TITLE — mobile step 1, desktop step 1 */}
+      {showBlock('title') && (
         <div className="space-y-4 animate-fade-in">
           <div>
             <label className="text-[10px] font-display tracking-[0.2em] text-primary block mb-2 uppercase flex items-center gap-2">
@@ -298,12 +334,18 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* CATEGORY — mobile step 2, desktop step 1 */}
+      {showBlock('category') && (
+        <div className="space-y-4 animate-fade-in">
           <div>
             <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Categoria</label>
             <div className="flex gap-2">
               {categories.map(cat => (
                 <button key={cat.value} type="button" onClick={() => setCategory(cat.value)}
-                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-body font-semibold border transition-all ${
+                  className={`flex-1 py-3 px-3 rounded-xl text-xs font-body font-semibold border transition-all ${
                     category === cat.value ? cat.activeClass : 'border-border text-muted-foreground hover:border-muted-foreground'
                   }`}>
                   {cat.icon} {cat.label}
@@ -311,8 +353,12 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
               ))}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Planning Mode Selector */}
+      {/* PLANNING MODE — mobile step 3, desktop step 1 */}
+      {showBlock('planningMode') && (
+        <div className="space-y-4 animate-fade-in">
           <div>
             <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Como deseja criar o planejamento?</label>
             <div className="flex gap-3">
@@ -334,16 +380,16 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
               </button>
             </div>
             {planningMode === 'ai' && (
-              <p className="text-xs font-body text-muted-foreground bg-muted/40 border border-border/50 rounded-lg px-3 py-2 leading-relaxed">
-                ⚠️ <strong className="text-foreground">Sugestões geradas por IA.</strong> Os planos são sugestões automáticas e podem conter erros ou imprecisões. Cabe ao usuário revisar e adaptar conforme sua realidade antes de usar.
+              <p className="text-xs font-body text-muted-foreground bg-muted/40 border border-border/50 rounded-lg px-3 py-2 leading-relaxed mt-3">
+                ⚠️ <strong className="text-foreground">Sugestões geradas por IA.</strong> Planos automáticos podem conter imprecisões. Revise antes de usar.
               </p>
             )}
           </div>
         </div>
       )}
 
-      {/* Step 2: Deadline */}
-      {step === 2 && (
+      {/* DEADLINE — mobile step 4, desktop step 2 */}
+      {showBlock('deadline') && (
         <div className="space-y-4 animate-fade-in">
           <label className="text-[10px] font-display tracking-[0.2em] text-primary block mb-2 uppercase flex items-center gap-2">
             <Calendar className="w-3.5 h-3.5" /> Qual o prazo para atingir essa meta?
@@ -380,8 +426,8 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
         </div>
       )}
 
-      {/* Step 3: Main action */}
-      {step === 3 && (
+      {/* MAIN ACTION — mobile step 5, desktop step 3 */}
+      {showBlock('mainAction') && (
         <div className="space-y-4 animate-fade-in">
           <div>
             <label className="text-[10px] font-display tracking-[0.2em] text-primary block mb-2 uppercase flex items-center gap-2">
@@ -407,8 +453,8 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
         </div>
       )}
 
-      {/* Step 4: Frequency */}
-      {step === 4 && (
+      {/* FREQUENCY — mobile step 6, desktop step 4 */}
+      {showBlock('frequency') && (
         <div className="space-y-4 animate-fade-in">
           <label className="text-[10px] font-display tracking-[0.2em] text-primary block mb-2 uppercase flex items-center gap-2">
             <Repeat className="w-3.5 h-3.5" /> Quantas vezes por semana você consegue fazer isso?
@@ -435,8 +481,8 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
         </div>
       )}
 
-      {/* Step 5: Planning (AI or Manual) + Extras */}
-      {step === 5 && (
+      {/* PLANNING — mobile step 7, desktop step 5 */}
+      {showBlock('planning') && (
         <div className="space-y-4 animate-fade-in">
           {planningMode === 'ai' ? (
             <AIPlanningStep
@@ -463,8 +509,12 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
               frequencyOptions={frequencyOptions}
             />
           )}
+        </div>
+      )}
 
-          {/* Extras */}
+      {/* EXTRAS + SUMMARY — mobile step 8, desktop step 5 */}
+      {showBlock('extras') && (
+        <div className="space-y-4 animate-fade-in">
           {lifeGoals.length > 0 && (
             <div>
               <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">
@@ -478,13 +528,10 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
               </select>
             </div>
           )}
-
           <div>
             <label className="text-[10px] font-display tracking-[0.2em] text-muted-foreground block mb-2 uppercase">Recompensa ao concluir</label>
             <input value={reward} onChange={e => setReward(e.target.value)} placeholder="Ex: Comprar um livro novo" className={inputClass} />
           </div>
-
-          {/* Summary */}
           <div className="glass-card rounded-xl p-4 border border-game-green/20">
             <p className="text-[10px] font-display tracking-[0.15em] text-game-green uppercase mb-2">✅ Resumo da sua meta</p>
             <div className="space-y-1.5 text-xs font-body text-foreground">
@@ -506,24 +553,25 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
       {/* Navigation — always visible at bottom */}
       <div className="shrink-0 flex items-center justify-between px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-border bg-card/90 backdrop-blur-sm">
         {step > 1 ? (
-          <button type="button" onClick={() => setStep((step - 1) as Step)}
+          <button type="button" onClick={() => setStep(step - 1)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-body text-muted-foreground hover:text-foreground transition-all">
             <ArrowLeft className="w-4 h-4" /> Voltar
           </button>
         ) : <div />}
 
-        {step < 5 ? (
+        {step < totalSteps ? (
           <div className="flex items-center gap-3">
-            {step === 4 && (
+            {/* Skip on frequency step */}
+            {((isMobile && step === 6) || (!isMobile && step === 4)) && (
               <button
                 type="button"
-                onClick={() => setStep(5)}
+                onClick={() => setStep(step + 1)}
                 className="text-xs font-body text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
               >
                 Pular
               </button>
             )}
-            <button type="button" onClick={() => canNext() && setStep((step + 1) as Step)} disabled={!canNext()}
+            <button type="button" onClick={() => canNext() && setStep(step + 1)} disabled={!canNext()}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-accent text-primary-foreground font-display text-xs tracking-[0.15em] uppercase font-bold disabled:opacity-40 hover:shadow-glow-cyan transition-all">
               Próximo <ArrowRight className="w-4 h-4" />
             </button>
