@@ -162,17 +162,19 @@ export function LevelProgression() {
                   </div>
                 </div>
 
-                {(isCurrentLevel || isNext) && (
+                {(isCurrentLevel || isNext) && (lvl.tasksRequired > 0 || lvl.streakRequired > 0 || lvl.daysRequired > 0) && (
                   <div className="space-y-2 mb-4">
-                    <div>
-                      <div className="flex justify-between text-[10px] font-body text-muted-foreground mb-1">
-                        <span>Tarefas: {stats.totalMissionsCompleted}/{lvl.tasksRequired}</span>
-                        <span>{taskProgress}%</span>
+                    {lvl.tasksRequired > 0 && (
+                      <div>
+                        <div className="flex justify-between text-[10px] font-body text-muted-foreground mb-1">
+                          <span>Tarefas: {stats.totalMissionsCompleted}/{lvl.tasksRequired}</span>
+                          <span>{taskProgress}%</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${taskProgress}%` }} />
+                        </div>
                       </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${taskProgress}%` }} />
-                      </div>
-                    </div>
+                    )}
                     {lvl.streakRequired > 0 && (
                       <div>
                         <div className="flex justify-between text-[10px] font-body text-muted-foreground mb-1">
@@ -184,15 +186,17 @@ export function LevelProgression() {
                         </div>
                       </div>
                     )}
-                    <div>
-                      <div className="flex justify-between text-[10px] font-body text-muted-foreground mb-1">
-                        <span>Dias de uso: {stats.daysUsed}/{lvl.daysRequired}</span>
-                        <span>{daysProgress}%</span>
+                    {lvl.daysRequired > 0 && (
+                      <div>
+                        <div className="flex justify-between text-[10px] font-body text-muted-foreground mb-1">
+                          <span>Dias de uso: {stats.daysUsed}/{lvl.daysRequired}</span>
+                          <span>{daysProgress}%</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-game-gold rounded-full transition-all" style={{ width: `${daysProgress}%` }} />
+                        </div>
                       </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-game-gold rounded-full transition-all" style={{ width: `${daysProgress}%` }} />
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )}
 

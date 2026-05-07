@@ -74,7 +74,7 @@ export function ScheduleProvider({ children }: { children: React.ReactNode }) {
 
   const getDaySchedule = useCallback((day: DayOfWeek, scheduledMinutes: number = 0, afazeresInSleepTime: number = 0): DayScheduleResult => {
     const sleepSchedule = state.sleepSchedules.find(s => s.days.includes(day));
-    const sleepHoursRaw = sleepSchedule ? calculateSleepHours(sleepSchedule.bedtime, sleepSchedule.wakeTime) : 8;
+    const sleepHoursRaw = sleepSchedule ? calculateSleepHours(sleepSchedule.bedtime, sleepSchedule.wakeTime) : 0;
     let sleepMinutes = Math.round(sleepHoursRaw * 60);
 
     const dayBlocks = state.fixedBlocks.filter(b => b.days.includes(day));

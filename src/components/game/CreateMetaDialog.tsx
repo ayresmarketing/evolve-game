@@ -249,7 +249,7 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
   return (
     /* Modal overlay */
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
-      <div className="glass-card rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col animate-slide-up shadow-2xl overflow-hidden">
+      <div className="glass-card rounded-t-2xl sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col animate-slide-up shadow-2xl overflow-hidden">
       {/* Fixed header */}
       <div className="shrink-0 px-5 pt-5 pb-0">
         <div className="flex items-center justify-between mb-4">
@@ -504,7 +504,7 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
       </div>{/* end scrollable */}
 
       {/* Navigation — always visible at bottom */}
-      <div className="shrink-0 flex items-center justify-between px-5 py-4 border-t border-border bg-card/90 backdrop-blur-sm">
+      <div className="shrink-0 flex items-center justify-between px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-border bg-card/90 backdrop-blur-sm">
         {step > 1 ? (
           <button type="button" onClick={() => setStep((step - 1) as Step)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-body text-muted-foreground hover:text-foreground transition-all">
