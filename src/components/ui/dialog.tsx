@@ -36,11 +36,11 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // Mobile: bottom sheet anchored to screen bottom
+        // Mobile: top sheet anchored to screen top
         // Desktop: centered popup
-        "fixed left-[50%] bottom-0 sm:bottom-auto sm:top-[50%] z-50 grid w-full max-w-lg",
+        "fixed left-[50%] top-0 sm:top-[50%] z-50 grid w-full max-w-lg",
         "translate-x-[-50%] sm:translate-y-[-50%]",
-        "rounded-t-2xl sm:rounded-lg",
+        "rounded-b-2xl sm:rounded-lg",
         "gap-4 border bg-background p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-6",
         "shadow-lg duration-200",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",

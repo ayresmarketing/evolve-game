@@ -283,8 +283,8 @@ export function CreateMetaDialog({ triggerElement }: { triggerElement?: React.Re
 
   return createPortal(
     /* Modal overlay — rendered in document.body to avoid parent stacking contexts */
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
-      <div className="glass-card sm:rounded-2xl w-full max-w-2xl max-h-[85dvh] sm:max-h-[92vh] flex flex-col animate-slide-up shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[200] flex items-start sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass-card rounded-b-2xl sm:rounded-2xl w-full max-w-2xl max-h-[85dvh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
       {/* Fixed header */}
       <div className="shrink-0 px-5 pt-5 pb-0">
         <div className="flex items-center justify-between mb-4">
